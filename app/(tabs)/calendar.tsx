@@ -1,35 +1,59 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { format, isToday, isTomorrow } from 'date-fns';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { EventCard } from '@/src/components/calendar/EventCard';
+import { EventForm } from '@/src/components/calendar/EventForm';
 
-const EVENTS = [
-  { id: '1', title: 'House meeting', date: 'Today', time: '7:00 PM – 8:00 PM', description: 'Monthly check-in', color: '#6C5CE7' },
-  { id: '2', title: 'Grocery run', date: 'Tomorrow', time: '11:00 AM – 12:00 PM', description: 'Whole Foods', color: '#00B894' },
-  { id: '3', title: 'Rent due', date: 'Apr 15', time: '12:00 PM', description: 'Venmo landlord', color: '#E17055' },
-  { id: '4', title: 'Deep clean day', date: 'Apr 19', time: '10:00 AM – 2:00 PM', description: 'All hands', color: '#FDCB6E' },
-  { id: '5', title: "Casey's birthday", date: 'Apr 22', time: 'All day', description: '', color: '#E17055' },
-  { id: '6', title: 'Guest staying over', date: 'Apr 25', time: '3:00 PM – Apr 27', description: "Jordan's friend", color: '#00B894' },
-];
+function getDateLabel(date: Date): string {
+  if (isToday(date)) return 'Today';
+  if (isTomorrow(date)) return 'Tomorrow';
+  return format(date, 'MMM d');
+}
 
 export default function CalendarScreen() {
+  const { events, isLoading, addEvent } = useCalendarEvents();
+  const formRef = useRef<BottomSheetModal>(null);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Calendar</Text>
-        <Text style={styles.subtitle}>April 2026</Text>
-
-        {EVENTS.map((event) => (
-          <View key={event.id} style={styles.row}>
-            <View style={styles.datePill}>
-              <Text style={styles.dateText}>{event.date}</Text>
-            </View>
-            <View style={[styles.card, { borderLeftColor: event.color }]}>
-              <Text style={styles.cardTitle}>{event.title}</Text>
-              <Text style={styles.cardTime}>{event.time}</Text>
-              {!!event.description && <Text style={styles.cardDesc}>{event.description}</Text>}
-            </View>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Calendar</Text>
+            <Text style={styles.subtitle}>{format(new Date(), 'MMMM yyyy')}</Text>
           </View>
-        ))}
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => formRef.current?.present()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {isLoading ? (
+          <ActivityIndicator style={styles.loader} color="#2D3436" />
+        ) : events.length === 0 ? (
+          <Text style={styles.empty}>No upcoming events</Text>
+        ) : (
+          events.map((event) => (
+            <View key={event.id} style={styles.row}>
+              <View style={styles.datePill}>
+                <Text style={styles.dateText}>{getDateLabel(event.startTime.toDate())}</Text>
+              </View>
+              <EventCard event={event} />
+            </View>
+          ))
+        )}
+
+        <View style={styles.bottomPad} />
       </ScrollView>
+
+      <EventForm ref={formRef} onSubmit={addEvent} />
     </SafeAreaView>
   );
 }
@@ -37,13 +61,26 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFFBF5' },
   container: { flex: 1, padding: 20 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
   title: { fontSize: 28, fontWeight: '800', color: '#2D3436' },
-  subtitle: { color: '#636e72', marginTop: 4, marginBottom: 24 },
+  subtitle: { color: '#636e72', marginTop: 4 },
+  addBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#2D3436',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loader: { marginTop: 48 },
+  empty: { color: '#636e72', marginTop: 48, textAlign: 'center' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   datePill: { width: 72, paddingTop: 14 },
   dateText: { fontSize: 12, fontWeight: '700', color: '#636e72' },
-  card: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, borderLeftWidth: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#2D3436' },
-  cardTime: { fontSize: 12, color: '#636e72', marginTop: 2 },
-  cardDesc: { fontSize: 12, color: '#636e72', marginTop: 4, fontStyle: 'italic' },
+  bottomPad: { height: 32 },
 });
