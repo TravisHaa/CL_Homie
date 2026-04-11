@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "HomieTemp",
-    "slug": "HomieTemp",
+    "name": "Homie",
+    "slug": "homie",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "homietemp",
+    "scheme": "homie",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {

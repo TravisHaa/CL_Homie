@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
+export default function PantryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.title}>Home</Text>
-      <Text style={styles.subtitle}>Dashboard coming soon</Text>
+      <Text style={styles.title}>Pantry</Text>
+      <Text style={styles.subtitle}>Coming soon</Text>
     </SafeAreaView>
   );
 }

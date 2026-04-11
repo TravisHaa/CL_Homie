@@ -1,59 +1,46 @@
-import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
+  { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
+  { name: 'chores', title: 'Chores', icon: 'checkmark-circle-outline', activeIcon: 'checkmark-circle' },
+  { name: 'calendar', title: 'Calendar', icon: 'calendar-outline', activeIcon: 'calendar' },
+  { name: 'pantry', title: 'Pantry', icon: 'nutrition-outline', activeIcon: 'nutrition' },
+  { name: 'shopping', title: 'Shopping', icon: 'cart-outline', activeIcon: 'cart' },
+];
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
-      />
+        tabBarActiveTintColor: '#2D3436',
+        tabBarInactiveTintColor: '#B2BEC3',
+        tabBarStyle: {
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+          backgroundColor: '#FFFBF5',
+          paddingBottom: 8,
+          height: 60,
+        },
+        headerStyle: { backgroundColor: '#FFFBF5' },
+        headerShadowVisible: false,
+      }}
+    >
+      {TABS.map(({ name, title, icon, activeIcon }) => (
+        <Tabs.Screen
+          key={name}
+          name={name}
+          options={{
+            title,
+            tabBarIcon: ({ focused, color }) => (
+              <Ionicons name={focused ? activeIcon : icon} size={24} color={color} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
