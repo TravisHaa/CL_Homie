@@ -1,39 +1,60 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
+import { useHouseStore } from '@/src/store/houseStore';
+import { useChores } from '@/src/hooks/useChores';
+import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { usePantry } from '@/src/hooks/usePantry';
+import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { getWeekKey } from '@/src/utils/weekKey';
 
-// --- Filler data ---
-const CHORES = [
-  { id: '1', title: 'Take out trash', assignee: 'Travis', color: '#6C5CE7', done: true },
-  { id: '2', title: 'Vacuum living room', assignee: 'Jordan', color: '#00B894', done: false },
-  { id: '3', title: 'Clean bathroom', assignee: 'Casey', color: '#E17055', done: false },
-  { id: '4', title: 'Wipe down kitchen', assignee: 'Travis', color: '#6C5CE7', done: false },
-];
-
-const EVENTS = [
-  { id: '1', title: 'House meeting', time: 'Today 7 PM', color: '#6C5CE7' },
-  { id: '2', title: 'Grocery run', time: 'Tomorrow 11 AM', color: '#00B894' },
-  { id: '3', title: 'Rent due', time: 'Apr 15', color: '#E17055' },
-];
-
-const EXPIRING = [
-  { id: '1', name: 'Chicken Breast', days: 1 },
-  { id: '2', name: 'Whole Milk', days: 3 },
-  { id: '3', name: 'Spinach', days: 4 },
-];
-
-const MEMBERS = [
-  { id: '1', name: 'Travis', color: '#6C5CE7' },
-  { id: '2', name: 'Jordan', color: '#00B894' },
-  { id: '3', name: 'Casey', color: '#E17055' },
-];
-
-// Magnet dot decoration
 function Magnet({ color }: { color: string }) {
   return <View style={[styles.magnetDot, { backgroundColor: color }]} />;
 }
 
+function formatEventTime(timestamp: Timestamp): string {
+  const date = timestamp.toDate();
+  const timeStr = format(date, 'h:mm a');
+  if (isToday(date)) return `Today ${timeStr}`;
+  if (isTomorrow(date)) return `Tomorrow ${timeStr}`;
+  return format(date, 'MMM d');
+}
+
 export default function HomeScreen() {
-  const doneCount = CHORES.filter((c) => c.done).length;
+  const house = useHouseStore((s) => s.house);
+  const memberMap = useHouseStore((s) => s.memberMap);
+
+  const { data: allChores = [], isLoading: choresLoading } = useChores();
+  const { data: allEvents = [], isLoading: eventsLoading } = useCalendarEvents();
+  const { data: allPantry = [], isLoading: pantryLoading } = usePantry();
+  const { data: allShopping = [], isLoading: shoppingLoading } = useShoppingList();
+
+  // Today's chores for this week
+  const weekKey = getWeekKey();
+  const todayDow = new Date().getDay();
+  const chores = allChores.filter((c) => c.weekKey === weekKey && c.dayOfWeek === todayDow);
+  const doneCount = chores.filter((c) => c.isCompleted).length;
+
+  // Next 3 upcoming events
+  const now = new Date();
+  const events = allEvents
+    .filter((e) => e.startTime.toDate() > now)
+    .sort((a, b) => a.startTime.toDate().getTime() - b.startTime.toDate().getTime())
+    .slice(0, 3);
+
+  // Items expiring within 4 days
+  const expiring = allPantry.filter((item) => {
+    if (!item.expirationDate) return false;
+    const days = differenceInCalendarDays(item.expirationDate.toDate(), now);
+    return days >= 0 && days <= 4;
+  });
+
+  // Unchecked shopping items
+  const uncheckedCount = allShopping.filter((i) => !i.isChecked).length;
+
+  // Members as array
+  const members = Object.entries(memberMap).map(([id, info]) => ({ id, ...info }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -44,11 +65,11 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.houseName}>The Homies</Text>
+          <Text style={styles.houseName}>{house?.name ?? '-'}</Text>
           <View style={styles.membersRow}>
-            {MEMBERS.map((m) => (
+            {members.map((m) => (
               <View key={m.id} style={[styles.avatar, { backgroundColor: m.color }]}>
-                <Text style={styles.avatarText}>{m.name[0]}</Text>
+                <Text style={styles.avatarText}>{m.displayName[0]}</Text>
               </View>
             ))}
           </View>
@@ -60,33 +81,63 @@ export default function HomeScreen() {
           <View style={[styles.note, styles.noteTiltLeft, { flex: 1.1 }]}>
             <Magnet color="#6C5CE7" />
             <Text style={styles.noteTitle}>This week's chores</Text>
-            <Text style={styles.noteMeta}>{doneCount}/{CHORES.length} done</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${(doneCount / CHORES.length) * 100}%` }]} />
-            </View>
-            {CHORES.map((c) => (
-              <View key={c.id} style={styles.choreRow}>
-                <View style={[styles.choreDot, { backgroundColor: c.done ? '#DFE6E9' : c.color }]} />
-                <Text style={[styles.choreText, c.done && styles.choreTextDone]} numberOfLines={1}>
-                  {c.title}
-                </Text>
-              </View>
-            ))}
+            {choresLoading ? (
+              <Text style={styles.noteMeta}>Loading...</Text>
+            ) : chores.length === 0 ? (
+              <Text style={styles.noteMeta}>No chores today</Text>
+            ) : (
+              <>
+                <Text style={styles.noteMeta}>{doneCount}/{chores.length} done</Text>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${(doneCount / chores.length) * 100}%` },
+                    ]}
+                  />
+                </View>
+                {chores.map((c) => {
+                  const color = memberMap[c.assignedTo]?.color ?? '#636e72';
+                  return (
+                    <View key={c.id} style={styles.choreRow}>
+                      <View
+                        style={[
+                          styles.choreDot,
+                          { backgroundColor: c.isCompleted ? '#DFE6E9' : color },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.choreText, c.isCompleted && styles.choreTextDone]}
+                        numberOfLines={1}
+                      >
+                        {c.title}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </>
+            )}
           </View>
 
           {/* Events magnet */}
           <View style={[styles.note, styles.noteTiltRight, { flex: 0.9 }]}>
             <Magnet color="#FDCB6E" />
             <Text style={styles.noteTitle}>Coming up</Text>
-            {EVENTS.map((e) => (
-              <View key={e.id} style={styles.eventRow}>
-                <View style={[styles.eventDot, { backgroundColor: e.color }]} />
-                <View>
-                  <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-                  <Text style={styles.eventTime}>{e.time}</Text>
+            {eventsLoading ? (
+              <Text style={styles.eventTime}>Loading...</Text>
+            ) : events.length === 0 ? (
+              <Text style={styles.eventTime}>Nothing scheduled</Text>
+            ) : (
+              events.map((e) => (
+                <View key={e.id} style={styles.eventRow}>
+                  <View style={[styles.eventDot, { backgroundColor: e.color }]} />
+                  <View>
+                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+                    <Text style={styles.eventTime}>{formatEventTime(e.startTime)}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         </View>
 
@@ -94,25 +145,46 @@ export default function HomeScreen() {
         <View style={[styles.note, styles.noteTiltMild, styles.noteWide]}>
           <Magnet color="#E17055" />
           <Text style={styles.noteTitle}>Expiring soon</Text>
-          <View style={styles.expiringList}>
-            {EXPIRING.map((item) => (
-              <View key={item.id} style={styles.expiringChip}>
-                <Text style={styles.expiringName}>{item.name}</Text>
-                <Text style={[styles.expiringDays, { color: item.days <= 2 ? '#E17055' : '#FDCB6E' }]}>
-                  {item.days === 1 ? 'tmrw' : `${item.days}d`}
-                </Text>
-              </View>
-            ))}
-          </View>
+          {pantryLoading ? (
+            <Text style={styles.expiringName}>Loading...</Text>
+          ) : expiring.length === 0 ? (
+            <Text style={styles.expiringName}>Nothing expiring soon</Text>
+          ) : (
+            <View style={styles.expiringList}>
+              {expiring.map((item) => {
+                const days = differenceInCalendarDays(item.expirationDate!.toDate(), now);
+                return (
+                  <View key={item.id} style={styles.expiringChip}>
+                    <Text style={styles.expiringName}>{item.name}</Text>
+                    <Text
+                      style={[
+                        styles.expiringDays,
+                        { color: days <= 1 ? '#E17055' : '#FDCB6E' },
+                      ]}
+                    >
+                      {days === 0 ? 'today' : days === 1 ? 'tmrw' : `${days}d`}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
-        {/* Row 3: Quick reminder note */}
+        {/* Row 3: Shopping list note */}
         <View style={[styles.note, styles.noteTiltLeft, styles.noteCompact]}>
           <Magnet color="#00B894" />
-          <Text style={styles.noteTitle}>Don't forget</Text>
-          <Text style={styles.reminderText}>{'📦 Costco run this weekend\n🧴 Almost out of dish soap\n💸 Venmo Casey for groceries'}</Text>
+          <Text style={styles.noteTitle}>Shopping list</Text>
+          {shoppingLoading ? (
+            <Text style={styles.reminderText}>Loading...</Text>
+          ) : (
+            <Text style={styles.reminderText}>
+              {uncheckedCount === 0
+                ? 'All stocked up!'
+                : `${uncheckedCount} item${uncheckedCount !== 1 ? 's' : ''} to grab`}
+            </Text>
+          )}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
