@@ -1,87 +1,200 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-
-const INITIAL_ITEMS = [
-  { id: '1', name: 'Almond Milk', category: 'Dairy & Eggs', quantity: 1, unit: 'carton', addedBy: 'Travis', isChecked: false },
-  { id: '2', name: 'Bananas', category: 'Produce', quantity: 1, unit: 'bunch', addedBy: 'Jordan', isChecked: false },
-  { id: '3', name: 'Sourdough Bread', category: 'Bakery', quantity: 1, unit: 'loaf', addedBy: 'Casey', isChecked: true },
-  { id: '4', name: 'Chicken Thighs', category: 'Meat', quantity: 2, unit: 'lbs', addedBy: 'Travis', isChecked: false },
-  { id: '5', name: 'Avocados', category: 'Produce', quantity: 3, unit: 'count', addedBy: 'Jordan', isChecked: false },
-  { id: '6', name: 'Pasta Sauce', category: 'Pantry', quantity: 2, unit: 'jars', addedBy: 'Casey', isChecked: true },
-  { id: '7', name: 'Dish Soap', category: 'Household', quantity: 1, unit: 'bottle', addedBy: 'Travis', isChecked: false },
-  { id: '8', name: 'Paper Towels', category: 'Household', quantity: 2, unit: 'rolls', addedBy: 'Jordan', isChecked: false },
-];
-
-const CATEGORY_ORDER = ['Produce', 'Dairy & Eggs', 'Meat', 'Bakery', 'Pantry', 'Household'];
+import BottomSheet from '@gorhom/bottom-sheet';
+import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { useHouseStore } from '@/src/store/houseStore';
+import { ShoppingItemRow } from '@/src/components/shopping/ShoppingItemRow';
+import { AddShoppingItemForm } from '@/src/components/shopping/AddShoppingItemForm';
+import { SHOPPING_CATEGORIES } from '@/src/utils/categories';
+import type { AddItemInput } from '@/src/hooks/useShoppingList';
 
 export default function ShoppingScreen() {
-  const [items, setItems] = useState(INITIAL_ITEMS);
-
-  const toggle = (id: string) => {
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, isChecked: !i.isChecked } : i));
-  };
+  const { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked } =
+    useShoppingList();
+  const { memberMap } = useHouseStore();
+  const formRef = useRef<BottomSheet>(null);
+  const [cartExpanded, setCartExpanded] = useState(true);
 
   const unchecked = items.filter((i) => !i.isChecked);
   const checked = items.filter((i) => i.isChecked);
 
-  const grouped = CATEGORY_ORDER.reduce<Record<string, typeof INITIAL_ITEMS>>((acc, cat) => {
-    const catItems = unchecked.filter((i) => i.category === cat);
-    if (catItems.length) acc[cat] = catItems;
-    return acc;
-  }, {});
+  // Group unchecked items by category, preserving SHOPPING_CATEGORIES order
+  const sections = SHOPPING_CATEGORIES
+    .map((cat) => ({ category: cat, data: unchecked.filter((i) => i.category === cat) }))
+    .filter((s) => s.data.length > 0);
+
+  const handleAddItem = async (data: AddItemInput) => {
+    await addShoppingItem(data);
+    formRef.current?.close();
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Shopping</Text>
-        <Text style={styles.subtitle}>{unchecked.length} items left · {checked.length} in cart</Text>
-
-        {Object.entries(grouped).map(([cat, catItems]) => (
-          <View key={cat}>
-            <Text style={styles.sectionLabel}>{cat.toUpperCase()}</Text>
-            {catItems.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.card} onPress={() => toggle(item.id)} activeOpacity={0.7}>
-                <View style={styles.checkbox}>
-                  <Ionicons name="square-outline" size={22} color="#DFE6E9" />
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardMeta}>{item.quantity} {item.unit} · added by {item.addedBy}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Shopping</Text>
+            <Text style={styles.subtitle}>
+              {isLoading
+                ? 'Loading…'
+                : `${unchecked.length} item${unchecked.length !== 1 ? 's' : ''} left`}
+            </Text>
           </View>
-        ))}
+          {checked.length > 0 && (
+            <TouchableOpacity onPress={clearChecked} style={styles.clearBtn} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={14} color="#636e72" />
+              <Text style={styles.clearBtnText}>Clear cart</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-        {checked.length > 0 && (
+        {isLoading ? (
+          <ActivityIndicator style={styles.loader} color="#B2BEC3" />
+        ) : (
           <>
-            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>IN CART ({checked.length})</Text>
-            {checked.map((item) => (
-              <TouchableOpacity key={item.id} style={[styles.card, styles.cardChecked]} onPress={() => toggle(item.id)} activeOpacity={0.7}>
-                <Ionicons name="checkmark-circle" size={22} color="#00B894" />
-                <Text style={styles.cardTitleChecked}>{item.name}</Text>
-              </TouchableOpacity>
+            {/* Unchecked items grouped by category */}
+            {sections.map(({ category, data }) => (
+              <View key={category}>
+                <Text style={styles.sectionLabel}>{category.toUpperCase()}</Text>
+                {data.map((item) => (
+                  <ShoppingItemRow
+                    key={item.id}
+                    item={item}
+                    memberMap={memberMap}
+                    onToggle={toggleShoppingItem}
+                  />
+                ))}
+              </View>
             ))}
+
+            {/* Empty state */}
+            {unchecked.length === 0 && checked.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="cart-outline" size={48} color="#DFE6E9" />
+                <Text style={styles.emptyTitle}>List is empty</Text>
+                <Text style={styles.emptySubtitle}>Tap + to add your first item</Text>
+              </View>
+            )}
+
+            {/* In cart section */}
+            {checked.length > 0 && (
+              <View style={styles.cartSection}>
+                <TouchableOpacity
+                  style={styles.cartHeader}
+                  onPress={() => setCartExpanded((v) => !v)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sectionLabel}>IN CART ({checked.length})</Text>
+                  <Ionicons
+                    name={cartExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="#B2BEC3"
+                  />
+                </TouchableOpacity>
+                {cartExpanded &&
+                  checked.map((item) => (
+                    <ShoppingItemRow
+                      key={item.id}
+                      item={item}
+                      memberMap={memberMap}
+                      onToggle={toggleShoppingItem}
+                    />
+                  ))}
+              </View>
+            )}
+
+            {/* Bottom padding for FAB */}
+            <View style={{ height: 100 }} />
           </>
         )}
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => formRef.current?.expand()}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Add item bottom sheet */}
+      <AddShoppingItemForm ref={formRef} onSubmit={handleAddItem} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFFBF5' },
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1, paddingHorizontal: 20 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingTop: 8,
+    marginBottom: 24,
+  },
   title: { fontSize: 28, fontWeight: '800', color: '#2D3436' },
-  subtitle: { color: '#636e72', marginTop: 4, marginBottom: 20 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#B2BEC3', letterSpacing: 1, marginBottom: 8 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  cardChecked: { opacity: 0.6 },
-  checkbox: { width: 22, height: 22 },
-  cardBody: { flex: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#2D3436' },
-  cardTitleChecked: { fontSize: 15, fontWeight: '600', color: '#636e72', textDecorationLine: 'line-through', flex: 1 },
-  cardMeta: { fontSize: 12, color: '#636e72', marginTop: 2 },
+  subtitle: { color: '#636e72', marginTop: 4 },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    backgroundColor: '#fff',
+  },
+  clearBtnText: { fontSize: 13, color: '#636e72', fontWeight: '600' },
+  loader: { marginTop: 60 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B2BEC3',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 80,
+    gap: 8,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#B2BEC3', marginTop: 8 },
+  emptySubtitle: { fontSize: 14, color: '#B2BEC3' },
+  cartSection: { marginTop: 16 },
+  cartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#2D3436',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
 });
