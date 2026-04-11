@@ -18,49 +18,74 @@ CL/
 
 ## Running parallel Claude agents (one per feature)
 
-Each worktree gets its own tmux window with its own Claude agent. Open a new tmux window for each feature, `cd` into the worktree, and launch Claude.
+Each feature gets its own pane in a single tmux session. All 5 agents are visible at once in a tiled layout. Each worktree contains an `AGENT_PROMPT.md` file with the full task — agents are launched with the prompt pre-loaded so no pasting is needed.
 
-### Step-by-step
-
-**1. Open a new tmux window and name it**
-```
-Ctrl+b c        → create new window
-Ctrl+b ,        → rename it (e.g. "chores")
-```
-
-**2. In that window, launch the agent**
-```bash
-cd ~/Desktop/projects/CL/Homie-chores
-claude --dangerouslySkipPermissions "your task prompt here"
-```
-
-**3. Repeat for each feature** — each agent runs independently in its own window with no awareness of the others.
-
-### Switching between windows
-```
-Ctrl+b w        → visual window picker
-Ctrl+b 0-9      → jump to window by number
-Ctrl+b n / p    → next / previous window
-```
-
-### Check on all agents at a glance
-```bash
-tmux list-windows     # see all open windows and their current command
-```
-
----
-
-## Prompting the agents
-
-When you launch `claude` in a worktree, give it a focused prompt scoped to that feature. Example for the chores agent:
+### Launch the full session (first time or after a restart)
 
 ```bash
-cd ~/Desktop/projects/CL/Homie-chores
-claude --dangerouslySkipPermissions "Build the chores feature.
-Implement app/(tabs)/chores.tsx and src/hooks/useChores.ts.
-See src/types/index.ts for the Chore type.
-See src/firebase/firestore.ts for choresCol().
-Real-time updates via onSnapshot. Weekly view grouped by day."
+# Kill any existing session first
+tmux kill-session -t homie 2>/dev/null
+
+# Create session with 5 tiled panes
+tmux new-session -d -s homie -x 220 -y 55
+tmux split-window -t homie:0 -v
+tmux split-window -t homie:0 -v
+tmux split-window -t homie:0 -v
+tmux split-window -t homie:0 -v
+tmux select-layout -t homie tiled
+
+# Expo dev server in a background window
+tmux new-window -t homie -n _server
+tmux send-keys -t homie:_server "cd /Users/travisha/Desktop/projects/CL/Homie && npx expo start --web" Enter
+
+# Launch all 5 agents with their prompts pre-loaded
+tmux send-keys -t homie:0.0 "cd /Users/travisha/Desktop/projects/CL/Homie-chores && claude --dangerously-skip-permissions \"\$(cat AGENT_PROMPT.md)\"" Enter
+sleep 1
+tmux send-keys -t homie:0.1 "cd /Users/travisha/Desktop/projects/CL/Homie-calendar && claude --dangerously-skip-permissions \"\$(cat AGENT_PROMPT.md)\"" Enter
+sleep 1
+tmux send-keys -t homie:0.2 "cd /Users/travisha/Desktop/projects/CL/Homie-pantry && claude --dangerously-skip-permissions \"\$(cat AGENT_PROMPT.md)\"" Enter
+sleep 1
+tmux send-keys -t homie:0.3 "cd /Users/travisha/Desktop/projects/CL/Homie-shopping && claude --dangerously-skip-permissions \"\$(cat AGENT_PROMPT.md)\"" Enter
+sleep 1
+tmux send-keys -t homie:0.4 "cd /Users/travisha/Desktop/projects/CL/Homie-home && claude --dangerously-skip-permissions \"\$(cat AGENT_PROMPT.md)\"" Enter
+
+# Attach
+tmux attach -t homie
+```
+
+> **`--dangerously-skip-permissions`** lets agents edit/create files without pausing to ask approval on every action. Safe here because each agent is isolated in its own worktree — review with `git diff` before merging to main. Remove the flag if you want to manually approve each action.
+
+### Resuming after running out of credits or restarting
+
+If agents stop mid-task (credits ran out, machine restarted, etc.):
+
+```bash
+# Re-run the exact same launch script above — it kills the old session and starts fresh.
+# Each agent will read its AGENT_PROMPT.md and resume by reading the existing files
+# in the worktree to understand what's already been done.
+```
+
+You can also resume a single agent manually:
+```bash
+cd /Users/travisha/Desktop/projects/CL/Homie-chores
+claude --dangerously-skip-permissions "$(cat AGENT_PROMPT.md)"
+# Claude will read the existing files and pick up where it left off
+```
+
+Or if you just want to check what an agent completed so far:
+```bash
+cd /Users/travisha/Desktop/projects/CL/Homie-chores
+git diff main  # see everything the agent has done relative to main
+```
+
+### Navigating the session
+```
+tmux attach -t homie       → attach to session
+Ctrl+b 0                   → jump to panes window (all 5 agents)
+Ctrl+b w                   → visual window/pane picker
+Ctrl+b arrow keys          → move between panes
+Ctrl+b z                   → zoom a pane to full screen (toggle)
+Ctrl+b _server             → switch to expo server window
 ```
 
 Each agent only modifies files relevant to its feature. The base layer (types, firebase config, stores, auth) already exists on `main` and is shared across all worktrees.

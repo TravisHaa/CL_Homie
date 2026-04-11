@@ -1,15 +1,12 @@
 import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { onSnapshot } from 'firebase/firestore';
+import { onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth } from '../firebase/config';
 import { userDoc } from '../firebase/firestore';
 import { useAuthStore } from '../store/authStore';
 import { useHouseStore } from '../store/houseStore';
+import { ROOMMATE_COLORS } from '../utils/colors';
 
-/**
- * Sets up Firebase auth listener and syncs user profile + house data.
- * Call once in the root layout.
- */
 export function useAuthListener() {
   const { setFirebaseUser, setUserProfile, setIsLoading } = useAuthStore();
   const { setHouse } = useHouseStore();
@@ -25,10 +22,22 @@ export function useAuthListener() {
         return;
       }
 
-      // Listen to user profile doc
-      const unsubProfile = onSnapshot(userDoc(firebaseUser.uid), (snap) => {
+      const unsubProfile = onSnapshot(userDoc(firebaseUser.uid), async (snap) => {
         if (snap.exists()) {
           setUserProfile(snap.data());
+        } else {
+          // Account exists in Firebase Auth but no Firestore doc (e.g. created via console)
+          // Create a basic profile so the app can proceed
+          const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
+          await setDoc(userDoc(firebaseUser.uid), {
+            id: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            displayName: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
+            avatarUrl: null,
+            houseId: null,
+            color,
+            createdAt: serverTimestamp(),
+          } as any);
         }
         setIsLoading(false);
       });
