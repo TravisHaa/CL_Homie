@@ -57,18 +57,26 @@ function AuthGate() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('[AuthGate] effect — isLoading:', isLoading, 'firebaseUser:', !!firebaseUser, 'houseId:', userProfile?.houseId, 'segments:', segments);
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!firebaseUser) {
-      if (!inAuthGroup) router.replace('/(auth)/login');
+      if (!inAuthGroup) {
+        console.log('[AuthGate] → /(auth)/login');
+        router.replace('/(auth)/login');
+      }
     } else if (!userProfile?.houseId) {
       if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
+        console.log('[AuthGate] → /(auth)/join-house');
         router.replace('/(auth)/join-house');
       }
     } else {
-      if (inAuthGroup) router.replace('/(tabs)');
+      if (inAuthGroup) {
+        console.log('[AuthGate] → /(tabs)');
+        router.replace('/(tabs)');
+      }
     }
   }, [firebaseUser, userProfile, isLoading, segments]);
 

@@ -17,6 +17,7 @@ export function useAuthListener() {
     let unsubMembers: (() => void) | undefined;
 
     const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('[Auth] onAuthStateChanged fired, uid=', firebaseUser?.uid ?? 'null');
       // Clean up previous subscriptions on auth change
       unsubProfile?.();
       unsubHouse?.();
@@ -32,47 +33,59 @@ export function useAuthListener() {
         return;
       }
 
-      unsubProfile = onSnapshot(userDoc(firebaseUser.uid), async (snap) => {
-        try {
-          if (snap.exists()) {
-            const profile = snap.data();
-            setUserProfile(profile);
+      unsubProfile = onSnapshot(
+        userDoc(firebaseUser.uid),
+        async (snap) => {
+          console.log('[Auth] profile snapshot fired, exists=', snap.exists());
+          try {
+            if (snap.exists()) {
+              const profile = snap.data();
+              console.log('[Auth] profile loaded, houseId=', profile.houseId);
+              setUserProfile(profile);
 
-            if (profile.houseId) {
-              // Subscribe to house doc
-              unsubHouse?.();
-              unsubHouse = onSnapshot(houseDoc(profile.houseId), (houseSnap) => {
-                if (houseSnap.exists()) setHouse(houseSnap.data());
-              });
+              if (profile.houseId) {
+                // Subscribe to house doc
+                unsubHouse?.();
+                unsubHouse = onSnapshot(houseDoc(profile.houseId), (houseSnap) => {
+                  console.log('[Auth] house snapshot, exists=', houseSnap.exists());
+                  if (houseSnap.exists()) setHouse(houseSnap.data());
+                });
 
-              // Subscribe to all members in this house
-              unsubMembers?.();
-              const membersQ = query(usersCol(), where('houseId', '==', profile.houseId));
-              unsubMembers = onSnapshot(membersQ, (membersSnap) => {
-                setMemberMap(membersSnap.docs.map((d) => d.data()));
-              });
+                // Subscribe to all members in this house
+                unsubMembers?.();
+                const membersQ = query(usersCol(), where('houseId', '==', profile.houseId));
+                unsubMembers = onSnapshot(membersQ, (membersSnap) => {
+                  console.log('[Auth] members snapshot, count=', membersSnap.size);
+                  setMemberMap(membersSnap.docs.map((d) => d.data()));
+                });
+              }
+            } else {
+              console.log('[Auth] no profile doc — creating one');
+              const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
+              await setDoc(userDoc(firebaseUser.uid), {
+                id: firebaseUser.uid,
+                email: firebaseUser.email ?? '',
+                displayName: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
+                avatarUrl: null,
+                houseId: null,
+                color,
+                createdAt: serverTimestamp(),
+              } as any);
+              console.log('[Auth] profile doc created, waiting for snapshot re-fire');
+              return;
             }
-          } else {
-            // No Firestore profile yet — create one
-            const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
-            await setDoc(userDoc(firebaseUser.uid), {
-              id: firebaseUser.uid,
-              email: firebaseUser.email ?? '',
-              displayName: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User',
-              avatarUrl: null,
-              houseId: null,
-              color,
-              createdAt: serverTimestamp(),
-            } as any);
-            // onSnapshot will fire again with the new doc
-            return;
+          } catch (err) {
+            console.error('[Auth] profile snapshot error:', err);
+          } finally {
+            console.log('[Auth] setIsLoading(false)');
+            setIsLoading(false);
           }
-        } catch (err) {
-          console.error('[useAuthListener] profile error:', err);
-        } finally {
+        },
+        (err) => {
+          console.error('[Auth] onSnapshot permission error:', err.code, err.message);
           setIsLoading(false);
         }
-      });
+      );
     });
 
     return () => {
