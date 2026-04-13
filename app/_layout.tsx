@@ -67,6 +67,11 @@ function AuthGate() {
         console.log('[AuthGate] → /(auth)/login');
         router.replace('/(auth)/login');
       }
+    // } else if (!userProfile?.houseId) {
+    //   if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
+    //     console.log('[AuthGate] → /(auth)/join-house');
+    //     router.replace('/(auth)/join-house');
+    //   }
     } else {
       if (inAuthGroup) {
         console.log('[AuthGate] → /(tabs)');
