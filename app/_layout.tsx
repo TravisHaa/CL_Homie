@@ -62,10 +62,12 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!firebaseUser) {
-      // Not logged in → send to login
       if (!inAuthGroup) router.replace('/(auth)/login');
+    } else if (!userProfile?.houseId) {
+      if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
+        router.replace('/(auth)/join-house');
+      }
     } else {
-      // TEMP: skip house check, always send logged-in users to tabs
       if (inAuthGroup) router.replace('/(tabs)');
     }
   }, [firebaseUser, userProfile, isLoading, segments]);
