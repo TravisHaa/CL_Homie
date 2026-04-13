@@ -16,6 +16,21 @@ npm run web
 
 There are no lint or test scripts configured yet.
 
+## Implementation Status
+
+All core features are implemented on the `staging` branch with real Firestore integrations. `main` holds the earlier foundation (auth, routing, design system only).
+
+| Feature | Screen | Hook | Components | Status |
+|---|---|---|---|---|
+| Home Dashboard | `app/(tabs)/index.tsx` | reads all 4 hooks | — | Done |
+| Chores | `app/(tabs)/chores.tsx` | `useChores` | `ChoreCard`, `ChoreForm` | Done (hidden tab) |
+| Calendar | `app/(tabs)/calendar.tsx` | `useCalendarEvents` | `EventCard`, `EventForm` | Done (hidden tab) |
+| Pantry | `app/(tabs)/pantry.tsx` | `usePantry` | `PantryItemCard`, `AddPantryItemForm` | Done |
+| Shopping | `app/(tabs)/shopping.tsx` | `useShoppingList` | `ShoppingItemRow`, `AddShoppingItemForm` | Done |
+| Auth | `app/(auth)/*.tsx` | `useAuth` | — | Done |
+
+Not yet built: Firebase Cloud Functions (weekly chore reset, expiration alerts), push notifications, barcode scanning, Google Calendar sync.
+
 ## Architecture
 
 ### Routing (Expo Router v3 — file-based)
@@ -30,14 +45,14 @@ app/
   (tabs)/
     _layout.tsx        ← Tab navigator (Home, Pantry, Shopping, Settings)
     index.tsx          ← Home dashboard ("fridge magnet" aesthetic)
-    chores.tsx
-    calendar.tsx
+    chores.tsx         ← Hidden tab (navigable from home)
+    calendar.tsx       ← Hidden tab (navigable from home)
     pantry.tsx
     shopping.tsx
     settings.tsx
 ```
 
-`chores` and `calendar` tabs exist as files but are hidden from the tab bar in `(tabs)/_layout.tsx` (listed in `HIDDEN`). Add them to `TABS` when ready to show.
+`chores` and `calendar` tabs exist as files but are hidden from the tab bar in `(tabs)/_layout.tsx` (listed in `HIDDEN`). **Do not move them to `TABS`** — they are intentionally accessed via navigation from the home dashboard sticky notes only. The nav bar must stay at exactly 4 tabs: Home, Pantry, Shopping, Settings.
 
 ### Auth Flow
 
@@ -55,6 +70,14 @@ Two Zustand stores:
 - `src/store/houseStore.ts` — `house` (Firestore `House` doc), `memberMap` (userId → `{displayName, color, avatarUrl}`)
 
 TanStack Query wraps Firestore `onSnapshot` listeners for feature data (chores, events, pantry, shopping).
+
+Hook return shapes (use these exact destructured names — mismatching caused bugs before):
+- `useChores()` → `{ chores, isLoading, addChore, toggleChore }`
+- `useCalendarEvents()` → `{ events, isLoading, addEvent }` — also exports `NewEventInput` type
+- `usePantry()` → `{ items, expiringItems, isLoading, addPantryItem, deletePantryItem }` — also exports `daysUntilExpiry(item)` util and `AddPantryItemInput` type
+- `useShoppingList()` → `{ items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked }` — also exports `AddItemInput` type
+
+Pattern for all hooks: `queryFn: () => Promise.resolve([])` seeds the cache; a `useEffect` with `onSnapshot` calls `queryClient.setQueryData` as the live update path.
 
 ### Firebase / Firestore
 
