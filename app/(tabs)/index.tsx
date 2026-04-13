@@ -25,10 +25,10 @@ export default function HomeScreen() {
   const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
 
-  const { data: allChores = [], isLoading: choresLoading } = useChores();
-  const { data: allEvents = [], isLoading: eventsLoading } = useCalendarEvents();
-  const { data: allPantry = [], isLoading: pantryLoading } = usePantry();
-  const { data: allShopping = [], isLoading: shoppingLoading } = useShoppingList();
+  const { chores: allChores = [], isLoading: choresLoading } = useChores();
+  const { events: allEvents = [], isLoading: eventsLoading } = useCalendarEvents();
+  const { items: allPantry = [], isLoading: pantryLoading } = usePantry();
+  const { items: allShopping = [], isLoading: shoppingLoading } = useShoppingList();
 
   // Today's chores for this week
   const weekKey = getWeekKey();
