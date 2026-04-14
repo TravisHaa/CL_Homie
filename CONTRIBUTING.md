@@ -34,7 +34,7 @@ If the automated review flags a bug (logic error, missing null check, broken Fir
 
 ### 4. Work one feature at a time — no multi-agent sprawl
 
-Do not open worktrees or spawn parallel agents across multiple features simultaneously. Pick one feature, finish it or reach a clear stopping point, then move to the next. The worktrees setup in `WORKTREES.md` exists for isolation, not for running all features in parallel at once. Working across five features at the same time produces conflicts, half-finished integrations, and debugging sessions that are impossible to untangle.
+Do not open worktrees or spawn parallel agents across multiple features simultaneously. **Pick one feature/issue**, finish it or reach a clear stopping point, then move to the next. Working across five features at the same time produces conflicts, half-finished integrations, and debugging sessions that are impossible to untangle.
 
 ---
 
