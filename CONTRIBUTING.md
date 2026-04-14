@@ -4,6 +4,57 @@ This guide describes how to contribute to Homie using a spec-driven workflow wit
 
 ---
 
+## Initial Onboarding (required before running the app)
+
+### 1. Get access to Firebase
+
+Before anything else, ask **Travis** to send you an invite to the Firebase project.
+
+### 2. Configure your local `.env`
+
+After you have access:
+
+- Go to **Firebase Console → Project Settings**
+- Scroll down to **Your apps**
+- Select (or create) the **Web app**
+- Copy the config values and paste each key into your local `.env` (based on `.env.example`)
+
+The app expects Expo public env vars (must start with `EXPO_PUBLIC_`), for example:
+
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+```
+
+### 3. Files to know before contributing
+
+| File | Why it matters |
+|---|---|
+| `CLAUDE.md` | Full architecture reference — read this first |
+| `src/types/index.ts` | All Firestore document types |
+| `src/firebase/firestore.ts` | Typed collection refs — always use these, never raw `collection()` |
+| `src/hooks/useAuth.ts` | Auth bootstrap — the most state-sensitive file in the app |
+| `app/_layout.tsx` | Root layout + `AuthGate` — routing logic lives here |
+| `src/store/authStore.ts` | Zustand auth state |
+| `src/store/houseStore.ts` | Zustand house + member state |
+
+### 4. Branch, PR, and commit conventions
+
+- **Base branch**: branch off `staging`, not `main`. `main` is behind.
+- **Branch names**: `feature/<name>`, `fix/<short-description>`, `docs/<short-description>`
+- **PR scope**: one feature or fix per PR. Do not bundle unrelated changes.
+- **Stability**: keep `staging` green. Do not merge a PR that breaks the dev server or leaves the app in a visibly broken state.
+- **Commit messages**: use Conventional-Commits style prefixes, e.g.
+  - `docs: add Firebase onboarding to contributing`
+  - `feat: add pantry item delete action`
+  - `fix: prevent auth loading deadlock on snapshot error`
+
+---
+
 ## Mandatory Requirements
 
 These four rules are non-negotiable. A PR that violates any of them will not be merged.
@@ -35,34 +86,6 @@ If the automated review flags a bug (logic error, missing null check, broken Fir
 ### 4. Work one feature at a time — no multi-agent sprawl
 
 Do not open worktrees or spawn parallel agents across multiple features simultaneously. **Pick one feature/issue**, finish it or reach a clear stopping point, then move to the next. Working across five features at the same time produces conflicts, half-finished integrations, and debugging sessions that are impossible to untangle.
-
----
-
-## Initial Onboarding (required before running the app)
-
-### 1. Get access to Firebase
-
-Before anything else, ask **Travis** to send you an invite to the Firebase project.
-
-### 2. Configure your local `.env`
-
-After you have access:
-
-- Go to **Firebase Console → Project Settings**
-- Scroll down to **Your apps**
-- Select (or create) the **Web app**
-- Copy the config values and paste each key into your local `.env` (based on `.env.example`)
-
-The app expects Expo public env vars (must start with `EXPO_PUBLIC_`), for example:
-
-```
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
-```
 
 ---
 
@@ -154,21 +177,10 @@ Low maintenance cost, but low signal — they tell you something changed, not wh
 
 ## Files to Know Before Contributing
 
-| File | Why it matters |
-|---|---|
-| `CLAUDE.md` | Full architecture reference — read this first |
-| `src/types/index.ts` | All Firestore document types |
-| `src/firebase/firestore.ts` | Typed collection refs — always use these, never raw `collection()` |
-| `src/hooks/useAuth.ts` | Auth bootstrap — the most state-sensitive file in the app |
-| `app/_layout.tsx` | Root layout + `AuthGate` — routing logic lives here |
-| `src/store/authStore.ts` | Zustand auth state |
-| `src/store/houseStore.ts` | Zustand house + member state |
+Moved to **Initial Onboarding** above.
 
 ---
 
 ## Branch and PR Conventions
 
-- Branch off `staging`, not `main`. `main` is behind.
-- Branch names: `feature/<name>`, `fix/<short-description>`
-- One feature or fix per PR. Do not bundle unrelated changes.
-- Keep `staging` green. Do not merge a PR that breaks the dev server or leaves the app in a visibly broken state.
+Moved to **Initial Onboarding** above.
