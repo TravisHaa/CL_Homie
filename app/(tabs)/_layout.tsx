@@ -5,11 +5,12 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
   { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
-  { name: 'chores', title: 'Chores', icon: 'checkmark-circle-outline', activeIcon: 'checkmark-circle' },
-  { name: 'calendar', title: 'Calendar', icon: 'calendar-outline', activeIcon: 'calendar' },
   { name: 'pantry', title: 'Pantry', icon: 'nutrition-outline', activeIcon: 'nutrition' },
   { name: 'shopping', title: 'Shopping', icon: 'cart-outline', activeIcon: 'cart' },
+  { name: 'settings', title: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },
 ];
+
+const HIDDEN = ['chores', 'calendar', 'two'];
 
 export default function TabLayout() {
   return (
@@ -40,6 +41,9 @@ export default function TabLayout() {
             ),
           }}
         />
+      ))}
+      {HIDDEN.map((name) => (
+        <Tabs.Screen key={name} name={name} options={{ href: null }} />
       ))}
     </Tabs>
   );

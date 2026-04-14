@@ -32,7 +32,7 @@ export default function SignupScreen() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { displayName: '', email: '', password: '', confirmPassword: '' } });
 
   async function onSubmit({ email, password, displayName }: FormData) {
     try {

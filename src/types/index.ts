@@ -15,6 +15,7 @@ export interface House {
   name: string;
   inviteCode: string; // 6-char join code
   memberIds: string[];
+  memberNames?: Record<string, string>; // denormalized userId -> displayName for quick reads
   createdBy: string; // userId
   createdAt: Timestamp;
 }

@@ -6,8 +6,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
+import { useState } from 'react';
 import { Link } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -22,18 +22,22 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
+  const [authError, setAuthError] = useState('');
   const {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } });
 
   async function onSubmit({ email, password }: FormData) {
+    setAuthError('');
     try {
+      console.log('[Login] attempting signIn for', email);
       await signIn(email, password);
-      // AuthGate in _layout.tsx handles redirect
+      console.log('[Login] signIn succeeded — waiting for AuthGate redirect');
     } catch (err: any) {
-      Alert.alert('Login failed', err.message);
+      console.error('[Login] signIn error:', err.code, err.message);
+      setAuthError(err.message ?? 'Login failed');
     }
   }
 
@@ -76,6 +80,8 @@ export default function LoginScreen() {
           )}
         />
         {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+
+        {authError ? <Text style={styles.authError}>{authError}</Text> : null}
 
         <TouchableOpacity
           style={[styles.button, isSubmitting && styles.buttonDisabled]}
@@ -124,6 +130,7 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: '#FF6B6B' },
   errorText: { color: '#FF6B6B', fontSize: 12, marginTop: -6 },
+  authError: { color: '#FF6B6B', fontSize: 14, textAlign: 'center', marginTop: -4 },
   button: {
     backgroundColor: '#2D3436',
     borderRadius: 12,
