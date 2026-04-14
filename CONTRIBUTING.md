@@ -26,7 +26,7 @@ Do not paste AI output into a PR description. Write it yourself. A good PR descr
 - Why is it needed?
 - What did you test?
 
-One paragraph is fine. Bullet lists are fine. Auto-generated summaries are not.
+One paragraph is fine. Bullet lists of main changes are fine. Auto-generated summaries are not.
 
 ### 3. Bugs caught by automated PR review must be fixed before merging
 
