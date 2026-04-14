@@ -38,6 +38,34 @@ Do not open worktrees or spawn parallel agents across multiple features simultan
 
 ---
 
+## Initial Onboarding (required before running the app)
+
+### 1. Get access to Firebase
+
+Before anything else, ask **Travis** to send you an invite to the Firebase project.
+
+### 2. Configure your local `.env`
+
+After you have access:
+
+- Go to **Firebase Console → Project Settings**
+- Scroll down to **Your apps**
+- Select (or create) the **Web app**
+- Copy the config values and paste each key into your local `.env` (based on `.env.example`)
+
+The app expects Expo public env vars (must start with `EXPO_PUBLIC_`), for example:
+
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+```
+
+---
+
 ## Spec-Driven Development Workflow
 
 The cycle for every feature or fix is: **read → plan → implement → verify**.
