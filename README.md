@@ -156,24 +156,6 @@ npx expo start --android  # requires Android Studio
 
 ---
 
-## Parallel Development with Git Worktrees
-
-Features are developed in parallel using **git worktrees** — each feature branch is checked out into its own folder so multiple Claude agents (or developers) can work simultaneously without conflicts.
-
-```
-CL/
-├── Homie/            → main branch
-├── Homie-chores/     → feature/chores
-├── Homie-calendar/   → feature/calendar
-├── Homie-pantry/     → feature/pantry
-├── Homie-shopping/   → feature/shopping
-└── Homie-home/       → feature/home
-```
-
-See [WORKTREES.md](./WORKTREES.md) for the full guide including how to run Claude agents in separate tmux windows, merge feature branches, and clean up worktrees when done.
-
----
-
 ## External APIs
 
 | API | Purpose | Key location |
