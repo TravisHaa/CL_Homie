@@ -2,6 +2,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
+type TabTheme = {
+  headerBg: string;
+  headerTint: string;
+  tabActive: string;
+};
 
 const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
   { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
@@ -11,23 +16,36 @@ const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName 
 ];
 
 const HIDDEN = ['chores', 'calendar', 'two'];
+const TAB_THEME: Record<string, TabTheme> = {
+  index: { headerBg: '#FFE3B8', headerTint: '#4A2C1A', tabActive: '#A7572D' },
+  pantry: { headerBg: '#DDF4E7', headerTint: '#154D37', tabActive: '#1B8F63' },
+  shopping: { headerBg: '#FFE9DA', headerTint: '#5A2D18', tabActive: '#C15B2A' },
+  settings: { headerBg: '#EDE9FF', headerTint: '#32246C', tabActive: '#6557C8' },
+};
 
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#2D3436',
-        tabBarInactiveTintColor: '#B2BEC3',
-        tabBarStyle: {
-          borderTopWidth: 0,
-          elevation: 0,
-          shadowOpacity: 0,
-          backgroundColor: '#FFFBF5',
-          paddingBottom: 8,
-          height: 60,
-        },
-        headerStyle: { backgroundColor: '#FFFBF5' },
-        headerShadowVisible: false,
+      // Route-aware nav theming keeps each screen distinct but still cohesive.
+      screenOptions={({ route }) => {
+        const theme = TAB_THEME[route.name] ?? TAB_THEME.index;
+        return {
+          tabBarActiveTintColor: theme.tabActive,
+          tabBarInactiveTintColor: '#B38D71',
+          tabBarStyle: {
+            borderTopWidth: 0,
+            elevation: 0,
+            shadowOpacity: 0,
+            backgroundColor: '#FFEFD2',
+            paddingBottom: 8,
+            height: 60,
+          },
+          // Blend top route headers with each tab's visual language.
+          headerStyle: { backgroundColor: theme.headerBg },
+          headerTintColor: theme.headerTint,
+          headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
+          headerShadowVisible: false,
+        };
       }}
     >
       {TABS.map(({ name, title, icon, activeIcon }) => (

@@ -14,6 +14,17 @@ import { PantryItemCard } from '@/src/components/pantry/PantryItemCard';
 import { AddPantryItemForm } from '@/src/components/pantry/AddPantryItemForm';
 import type { PantryItem } from '@/src/types';
 
+const P = {
+  mintBg: '#EAF7F0',
+  plateBg: '#DDF4E7',
+  plateBorder: '#A8D9BF',
+  textStrong: '#1D4736',
+  textSoft: '#5D7B6F',
+  alertBg: '#FFF1D5',
+  alertBorder: '#F1B748',
+  fab: '#1B8F63',
+};
+
 export default function PantryScreen() {
   return (
     <BottomSheetModalProvider>
@@ -95,7 +106,7 @@ function PantryContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFBF5',
+    backgroundColor: P.mintBg,
   },
   header: {
     paddingHorizontal: 20,
@@ -104,23 +115,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 10,
+    borderRadius: 14,
+    backgroundColor: P.plateBg,
+    borderWidth: 1,
+    borderColor: P.plateBorder,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#2D3436',
+    color: P.textStrong,
   },
   subtitle: {
-    color: '#636e72',
+    color: P.textSoft,
     marginTop: 2,
     fontSize: 14,
   },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF3CD',
+    backgroundColor: P.alertBg,
     borderLeftWidth: 4,
-    borderLeftColor: '#FDCB6E',
+    borderLeftColor: P.alertBorder,
     marginHorizontal: 20,
     marginBottom: 12,
     paddingHorizontal: 14,
@@ -133,7 +151,7 @@ const styles = StyleSheet.create({
   },
   alertText: {
     fontSize: 14,
-    color: '#2D3436',
+    color: P.textStrong,
     fontWeight: '600',
     flex: 1,
   },
@@ -146,12 +164,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2D3436',
+    color: P.textStrong,
     marginBottom: 6,
   },
   emptyHint: {
     fontSize: 14,
-    color: '#636e72',
+    color: P.textSoft,
   },
   list: {
     paddingHorizontal: 20,
@@ -164,7 +182,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2D3436',
+    backgroundColor: P.fab,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

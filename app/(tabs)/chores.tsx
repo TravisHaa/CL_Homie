@@ -14,6 +14,17 @@ import { useChores } from '@/src/hooks/useChores';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
 
+const CH = {
+  peachBg: '#FFF0E2',
+  plateBg: '#FFE2CB',
+  plateBorder: '#F4BA93',
+  textStrong: '#5A2F1A',
+  textSoft: '#946345',
+  track: '#F2CFB5',
+  fill: '#D97745',
+  fab: '#D97745',
+};
+
 export default function ChoresScreen() {
   const { chores, isLoading, addChore, toggleChore } = useChores();
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -70,26 +81,33 @@ export default function ChoresScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFBF5',
+    backgroundColor: CH.peachBg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: CH.plateBorder,
+    backgroundColor: CH.plateBg,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#2D3436',
+    color: CH.textStrong,
   },
   fab: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#2D3436',
+    backgroundColor: CH.fab,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -99,18 +117,18 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 6,
-    backgroundColor: '#DFE6E9',
+    backgroundColor: CH.track,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2D3436',
+    backgroundColor: CH.fill,
     borderRadius: 3,
   },
   progressLabel: {
     fontSize: 12,
-    color: '#636e72',
+    color: CH.textSoft,
     marginTop: 4,
   },
   list: {
@@ -119,7 +137,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   empty: {
-    color: '#636e72',
+    color: CH.textSoft,
     textAlign: 'center',
     marginTop: 60,
     fontSize: 15,

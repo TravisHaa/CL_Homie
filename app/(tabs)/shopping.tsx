@@ -20,16 +20,17 @@ import type { AddItemInput } from '@/src/hooks/useShoppingList';
 
 // ─── design tokens ────────────────────────────────────────────────────────────
 const R = {
-  paper:       '#FAFAF7',
-  paperDark:   '#F3F2EE',
-  border:      '#E2E0DA',
-  dashed:      '#C8C6BE',
-  textHdr:     '#111110',
-  textBody:    '#2A2A28',
-  textMute:    '#8A8880',
-  textDone:    '#B8B6B0',
-  doneBg:      '#F5F4F0',
-  receiptEdge: '#E8E6E0',
+  paper:       '#FFF3E5',
+  paperDark:   '#FCE8D2',
+  border:      '#E9CBAA',
+  dashed:      '#CCAD8C',
+  textHdr:     '#5A2D18',
+  textBody:    '#70412A',
+  textMute:    '#9B6A4C',
+  textDone:    '#C9A58A',
+  doneBg:      '#FDE7D3',
+  receiptEdge: '#F0D3B5',
+  fab:         '#C15B2A',
 };
 
 // Decorative barcode strip
@@ -243,11 +244,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: R.border,
+    shadowColor: '#9D552F',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
 
   // ── Receipt header ─────────────────────────────────────────────────────────
@@ -420,7 +423,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 2,
-    backgroundColor: R.textHdr,
+    backgroundColor: R.fab,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

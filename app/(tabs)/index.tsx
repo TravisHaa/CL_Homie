@@ -12,19 +12,22 @@ import { getWeekKey } from '@/src/utils/weekKey';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
-  fridgeBg:     '#CECCCA',
-  noteCream:    '#FFFEF2',
-  noteAlt:      '#FFF8E6',
-  noteText:     '#2A2A27',
-  noteMeta:     '#7A7670',
-  noteLabel:    '#B0ACA8',
-  noteLines:    '#EDE8DE',
-  noteMargin:   '#F5C0B8',
+  // Sunset-kitchen palette: warm walls + saturated fridge magnets.
+  fridgeBg:     '#F3E0BF',
+  noteCream:    '#FFF0D9',
+  noteAlt:      '#FFE8C6',
+  noteText:     '#3A2A1E',
+  noteMeta:     '#7D5B42',
+  noteLabel:    '#B38762',
+  noteLines:    '#F4D9BA',
+  noteMargin:   '#F19B8E',
+  headerPlate:  '#FFEFD2',
+  headerBorder: '#D7B58A',
   magnetPurple: '#6C5CE7',
   magnetYellow: '#F9A825',
   magnetCoral:  '#E17055',
   magnetMint:   '#00B894',
-  progressBg:   '#E8E4DC',
+  progressBg:   '#EFD5B0',
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -275,7 +278,7 @@ export default function HomeScreen() {
         {/* ── Filler: scattered emoji magnets ─────────────────────────────
             Small round decorative magnets drifting at the edge. */}
         <View style={[styles.fillerRow, { justifyContent: 'flex-end', marginBottom: 4 }]}>
-          <EmojiMagnet emoji="🏠" color="#B2BEC3" rotate="-6deg" size={32} />
+          <EmojiMagnet emoji="🏠" color="#FFD6A5" rotate="-6deg" size={32} />
           <EmojiMagnet emoji="⭐" color="#FDCB6E" rotate="5deg"  size={28} />
           <EmojiMagnet emoji="📝" color="#A29BFE" rotate="-3deg" size={30} />
         </View>
@@ -344,16 +347,27 @@ export default function HomeScreen() {
 // ─── styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe:         { flex: 1, backgroundColor: C.fridgeBg },
-  fridge:       { flex: 1 },
-  fridgeContent:{ paddingHorizontal: 14, paddingBottom: 32 },
+  fridge:       { flex: 1, backgroundColor: C.fridgeBg },
+  fridgeContent:{ paddingHorizontal: 14, paddingBottom: 32, paddingTop: 4 },
 
   // header
   fridgeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 10,
+    borderRadius: 16,
+    backgroundColor: C.headerPlate,
+    borderWidth: 1,
+    borderColor: C.headerBorder,
+    shadowColor: '#7A4E2A',
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
   },
   houseName: {
     fontSize: 22,
@@ -374,8 +388,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
+    shadowColor: '#7A4E2A',
+    shadowOpacity: 0.28,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,

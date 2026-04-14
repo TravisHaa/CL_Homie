@@ -8,6 +8,15 @@ import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { EventCard } from '@/src/components/calendar/EventCard';
 import { EventForm } from '@/src/components/calendar/EventForm';
 
+const CAL = {
+  skyBg: '#EEF4FF',
+  plateBg: '#DFE9FF',
+  plateBorder: '#B6CBFA',
+  textStrong: '#2D3D72',
+  textSoft: '#6678A8',
+  addBtn: '#5E7CE2',
+};
+
 function getDateLabel(date: Date): string {
   if (isToday(date)) return 'Today';
   if (isTomorrow(date)) return 'Tomorrow';
@@ -59,28 +68,34 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFBF5' },
+  safe: { flex: 1, backgroundColor: CAL.skyBg },
   container: { flex: 1, padding: 20 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: CAL.plateBg,
+    borderWidth: 1,
+    borderColor: CAL.plateBorder,
   },
-  title: { fontSize: 28, fontWeight: '800', color: '#2D3436' },
-  subtitle: { color: '#636e72', marginTop: 4 },
+  title: { fontSize: 28, fontWeight: '800', color: CAL.textStrong },
+  subtitle: { color: CAL.textSoft, marginTop: 4 },
   addBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#2D3436',
+    backgroundColor: CAL.addBtn,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loader: { marginTop: 48 },
-  empty: { color: '#636e72', marginTop: 48, textAlign: 'center' },
+  empty: { color: CAL.textSoft, marginTop: 48, textAlign: 'center' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   datePill: { width: 72, paddingTop: 14 },
-  dateText: { fontSize: 12, fontWeight: '700', color: '#636e72' },
+  dateText: { fontSize: 12, fontWeight: '700', color: CAL.textSoft },
   bottomPad: { height: 32 },
 });
