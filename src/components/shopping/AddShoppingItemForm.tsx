@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import BottomSheet, {
   BottomSheetView,
@@ -65,8 +66,12 @@ const AddShoppingItemForm = forwardRef<BottomSheet, Props>(({ onSubmit }, ref) =
   );
 
   const handleFormSubmit = async (values: FormValues) => {
-    await onSubmit(values);
-    reset();
+    try {
+      await onSubmit(values);
+      reset();
+    } catch (err: any) {
+      Alert.alert('Could not add item', err?.message ?? 'Unknown error');
+    }
   };
 
   return (

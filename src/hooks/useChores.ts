@@ -44,21 +44,25 @@ export function useChores() {
   const addChore = async (
     input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'>
   ) => {
-    if (!houseId || !userProfile) return;
-    await addDoc(choresCol(houseId), {
-      id: '', // stripped by converter on write
-      ...input,
-      isCompleted: false,
-      completedAt: null,
-      completedBy: null,
-      weekKey,
-      createdBy: userProfile.id,
-      createdAt: serverTimestamp(),
-    });
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    try {
+      await addDoc(choresCol(houseId), {
+        id: '', // stripped by converter on write
+        ...input,
+        isCompleted: false,
+        completedAt: null,
+        completedBy: null,
+        weekKey,
+        createdBy: userProfile.id,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      throw err;
+    }
   };
 
   const toggleChore = async (choreId: string, currentValue: boolean) => {
-    if (!houseId || !userProfile) return;
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
     const choreRef = doc(db, 'houses', houseId, 'chores', choreId);
     await updateDoc(choreRef, {
       isCompleted: !currentValue,

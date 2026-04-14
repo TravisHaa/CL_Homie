@@ -6,30 +6,34 @@ A mobile app for college students in shared housing. Homie replaces the group ch
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Chore tracker** | Weekly chores assigned to roommates, mark complete, recurring schedules |
-| **Shared calendar** | Weekly view color-coded by roommate, add household events |
-| **Pantry tracker** | Track food items with expiration dates, barcode scanning, shared vs. personal |
-| **Shopping list** | Shared checklist grouped by category, real-time updates for all roommates |
-| **Home dashboard** | Fridge-magnet style overview of today's chores, events, and expiring items |
+
+| Feature             | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
+| **Chore tracker**   | Weekly chores assigned to roommates, mark complete, recurring schedules       |
+| **Shared calendar** | Weekly view color-coded by roommate, add household events                     |
+| **Pantry tracker**  | Track food items with expiration dates, barcode scanning, shared vs. personal |
+| **Shopping list**   | Shared checklist grouped by category, real-time updates for all roommates     |
+| **Home dashboard**  | Fridge-magnet style overview of today's chores, events, and expiring items    |
+
 
 ---
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Framework | Expo SDK 54 (managed workflow) |
-| Language | TypeScript |
-| Navigation | Expo Router v3 (file-based) |
-| Database | Firebase Firestore (real-time NoSQL) |
-| Auth | Firebase Authentication |
-| Global state | Zustand |
-| Server state | TanStack Query (wraps Firestore `onSnapshot`) |
-| Forms | react-hook-form + zod |
-| Camera / barcode | expo-camera |
-| Notifications | expo-notifications |
+
+| Layer            | Choice                                        |
+| ---------------- | --------------------------------------------- |
+| Framework        | Expo SDK 54 (managed workflow)                |
+| Language         | TypeScript                                    |
+| Navigation       | Expo Router v3 (file-based)                   |
+| Database         | Firebase Firestore (real-time NoSQL)          |
+| Auth             | Firebase Authentication                       |
+| Global state     | Zustand                                       |
+| Server state     | TanStack Query (wraps Firestore `onSnapshot`) |
+| Forms            | react-hook-form + zod                         |
+| Camera / barcode | expo-camera                                   |
+| Notifications    | expo-notifications                            |
+
 
 ---
 
@@ -78,7 +82,7 @@ Homie/
   email, displayName, avatarUrl, houseId, color (#hex), createdAt
 
 /houses/{houseId}
-  name, inviteCode (6-char), memberIds[], createdBy, createdAt
+  name, inviteCode (6-char), memberIds[], memberNames{ userId: displayName }, createdBy, createdAt
 
 /houses/{houseId}/chores/{choreId}
   title, assignedTo (userId), recurrence, dayOfWeek, isCompleted,
@@ -100,9 +104,83 @@ Homie/
 ```
 
 Key design decisions:
+
 - `weekKey` on chores (e.g. `"2026-W15"`) lets you query this week's chores with a single `==` filter — no date range math needed
 - `color` is copied onto events at write time so the calendar can render without a join
 - `inviteCode` on houses lets anyone join with a 6-character code
+- `memberNames` on houses is a denormalized map for fast label rendering (`userId -> displayName`), while `/users/{userId}` remains the source of truth for full profiles
+
+---
+
+## App Data Flow
+
+```mermaid
+flowchart TD
+  subgraph Client["Expo App (Client)"]
+    UI["Screens: Auth + Tabs"]
+    AG["AuthGate (app/_layout.tsx)"]
+    AS["authStore (firebaseUser, userProfile, isLoading)"]
+    HS["houseStore (house, memberMap)"]
+    HAuth["useAuthListener()"]
+    HChores["useChores()"]
+    HCal["useCalendarEvents()"]
+    HPantry["usePantry()"]
+    HShop["useShoppingList()"]
+    QC["TanStack Query cache"]
+  end
+
+  subgraph Firebase["Firebase"]
+    FA["Firebase Auth"]
+    U["/users/{userId}"]
+    H["/houses/{houseId}"]
+    C["/houses/{houseId}/chores/{choreId}"]
+    E["/houses/{houseId}/events/{eventId}"]
+    P["/houses/{houseId}/pantryItems/{itemId}"]
+    S["/houses/{houseId}/shoppingItems/{itemId}"]
+    PR["/predictions/{barcode}"]
+  end
+
+  UI --> AG
+  AG --> HAuth
+  HAuth --> FA
+  HAuth --> U
+  U --> AS
+  AS --> AG
+
+  AS -->|userProfile.houseId| HAuth
+  HAuth --> H
+  H --> HS
+  HAuth -->|query users where houseId == current house| U
+  U -->|member docs -> memberMap| HS
+
+  UI --> HChores
+  UI --> HCal
+  UI --> HPantry
+  UI --> HShop
+  HChores --> QC
+  HCal --> QC
+  HPantry --> QC
+  HShop --> QC
+
+  HChores <--> C
+  HCal <--> E
+  HPantry <--> P
+  HShop <--> S
+
+  UI -->|create/join house| H
+  UI -->|create/join house| U
+
+  HPantry --> PR
+```
+
+
+
+### User and house relationship
+
+- `/users/{userId}.houseId` points to the user's active household.
+- `/houses/{houseId}.memberIds[]` lists member user IDs.
+- `/houses/{houseId}.memberNames` stores denormalized display names for quick UI reads.
+- You can derive basic member identity from the house doc (`id + displayName`), but full profile data (color, avatar, email, latest profile state) should still come from `/users/{userId}`.
 
 ---
 
@@ -176,13 +254,15 @@ See [WORKTREES.md](./WORKTREES.md) for the full guide including how to run Claud
 
 ## External APIs
 
-| API | Purpose | Key location |
-|---|---|---|
-| Firebase Auth + Firestore | Auth and database | `.env` |
-| Open Food Facts | Product name + category from barcode (free, no key needed) | None |
-| Google Vision API | Label detection for non-barcoded items | `.env` |
-| OpenAI GPT-4o | Expiration date prediction | Firebase Cloud Functions env only — never in client |
-| Google Calendar | Calendar sync (Phase 2) | Firebase Cloud Functions env only |
+
+| API                       | Purpose                                                    | Key location                                        |
+| ------------------------- | ---------------------------------------------------------- | --------------------------------------------------- |
+| Firebase Auth + Firestore | Auth and database                                          | `.env`                                              |
+| Open Food Facts           | Product name + category from barcode (free, no key needed) | None                                                |
+| Google Vision API         | Label detection for non-barcoded items                     | `.env`                                              |
+| OpenAI GPT-4o             | Expiration date prediction                                 | Firebase Cloud Functions env only — never in client |
+| Google Calendar           | Calendar sync (Phase 2)                                    | Firebase Cloud Functions env only                   |
+
 
 > **Important:** OpenAI and Google Calendar secrets must only be set in Firebase Cloud Functions environment variables (`firebase functions:config:set ...`). Never put them in `.env` — they would be exposed in the app bundle.
 
@@ -190,17 +270,18 @@ See [WORKTREES.md](./WORKTREES.md) for the full guide including how to run Claud
 
 ## Current Status
 
-- [x] Expo + TypeScript scaffold
-- [x] Firebase config and Firestore typed collection refs
-- [x] Auth screens (login, signup, join/create house)
-- [x] Tab navigation with auth gate
-- [x] Zustand stores (auth, house)
-- [x] All TypeScript types defined
-- [ ] Chores feature (`feature/chores` branch)
-- [ ] Calendar feature (`feature/calendar` branch)
-- [ ] Pantry feature (`feature/pantry` branch)
-- [ ] Shopping list feature (`feature/shopping` branch)
-- [ ] Home dashboard (`feature/home` branch)
-- [ ] Firebase Cloud Functions (weekly chore reset, expiration alerts)
-- [ ] Push notifications
-- [ ] Google Calendar sync (Phase 2)
+- Expo + TypeScript scaffold
+- Firebase config and Firestore typed collection refs
+- Auth screens (login, signup, join/create house)
+- Tab navigation with auth gate
+- Zustand stores (auth, house)
+- All TypeScript types defined
+- Chores feature (`feature/chores` branch)
+- Calendar feature (`feature/calendar` branch)
+- Pantry feature (`feature/pantry` branch)
+- Shopping list feature (`feature/shopping` branch)
+- Home dashboard (`feature/home` branch)
+- Firebase Cloud Functions (weekly chore reset, expiration alerts)
+- Push notifications
+- Google Calendar sync (Phase 2)
+

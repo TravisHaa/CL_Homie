@@ -43,38 +43,50 @@ export function useShoppingList() {
   }, [houseId, queryClient]);
 
   const addShoppingItem = async (input: AddItemInput) => {
-    if (!houseId || !userProfile) return;
-    await addDoc(shoppingCol(houseId), {
-      name: input.name,
-      category: input.category,
-      quantity: input.quantity,
-      unit: input.unit,
-      isChecked: false,
-      addedBy: userProfile.id,
-      checkedBy: null,
-      checkedAt: null,
-      createdAt: serverTimestamp(),
-    } as any);
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    try {
+      await addDoc(shoppingCol(houseId), {
+        name: input.name,
+        category: input.category,
+        quantity: input.quantity,
+        unit: input.unit,
+        isChecked: false,
+        addedBy: userProfile.id,
+        checkedBy: null,
+        checkedAt: null,
+        createdAt: serverTimestamp(),
+      } as any);
+    } catch (err) {
+      throw err;
+    }
   };
 
   const toggleShoppingItem = async (itemId: string, currentValue: boolean) => {
-    if (!houseId || !userProfile) return;
-    await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), {
-      isChecked: !currentValue,
-      checkedBy: !currentValue ? userProfile.id : null,
-      checkedAt: !currentValue ? serverTimestamp() : null,
-    });
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    try {
+      await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), {
+        isChecked: !currentValue,
+        checkedBy: !currentValue ? userProfile.id : null,
+        checkedAt: !currentValue ? serverTimestamp() : null,
+      });
+    } catch (err) {
+      throw err;
+    }
   };
 
   const clearChecked = async () => {
-    if (!houseId) return;
+    if (!houseId) throw new Error('No house connected. Join a house first.');
     const checkedItems = items.filter((i) => i.isChecked);
     if (checkedItems.length === 0) return;
     const batch = writeBatch(db);
     for (const item of checkedItems) {
       batch.delete(doc(db, 'houses', houseId, 'shoppingItems', item.id));
     }
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (err) {
+      throw err;
+    }
   };
 
   return { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked };

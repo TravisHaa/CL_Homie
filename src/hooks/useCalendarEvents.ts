@@ -38,19 +38,23 @@ export function useCalendarEvents() {
   }, [houseId, queryClient]);
 
   const addEvent = async (input: NewEventInput) => {
-    if (!houseId || !userProfile) return;
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
 
-    await addDoc(eventsCol(houseId), {
-      id: '',
-      title: input.title,
-      description: input.description,
-      startTime: Timestamp.fromDate(input.startTime),
-      endTime: Timestamp.fromDate(input.endTime),
-      color: userProfile.color,
-      googleEventId: null,
-      createdBy: userProfile.id,
-      createdAt: serverTimestamp(),
-    } as any);
+    try {
+      await addDoc(eventsCol(houseId), {
+        id: '',
+        title: input.title,
+        description: input.description,
+        startTime: Timestamp.fromDate(input.startTime),
+        endTime: Timestamp.fromDate(input.endTime),
+        color: userProfile.color,
+        googleEventId: null,
+        createdBy: userProfile.id,
+        createdAt: serverTimestamp(),
+      } as any);
+    } catch (err) {
+      throw err;
+    }
   };
 
   return { events, isLoading, addEvent };

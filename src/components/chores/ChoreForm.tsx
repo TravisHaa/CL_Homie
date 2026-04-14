@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Alert, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   BottomSheetModal,
   BottomSheetView,
@@ -45,7 +45,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showDayPicker = recurrence === 'weekly' || recurrence === 'biweekly';
 
     const handleSubmit = async () => {
-      if (!title.trim() || !assignedTo) return;
+      if (!title.trim()) return;
+      if (!assignedTo) {
+        Alert.alert('No members', 'Join a house before adding chores.');
+        return;
+      }
       setSubmitting(true);
       try {
         await onSubmit({
@@ -58,6 +62,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         setRecurrence('weekly');
         setDayOfWeek(1);
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+      } catch (err: any) {
+        Alert.alert('Could not add chore', err.message ?? 'Unknown error');
       } finally {
         setSubmitting(false);
       }

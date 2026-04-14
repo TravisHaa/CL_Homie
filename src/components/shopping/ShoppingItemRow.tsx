@@ -12,7 +12,7 @@ interface MemberInfo {
 interface Props {
   item: ShoppingItem;
   memberMap: Record<string, MemberInfo>;
-  onToggle: (itemId: string, currentValue: boolean) => void;
+  onToggle: (itemId: string, currentValue: boolean) => Promise<void>;
 }
 
 export function ShoppingItemRow({ item, memberMap, onToggle }: Props) {
@@ -22,7 +22,7 @@ export function ShoppingItemRow({ item, memberMap, onToggle }: Props) {
   return (
     <TouchableOpacity
       style={[styles.card, item.isChecked && styles.cardChecked]}
-      onPress={() => onToggle(item.id, item.isChecked)}
+      onPress={() => onToggle(item.id, item.isChecked).catch((err: any) => console.error('Toggle failed:', err))}
       activeOpacity={0.7}
     >
       <View style={styles.checkbox}>

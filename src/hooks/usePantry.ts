@@ -46,29 +46,37 @@ export function usePantry() {
   const expiringItems = items.filter((item) => daysUntilExpiry(item) <= 3);
 
   async function addPantryItem(input: AddPantryItemInput) {
-    if (!houseId || !userProfile) return;
-    await addDoc(pantryCol(houseId), {
-      id: '',
-      name: input.name,
-      quantity: input.quantity,
-      unit: input.unit,
-      category: input.category,
-      isShared: input.isShared,
-      expirationDate: input.expirationDate
-        ? Timestamp.fromDate(input.expirationDate)
-        : null,
-      expirationConfidence: 'manual' as const,
-      ownedBy: userProfile.id,
-      addedBy: userProfile.id,
-      barcode: null,
-      imageUrl: null,
-      createdAt: Timestamp.now(),
-    } as PantryItem);
+    if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    try {
+      await addDoc(pantryCol(houseId), {
+        id: '',
+        name: input.name,
+        quantity: input.quantity,
+        unit: input.unit,
+        category: input.category,
+        isShared: input.isShared,
+        expirationDate: input.expirationDate
+          ? Timestamp.fromDate(input.expirationDate)
+          : null,
+        expirationConfidence: 'manual' as const,
+        ownedBy: userProfile.id,
+        addedBy: userProfile.id,
+        barcode: null,
+        imageUrl: null,
+        createdAt: Timestamp.now(),
+      } as PantryItem);
+    } catch (e) {
+      throw e;
+    }
   }
 
   async function deletePantryItem(itemId: string) {
-    if (!houseId) return;
-    await deleteDoc(doc(db, 'houses', houseId, 'pantryItems', itemId));
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    try {
+      await deleteDoc(doc(db, 'houses', houseId, 'pantryItems', itemId));
+    } catch (e) {
+      throw e;
+    }
   }
 
   return { items, expiringItems, isLoading, addPantryItem, deletePantryItem };

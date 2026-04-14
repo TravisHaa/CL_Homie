@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import BottomSheet, {
   BottomSheetModal,
@@ -70,8 +71,8 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
       await onSubmit({ title: title.trim(), description: description.trim(), startTime, endTime });
       reset();
       (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-    } catch {
-      setError('Failed to save event. Please try again.');
+    } catch (err: any) {
+      Alert.alert('Could not add event', err?.message ?? 'Unknown error');
     } finally {
       setSubmitting(false);
     }

@@ -5,20 +5,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   collection,
   query,
   where,
   getDocs,
-  addDoc,
-  updateDoc,
+  doc,
   serverTimestamp,
   arrayUnion,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/src/firebase/config';
 import { userDoc } from '@/src/firebase/firestore';
@@ -35,50 +34,140 @@ const createSchema = z.object({
 
 export default function JoinHouseScreen() {
   const [mode, setMode] = useState<'join' | 'create'>('join');
-  const { firebaseUser } = useAuthStore();
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [houseNameInput, setHouseNameInput] = useState('');
+  const [joinValidationError, setJoinValidationError] = useState<string | null>(null);
+  const [createValidationError, setCreateValidationError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const { firebaseUser, userProfile } = useAuthStore();
+  const displayNameForHouse =
+    userProfile?.displayName ??
+    firebaseUser?.displayName ??
+    firebaseUser?.email?.split('@')[0] ??
+    'User';
 
-  const joinForm = useForm<{ inviteCode: string }>({
-    resolver: zodResolver(joinSchema),
-  });
-
-  const createForm = useForm<{ houseName: string }>({
-    resolver: zodResolver(createSchema),
-  });
+  // Surface backend failures inline on web where Alert is not visible.
+  function showError(
+    setError: (msg: string | null) => void,
+    error: unknown,
+    fallbackMessage: string
+  ) {
+    const err = error as { code?: string; message?: string };
+    let message = err?.message ?? fallbackMessage;
+    if (err?.code === 'permission-denied') {
+      message =
+        'Permission denied in Firestore rules. Allow signed-in users to create houses and update their own user profile.';
+    }
+    console.error('[JoinHouse]', err?.code ?? 'unknown-error', message);
+    setError(message);
+    if (Platform.OS !== 'web') {
+      Alert.alert('Error', message);
+    }
+  }
 
   async function handleJoin({ inviteCode }: { inviteCode: string }) {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      setJoinError('You must be logged in to join a house.');
+      return;
+    }
+    setJoinError(null);
     try {
+      // Debug trace: confirms submit handler is running on the current bundle.
+      console.log('[JoinHouse] join submit', inviteCode.toUpperCase());
       const q = query(
         collection(db, 'houses'),
         where('inviteCode', '==', inviteCode.toUpperCase())
       );
       const snap = await getDocs(q);
       if (snap.empty) {
-        Alert.alert('Not found', 'No house found with that invite code.');
+        const message = 'No house found with that invite code.';
+        setJoinError(message);
+        if (Platform.OS !== 'web') {
+          Alert.alert('Not found', message);
+        }
         return;
       }
       const houseRef = snap.docs[0].ref;
-      await updateDoc(houseRef, { memberIds: arrayUnion(firebaseUser.uid) });
-      await updateDoc(userDoc(firebaseUser.uid), { houseId: houseRef.id });
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+      // Keep house membership + user profile update in one commit.
+      const batch = writeBatch(db);
+      // Keep a denormalized member name map for quick household rendering.
+      batch.update(houseRef, {
+        memberIds: arrayUnion(firebaseUser.uid),
+        [`memberNames.${firebaseUser.uid}`]: displayNameForHouse,
+      });
+      batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
+      await batch.commit();
+      console.log('[JoinHouse] join success', houseRef.id);
+    } catch (err) {
+      showError(setJoinError, err, 'Could not join the house. Please try again.');
     }
   }
 
   async function handleCreate({ houseName }: { houseName: string }) {
-    if (!firebaseUser) return;
+    if (!firebaseUser) {
+      setCreateError('You must be logged in to create a house.');
+      return;
+    }
+    setCreateError(null);
     try {
+      // Debug trace: confirms create branch and payload are executing.
+      console.log('[JoinHouse] create submit', houseName);
       const inviteCode = nanoid(6).toUpperCase();
-      const houseRef = await addDoc(collection(db, 'houses'), {
+      const houseRef = doc(collection(db, 'houses'));
+
+      // Keep house creation + profile houseId update in one commit.
+      const batch = writeBatch(db);
+      batch.set(houseRef, {
         name: houseName,
         inviteCode,
         memberIds: [firebaseUser.uid],
+        // Store a lightweight name map on house for quick lookups.
+        memberNames: {
+          [firebaseUser.uid]: displayNameForHouse,
+        },
         createdBy: firebaseUser.uid,
         createdAt: serverTimestamp(),
       });
-      await updateDoc(userDoc(firebaseUser.uid), { houseId: houseRef.id });
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+      batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
+      await batch.commit();
+      console.log('[JoinHouse] create success', houseRef.id, inviteCode);
+    } catch (err) {
+      showError(setCreateError, err, 'Could not create the house. Please try again.');
+    }
+  }
+
+  async function submitJoin() {
+    setJoinValidationError(null);
+    setJoinError(null);
+    const parsed = joinSchema.safeParse({ inviteCode: inviteCodeInput });
+    if (!parsed.success) {
+      setJoinValidationError(parsed.error.issues[0]?.message ?? 'Invalid invite code.');
+      return;
+    }
+    setIsJoining(true);
+    try {
+      await handleJoin({ inviteCode: parsed.data.inviteCode });
+    } finally {
+      setIsJoining(false);
+    }
+  }
+
+  async function submitCreate() {
+    setCreateValidationError(null);
+    setCreateError(null);
+    const parsed = createSchema.safeParse({ houseName: houseNameInput });
+    if (!parsed.success) {
+      setCreateValidationError(parsed.error.issues[0]?.message ?? 'Invalid house name.');
+      return;
+    }
+    setIsCreating(true);
+    try {
+      await handleCreate({ houseName: parsed.data.houseName });
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -104,59 +193,33 @@ export default function JoinHouseScreen() {
       {mode === 'join' ? (
         <View style={styles.form}>
           <Text style={styles.label}>Invite code</Text>
-          <Controller
-            control={joinForm.control}
-            name="inviteCode"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="ABC123"
-                autoCapitalize="characters"
-                maxLength={6}
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
+          <TextInput
+            style={styles.input}
+            placeholder="ABC123"
+            autoCapitalize="characters"
+            maxLength={6}
+            onChangeText={setInviteCodeInput}
+            value={inviteCodeInput}
           />
-          {joinForm.formState.errors.inviteCode && (
-            <Text style={styles.errorText}>{joinForm.formState.errors.inviteCode.message}</Text>
-          )}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={joinForm.handleSubmit(handleJoin)}
-            disabled={joinForm.formState.isSubmitting}
-          >
-            <Text style={styles.buttonText}>
-              {joinForm.formState.isSubmitting ? 'Joining...' : 'Join House'}
-            </Text>
+          {joinValidationError && <Text style={styles.errorText}>{joinValidationError}</Text>}
+          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+          <TouchableOpacity style={styles.button} onPress={submitJoin} disabled={isJoining}>
+            <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Join House'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.form}>
           <Text style={styles.label}>House name</Text>
-          <Controller
-            control={createForm.control}
-            name="houseName"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. The Dungeon, 204 Oak St"
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. The Dungeon, 204 Oak St"
+            onChangeText={setHouseNameInput}
+            value={houseNameInput}
           />
-          {createForm.formState.errors.houseName && (
-            <Text style={styles.errorText}>{createForm.formState.errors.houseName.message}</Text>
-          )}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={createForm.handleSubmit(handleCreate)}
-            disabled={createForm.formState.isSubmitting}
-          >
-            <Text style={styles.buttonText}>
-              {createForm.formState.isSubmitting ? 'Creating...' : 'Create House'}
-            </Text>
+          {createValidationError && <Text style={styles.errorText}>{createValidationError}</Text>}
+          {createError && <Text style={styles.errorText}>{createError}</Text>}
+          <TouchableOpacity style={styles.button} onPress={submitCreate} disabled={isCreating}>
+            <Text style={styles.buttonText}>{isCreating ? 'Creating...' : 'Create House'}</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -6,10 +6,12 @@ import {
 import {
   Alert,
   Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -38,6 +40,8 @@ const INITIAL_STATE = {
 export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
   ({ onAdd }, ref) => {
     const snapPoints = useMemo(() => ['70%', '92%'], []);
+    // BottomSheetTextInput relies on a native focus API that is missing on react-native-web.
+    const SheetInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
     const [form, setForm] = useState(INITIAL_STATE);
     const [submitting, setSubmitting] = useState(false);
 
@@ -86,8 +90,8 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
         });
         reset();
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
-      } catch (e) {
-        Alert.alert('Error', 'Could not add item. Please try again.');
+      } catch (e: any) {
+        Alert.alert('Error', e?.message ?? 'Could not add item. Please try again.');
       } finally {
         setSubmitting(false);
       }
@@ -111,7 +115,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
           >
             {/* Name */}
             <Text style={styles.label}>Name *</Text>
-            <BottomSheetTextInput
+            <SheetInput
               style={styles.input}
               placeholder="e.g. Almond Milk"
               placeholderTextColor="#b2bec3"
@@ -124,7 +128,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
             <View style={styles.row}>
               <View style={styles.halfLeft}>
                 <Text style={styles.label}>Quantity *</Text>
-                <BottomSheetTextInput
+                <SheetInput
                   style={styles.input}
                   placeholder="1"
                   placeholderTextColor="#b2bec3"
@@ -135,7 +139,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
               </View>
               <View style={styles.halfRight}>
                 <Text style={styles.label}>Unit</Text>
-                <BottomSheetTextInput
+                <SheetInput
                   style={styles.input}
                   placeholder="e.g. carton, oz"
                   placeholderTextColor="#b2bec3"
@@ -175,7 +179,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
 
             {/* Expiration Date */}
             <Text style={styles.label}>Expiration Date</Text>
-            <BottomSheetTextInput
+            <SheetInput
               style={styles.input}
               placeholder="YYYY-MM-DD (optional)"
               placeholderTextColor="#b2bec3"
