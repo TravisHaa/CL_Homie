@@ -214,7 +214,12 @@ export default function HomeScreen() {
 
         {/* ── Row 1: Chores + Events ───────────────────────────────────────── */}
         <View style={styles.row}>
-          <Pressable onPress={() => router.push('/(tabs)/chores')} style={{ flex: 1.1 }}>
+          <Pressable
+            onPress={() => router.push('/(tabs)/chores')}
+            style={{ flex: 1.1 }}
+            accessibilityLabel="Chores"
+            accessibilityHint="Tap to view and manage all chores"
+          >
             {/* Chores — purple strip, red margin line, ruled paper */}
             <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
               <Text style={styles.noteLabel}>THIS WEEK</Text>
