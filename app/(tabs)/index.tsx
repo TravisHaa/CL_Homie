@@ -1,14 +1,14 @@
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
-import { useRouter } from 'expo-router';
-import { useHouseStore } from '@/src/store/houseStore';
-import { useChores } from '@/src/hooks/useChores';
 import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { useHouseStore } from '@/src/store/houseStore';
 import { getWeekKey } from '@/src/utils/weekKey';
+import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
+import { useRouter } from 'expo-router';
+import { Timestamp } from 'firebase/firestore';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
@@ -214,40 +214,45 @@ export default function HomeScreen() {
 
         {/* ── Row 1: Chores + Events ───────────────────────────────────────── */}
         <View style={styles.row}>
-          {/* Chores — purple strip, red margin line, ruled paper */}
-          <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1.1 }}>
-            <Text style={styles.noteLabel}>THIS WEEK</Text>
-            <Text style={styles.noteTitle}>Chores</Text>
+          <Pressable onPress={() => router.push('/(tabs)/chores')} style={{ flex: 1.1 }}>
+            {/* Chores — purple strip, red margin line, ruled paper */}
+            <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
+              <Text style={styles.noteLabel}>THIS WEEK</Text>
+              <Text style={styles.noteTitle}>Chores</Text>
 
-            {choresLoading ? (
-              <Text style={styles.noteMeta}>Loading…</Text>
-            ) : chores.length === 0 ? (
-              <Text style={styles.noteMeta}>Nothing today ✓</Text>
-            ) : (
-              <>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${(doneCount / chores.length) * 100}%` as any },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressLabel}>{doneCount}/{chores.length} done</Text>
-                {chores.slice(0, 5).map((c) => {
-                  const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
-                  return (
-                    <View key={c.id} style={styles.choreRow}>
-                      <View style={[styles.choreDot, { backgroundColor: c.isCompleted ? C.progressBg : dotColor }]} />
-                      <Text numberOfLines={1} style={[styles.choreText, c.isCompleted && styles.choreTextDone]}>
-                        {c.title}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </>
-            )}
-          </Note>
+              {choresLoading ? (
+                <Text style={styles.noteMeta}>Loading…</Text>
+              ) : chores.length === 0 ? (
+                <Text style={styles.noteMeta}>Nothing today ✓</Text>
+              ) : (
+                <>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${(doneCount / chores.length) * 100}%` as any },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.progressLabel}>{doneCount}/{chores.length} done</Text>
+                  {chores.slice(0, 5).map((c) => {
+                    const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
+                    return (
+                      <View key={c.id} style={styles.choreRow}>
+                        <View style={[styles.choreDot, { backgroundColor: c.isCompleted ? C.progressBg : dotColor }]} />
+                        <Text numberOfLines={1} style={[styles.choreText, c.isCompleted && styles.choreTextDone]}>
+                          {c.title}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+              {!choresLoading && chores.length > 0 && (
+                <Text style={styles.tapHint}>tap to open →</Text>
+              )}
+            </Note>
+          </Pressable>
 
           {/* Events — yellow strip, slightly warmer paper */}
           <Note tilt="right" color={C.magnetYellow} bg={C.noteAlt} style={{ flex: 0.9 }}>
