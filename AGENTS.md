@@ -20,6 +20,8 @@ Rules for Claude Code (and any other AI agent) working in this repo.
 
 - **Always double-check `git status` before any commit.** Confirm only the intended files appear staged.
 
+- For throwaway CI or review checks, use a short-lived branch and a small scoped commit instead of pushing noise directly to `main`.
+
 - Delete unused or obsolete files when your changes make them irrelevant (refactors, feature removals, etc.), and revert files only when the change is yours or explicitly requested. If a git operation leaves you unsure about other agents' in-flight work, stop and coordinate instead of deleting.
 
 ---
