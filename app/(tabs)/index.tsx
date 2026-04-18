@@ -263,26 +263,28 @@ export default function HomeScreen() {
           </Pressable>
 
           {/* Events — yellow strip, slightly warmer paper */}
-          <Note tilt="right" color={C.magnetYellow} bg={C.noteAlt} style={{ flex: 0.9 }}>
-            <Text style={styles.noteLabel}>COMING UP</Text>
-            <Text style={styles.noteTitle}>Calendar</Text>
+          <Pressable onPress={() => router.push('/(tabs)/calendar')} style={{ flex: 0.9 }}>
+            <Note tilt="right" color={C.magnetYellow} bg={C.noteAlt} style={{ flex: 1 }}>
+              <Text style={styles.noteLabel}>COMING UP</Text>
+              <Text style={styles.noteTitle}>Calendar</Text>
 
-            {eventsLoading ? (
-              <Text style={styles.noteMeta}>Loading…</Text>
-            ) : events.length === 0 ? (
-              <Text style={styles.noteMeta}>All clear!</Text>
-            ) : (
-              events.map((e) => (
-                <View key={e.id} style={styles.eventRow}>
-                  <View style={[styles.eventDot, { backgroundColor: e.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-                    <Text style={styles.eventTime}>{formatEventTime(e.startTime)}</Text>
+              {eventsLoading ? (
+                <Text style={styles.noteMeta}>Loading…</Text>
+              ) : events.length === 0 ? (
+                <Text style={styles.noteMeta}>All clear!</Text>
+              ) : (
+                events.map((e) => (
+                  <View key={e.id} style={styles.eventRow}>
+                    <View style={[styles.eventDot, { backgroundColor: e.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+                      <Text style={styles.eventTime}>{formatEventTime(e.startTime)}</Text>
+                    </View>
                   </View>
-                </View>
-              ))
-            )}
-          </Note>
+                ))
+              )}
+            </Note>
+          </Pressable>
         </View>
 
         {/* ── Filler: scattered emoji magnets ─────────────────────────────
