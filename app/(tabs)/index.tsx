@@ -1,14 +1,16 @@
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
-import { useRouter } from 'expo-router';
-import { useHouseStore } from '@/src/store/houseStore';
-import { useChores } from '@/src/hooks/useChores';
 import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { useHouseStore } from '@/src/store/houseStore';
 import { getWeekKey } from '@/src/utils/weekKey';
+import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
+import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import { Timestamp } from 'firebase/firestore';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
@@ -149,6 +151,15 @@ export default function HomeScreen() {
   const router    = useRouter();
   const house     = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
+  const inviteCode = useHouseStore((s) => s.house?.inviteCode);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyInvite = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const { chores: allChores = [],   isLoading: choresLoading   } = useChores();
   const { events: allEvents = [],   isLoading: eventsLoading   } = useCalendarEvents();
@@ -188,9 +199,25 @@ export default function HomeScreen() {
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.fridgeHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.houseName}>{house?.name ?? 'Home'}</Text>
             <Text style={styles.houseDate}>{format(now, 'EEEE, MMMM d')}</Text>
+            {inviteCode && (
+              <View style={styles.inviteRow}>
+                <Text style={styles.inviteCodeText}>
+                  Code <Text style={styles.inviteCodeValue}>{inviteCode}</Text>
+                </Text>
+                <Pressable
+                  onPress={handleCopyInvite}
+                  hitSlop={8}
+                  style={({ pressed }) => pressed && { opacity: 0.6 }}
+                >
+                  <Text style={styles.inviteCopyAction}>
+                    {copied ? 'Copied!' : 'Copy'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
           <View style={styles.avatarRow}>
             {members.map((m) => (
@@ -217,62 +244,74 @@ export default function HomeScreen() {
 
         {/* ── Row 1: Chores + Events ───────────────────────────────────────── */}
         <View style={styles.row}>
-          {/* Chores — purple strip, red margin line, ruled paper */}
-          <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1.1 }}>
-            <Text style={styles.noteLabel}>THIS WEEK</Text>
-            <Text style={styles.noteTitle}>Chores</Text>
+          <Pressable
+            onPress={() => router.push('/(tabs)/chores')}
+            style={{ flex: 1.1 }}
+            accessibilityLabel="Chores"
+            accessibilityHint="Tap to view and manage all chores"
+          >
+            {/* Chores — purple strip, red margin line, ruled paper */}
+            <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
+              <Text style={styles.noteLabel}>THIS WEEK</Text>
+              <Text style={styles.noteTitle}>Chores</Text>
 
-            {choresLoading ? (
-              <Text style={styles.noteMeta}>Loading…</Text>
-            ) : chores.length === 0 ? (
-              <Text style={styles.noteMeta}>Nothing today ✓</Text>
-            ) : (
-              <>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${(doneCount / chores.length) * 100}%` as any },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressLabel}>{doneCount}/{chores.length} done</Text>
-                {chores.slice(0, 5).map((c) => {
-                  const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
-                  return (
-                    <View key={c.id} style={styles.choreRow}>
-                      <View style={[styles.choreDot, { backgroundColor: c.isCompleted ? C.progressBg : dotColor }]} />
-                      <Text numberOfLines={1} style={[styles.choreText, c.isCompleted && styles.choreTextDone]}>
-                        {c.title}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </>
-            )}
-          </Note>
+              {choresLoading ? (
+                <Text style={styles.noteMeta}>Loading…</Text>
+              ) : chores.length === 0 ? (
+                <Text style={styles.noteMeta}>Nothing today ✓</Text>
+              ) : (
+                <>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${(doneCount / chores.length) * 100}%` as any },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.progressLabel}>{doneCount}/{chores.length} done</Text>
+                  {chores.slice(0, 5).map((c) => {
+                    const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
+                    return (
+                      <View key={c.id} style={styles.choreRow}>
+                        <View style={[styles.choreDot, { backgroundColor: c.isCompleted ? C.progressBg : dotColor }]} />
+                        <Text numberOfLines={1} style={[styles.choreText, c.isCompleted && styles.choreTextDone]}>
+                          {c.title}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+              {!choresLoading && chores.length > 0 && (
+                <Text style={styles.tapHint}>tap to open →</Text>
+              )}
+            </Note>
+          </Pressable>
 
           {/* Events — yellow strip, slightly warmer paper */}
-          <Note tilt="right" color={C.magnetYellow} bg={C.noteAlt} style={{ flex: 0.9 }}>
-            <Text style={styles.noteLabel}>COMING UP</Text>
-            <Text style={styles.noteTitle}>Calendar</Text>
+          <Pressable onPress={() => router.push('/(tabs)/calendar')} style={{ flex: 0.9 }}>
+            <Note tilt="right" color={C.magnetYellow} bg={C.noteAlt} style={{ flex: 1 }}>
+              <Text style={styles.noteLabel}>COMING UP</Text>
+              <Text style={styles.noteTitle}>Calendar</Text>
 
-            {eventsLoading ? (
-              <Text style={styles.noteMeta}>Loading…</Text>
-            ) : events.length === 0 ? (
-              <Text style={styles.noteMeta}>All clear!</Text>
-            ) : (
-              events.map((e) => (
-                <View key={e.id} style={styles.eventRow}>
-                  <View style={[styles.eventDot, { backgroundColor: e.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
-                    <Text style={styles.eventTime}>{formatEventTime(e.startTime)}</Text>
+              {eventsLoading ? (
+                <Text style={styles.noteMeta}>Loading…</Text>
+              ) : events.length === 0 ? (
+                <Text style={styles.noteMeta}>All clear!</Text>
+              ) : (
+                events.map((e) => (
+                  <View key={e.id} style={styles.eventRow}>
+                    <View style={[styles.eventDot, { backgroundColor: e.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+                      <Text style={styles.eventTime}>{formatEventTime(e.startTime)}</Text>
+                    </View>
                   </View>
-                </View>
-              ))
-            )}
-          </Note>
+                ))
+              )}
+            </Note>
+          </Pressable>
         </View>
 
         {/* ── Filler: scattered emoji magnets ─────────────────────────────
@@ -614,4 +653,10 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     width: 44,
   },
+
+  // ── Invite code (in header) ──────────────────────────────────────────────────
+  inviteRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  inviteCodeText:   { fontSize: 12, color: C.noteMeta },
+  inviteCodeValue:  { fontWeight: '800', letterSpacing: 2, color: C.noteText },
+  inviteCopyAction: { fontSize: 12, fontWeight: '700', color: C.magnetCoral },
 });
