@@ -29,6 +29,30 @@ const S = {
 export default function SettingsScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
+  function handleLeaveHouse() {
+    // TODO(#4): wire real leave-house mutation here
+    console.log('[Settings] leave house – placeholder, no Firestore writes yet');
+  }
+
+  async function confirmLeaveHouse() {
+    if (Platform.OS === 'web') {
+      const confirmed = globalThis.confirm?.(
+        "Leave house?\n\nYou'll be removed from this house and will need an invite code to rejoin."
+      );
+      if (confirmed) handleLeaveHouse();
+    } else {
+      Alert.alert(
+        'Leave house?',
+        "You'll be removed from this house and will need an invite code to rejoin.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Leave house', style: 'destructive', onPress: handleLeaveHouse },
+        ]
+      );
+      
+    }
+  }
+
   const router = useRouter();
   const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
@@ -126,6 +150,32 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 ))}
+              </View>
+
+              <View style={styles.houseActionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch house"
+                  onPress={() => router.push('/(tabs)/house')}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>Switch house</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Leave house"
+                  onPress={confirmLeaveHouse}
+                  style={({ pressed }) => [
+                    styles.leaveButton,
+                    pressed && styles.leaveButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.leaveButtonText}>Leave house</Text>
+                </Pressable>
               </View>
             </View>
           ) : houseId && !house ? (
@@ -263,6 +313,33 @@ const styles = StyleSheet.create({
   colorDot: { width: 10, height: 10, borderRadius: 5 },
   memberName: { color: S.textStrong, fontWeight: '600' },
   houseLoading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  houseActionRow: { marginTop: 14, flexDirection: 'row', gap: 10 },
+  secondaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: S.cardBorder,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonPressed: { opacity: 0.75 },
+  secondaryButtonText: { color: S.textStrong, fontWeight: '700' },
+  leaveButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: S.dangerBorder,
+    backgroundColor: S.dangerBg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaveButtonPressed: { opacity: 0.75 },
+  leaveButtonText: { color: S.dangerText, fontWeight: '700' },
   ctaButton: {
     marginTop: 14,
     borderRadius: 12,
