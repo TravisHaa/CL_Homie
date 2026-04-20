@@ -1,0 +1,88 @@
+name: 'Gemini Code Review'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr_diff.txt
+
+      - name: Run Gemini Review
+        uses: actions/github-script@v7
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('/tmp/pr_diff.txt', 'utf8').slice(0, 30000);
+
+            if (!diff.trim()) {
+              core.info('No diff found, skipping review.');
+              return;
+            }
+
+            const prompt = [
+              'You are a senior software engineer doing a code review. Start with Hey @[Github user name]',
+              'Review this PR diff and respond in one of two ways:',
+              '',
+              '1. If you find bugs, logic errors, or security issues: list each one with a specific suggested fix. Be concise.',
+              '2. If there are no significant issues: just say "Looks good to me!" and a one-sentence summary of what the PR does.',
+              '',
+              'Do not comment on style, formatting, or minor nitpicks. Only flag things that could cause real problems. Make the text easily digestable and positive. Use emojis and formatting to make the text easily readable.',
+              '',
+              'PR Title: ' + process.env.PR_TITLE,
+              'PR Description: ' + (process.env.PR_BODY || '(none)'),
+              '',
+              'Diff:',
+              '```diff',
+              diff,
+              '```'
+            ].join('\n');
+
+            const res = await fetch(
+              'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: { temperature: 0.2 }
+                })
+              }
+            );
+
+            const data = await res.json();
+
+            if (!res.ok) {
+              core.setFailed('Gemini API error: ' + JSON.stringify(data));
+              return;
+            }
+
+            const review = data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text;
+            if (!review) {
+              core.setFailed('No review text returned from Gemini.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt(process.env.PR_NUMBER),
+              body: '## Gemini Code Review\n\n' + review
+            });
