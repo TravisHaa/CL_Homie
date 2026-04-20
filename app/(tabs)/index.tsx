@@ -6,7 +6,9 @@ import { useHouseStore } from '@/src/store/houseStore';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
 import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { Timestamp } from 'firebase/firestore';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -149,6 +151,15 @@ export default function HomeScreen() {
   const router    = useRouter();
   const house     = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
+  const inviteCode = useHouseStore((s) => s.house?.inviteCode);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyInvite = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const { chores: allChores = [],   isLoading: choresLoading   } = useChores();
   const { events: allEvents = [],   isLoading: eventsLoading   } = useCalendarEvents();
@@ -188,9 +199,25 @@ export default function HomeScreen() {
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.fridgeHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.houseName}>{house?.name ?? 'Home'}</Text>
             <Text style={styles.houseDate}>{format(now, 'EEEE, MMMM d')}</Text>
+            {inviteCode && (
+              <View style={styles.inviteRow}>
+                <Text style={styles.inviteCodeText}>
+                  Code <Text style={styles.inviteCodeValue}>{inviteCode}</Text>
+                </Text>
+                <Pressable
+                  onPress={handleCopyInvite}
+                  hitSlop={8}
+                  style={({ pressed }) => pressed && { opacity: 0.6 }}
+                >
+                  <Text style={styles.inviteCopyAction}>
+                    {copied ? 'Copied!' : 'Copy'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </View>
           <View style={styles.avatarRow}>
             {members.map((m) => (
@@ -626,4 +653,10 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     width: 44,
   },
+
+  // ── Invite code (in header) ──────────────────────────────────────────────────
+  inviteRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  inviteCodeText:   { fontSize: 12, color: C.noteMeta },
+  inviteCodeValue:  { fontWeight: '800', letterSpacing: 2, color: C.noteText },
+  inviteCopyAction: { fontSize: 12, fontWeight: '700', color: C.magnetCoral },
 });
