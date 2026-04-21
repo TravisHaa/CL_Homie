@@ -1,8 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, isToday, isTomorrow, startOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { EventCard } from '@/src/components/calendar/EventCard';
@@ -26,26 +26,96 @@ function getDateLabel(date: Date): string {
 export default function CalendarScreen() {
   const { events, isLoading, addEvent } = useCalendarEvents();
   const formRef = useRef<BottomSheetModal>(null);
+  const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
+
+  const monthEnd = endOfMonth(monthStart);
+  const monthLabel = format(monthStart, 'MMMM yyyy');
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+
+  const monthEvents = events.filter((e) => {
+    const d = e.startTime.toDate();
+    return d >= monthStart && d <= monthEnd;
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+
+        {/* ── Header ─────────────────────────────────────────────── */}
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Calendar</Text>
             <Text style={styles.subtitle}>{format(new Date(), 'MMMM yyyy')}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={() => formRef.current?.present()}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
 
+        {/* ── Weekly Grid ─────────────────────────────────────────── */}
+        <View style={styles.gridCard}>
+          {/* Week navigation row */}
+          <View style={styles.weekNav}>
+            <TouchableOpacity onPress={() => setMonthStart(d => addMonths(d, -1))} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={20} color={CAL.textStrong} />
+            </TouchableOpacity>
+            <Text style={styles.weekLabel}>{monthLabel}</Text>
+            <TouchableOpacity onPress={() => setMonthStart(d => addMonths(d, 1))} activeOpacity={0.7}>
+              <Ionicons name="chevron-forward" size={20} color={CAL.textStrong} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Day-of-week headers */}
+          <View style={styles.dowRow}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+              <Text key={i} style={styles.dowLabel}>{d}</Text>
+            ))}
+          </View>
+
+          {/* 6-row × 7-col monthly grid */}
+          {isLoading ? (
+            <ActivityIndicator style={styles.loader} color={CAL.addBtn} />
+          ) : (
+            Array.from({ length: 6 }).map((_, week) => (
+              <View key={week} style={styles.dayRow}>
+                {gridDays.slice(week * 7, week * 7 + 7).map((day) => {
+                  const dayKey = format(day, 'yyyy-MM-dd');
+                  const inMonth = day >= monthStart && day <= monthEnd;
+                  const today = isToday(day);
+                  const dayEvents = inMonth
+                    ? monthEvents.filter(e => format(e.startTime.toDate(), 'yyyy-MM-dd') === dayKey)
+                    : [];
+                  return (
+                    <View key={dayKey} style={styles.dayCell}>
+                      <View style={[styles.dayNumCircle, today && styles.dayNumCircleToday]}>
+                        <Text style={[styles.dayNum, !inMonth && styles.dayNumMuted, today && styles.dayNumToday]}>
+                          {format(day, 'd')}
+                        </Text>
+                      </View>
+                      <View style={styles.dotsRow}>
+                        {dayEvents.slice(0, 3).map(e => (
+                          <View key={e.id} style={[styles.dot, { backgroundColor: e.color }]} />
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* ── Add Event Button ─────────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => formRef.current?.present()}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text style={styles.addBtnText}>Add Event</Text>
+        </TouchableOpacity>
+
+        {/* ── All Events List ──────────────────────────────────────── */}
         {isLoading ? (
-          <ActivityIndicator style={styles.loader} color="#2D3436" />
+          <ActivityIndicator style={styles.listLoader} color="#2D3436" />
         ) : events.length === 0 ? (
           <Text style={styles.empty}>No upcoming events</Text>
         ) : (
@@ -70,11 +140,13 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: CAL.skyBg },
   container: { flex: 1, padding: 20 },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -84,15 +156,51 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 28, fontWeight: '800', color: CAL.textStrong },
   subtitle: { color: CAL.textSoft, marginTop: 4 },
-  addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: CAL.addBtn,
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  // Weekly grid card
+  gridCard: {
+    backgroundColor: CAL.plateBg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: CAL.plateBorder,
+    padding: 12,
+    marginBottom: 16,
   },
-  loader: { marginTop: 48 },
+  weekNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  weekLabel: { fontSize: 13, fontWeight: '700', color: CAL.textStrong },
+  dowRow: { flexDirection: 'row', marginBottom: 4 },
+  dowLabel: { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: '700', color: CAL.textSoft, letterSpacing: 0.5 },
+  dayRow: { flexDirection: 'row' },
+  dayCell: { flex: 1, alignItems: 'center', paddingVertical: 3 },
+  dayNumCircle: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  dayNumCircleToday: { backgroundColor: CAL.addBtn },
+  dayNum: { fontSize: 11, fontWeight: '600', color: CAL.textStrong },
+  dayNumMuted: { color: CAL.textSoft, opacity: 0.4 },
+  dayNumToday: { color: '#fff' },
+  dotsRow: { flexDirection: 'row', gap: 2, marginTop: 2, height: 6 },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+
+  // Add button
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: CAL.addBtn,
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  // All events list
+  loader: { marginTop: 24 },
+  listLoader: { marginTop: 48 },
   empty: { color: CAL.textSoft, marginTop: 48, textAlign: 'center' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   datePill: { width: 72, paddingTop: 14 },
