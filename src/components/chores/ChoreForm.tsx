@@ -214,7 +214,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       onChange={(event, selectedDate) => {
-                        setShowDatePicker(Platform.OS === 'ios');
+                        setShowDatePicker(false);
                         if (selectedDate) {
                           setDueDate(selectedDate);
                         }

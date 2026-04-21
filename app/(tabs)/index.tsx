@@ -171,7 +171,9 @@ export default function HomeScreen() {
   const now      = new Date();
 
   const chores = allChores.filter(
-    (c) => c.weekKey === weekKey && (c.dayOfWeek === todayDow || c.dayOfWeek === null),
+    (c) =>
+      (c.recurrence !== 'once' && c.dayOfWeek === todayDow) ||
+      (c.recurrence === 'once' && c.dueAt && isToday(c.dueAt.toDate())),
   );
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
