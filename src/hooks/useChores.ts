@@ -47,6 +47,9 @@ export function useChores() {
     }
   ) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    const choreWeekKey = input.recurrence === 'once' && input.dueAt
+      ? getWeekKey(input.dueAt.toDate())
+      : weekKey;
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
@@ -55,7 +58,7 @@ export function useChores() {
         isCompleted: false,
         completedAt: null,
         completedBy: null,
-        weekKey,
+        weekKey: choreWeekKey,
         createdBy: userProfile.id,
         createdAt: serverTimestamp(),
       });

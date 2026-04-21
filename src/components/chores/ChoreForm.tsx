@@ -7,6 +7,7 @@ import {
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { forwardRef, useCallback, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -157,10 +158,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                   <View style={styles.dateButton}>
                     <input
                       type="date"
-                      value={dueDate ? dueDate.toISOString().split('T')[0] : ''}
+                      value={dueDate ? format(dueDate, 'yyyy-MM-dd') : ''}
                       onChange={(e) => {
                         if (e.target.value) {
-                          setDueDate(new Date(e.target.value));
+                          const [year, month, day] = e.target.value.split('-').map(Number);
+                          setDueDate(new Date(year, month - 1, day));
                         } else {
                           setDueDate(null);
                         }
