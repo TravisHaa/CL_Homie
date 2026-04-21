@@ -53,6 +53,9 @@ export default function SettingsScreen() {
       });
       batch.update(userDoc(currentUid), { houseId: deleteField() });
       await batch.commit();
+      const profile = useAuthStore.getState().userProfile;
+      if (profile) useAuthStore.getState().setUserProfile({ ...profile, houseId: null });
+      useHouseStore.getState().setHouse(null);
     } catch (err) {
       const message = (err as { message?: string })?.message ?? 'Could not leave house. Please try again.';
       setLeaveError(message);
