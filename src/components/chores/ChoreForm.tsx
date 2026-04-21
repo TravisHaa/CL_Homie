@@ -18,10 +18,10 @@ interface ChoreFormProps {
 }
 
 const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
+  { label: 'Once', value: 'once' },
   { label: 'Weekly', value: 'weekly' },
   { label: 'Biweekly', value: 'biweekly' },
   { label: 'Monthly', value: 'monthly' },
-  { label: 'Once', value: 'once' },
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -165,7 +165,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                           setDueDate(null);
                         }
                       }}
-                      min={new Date().toISOString().split('T')[0]}
                       style={{
                         width: '100%',
                         border: 'none',
@@ -218,7 +217,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                           setDueDate(selectedDate);
                         }
                       }}
-                      minimumDate={new Date()}
                     />
                   )}
                 </>
