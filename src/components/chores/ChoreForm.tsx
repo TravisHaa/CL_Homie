@@ -33,7 +33,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
-    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('weekly');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [dayOfWeek, setDayOfWeek] = useState(1);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -67,7 +67,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           dueAt: dueDate ? Timestamp.fromDate(dueDate) : null,
         });
         setTitle('');
-        setRecurrence('weekly');
+        setRecurrence('once');
         setDayOfWeek(1);
         setDueDate(null);
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
