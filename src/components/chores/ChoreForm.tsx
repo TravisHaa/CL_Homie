@@ -9,7 +9,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { forwardRef, useCallback, useMemo, useState } from 'react';
+import React, { forwardRef, useCallback, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface ChoreFormProps {
@@ -39,6 +39,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    
+    const webDateInputRef = React.useRef<HTMLInputElement>(null);
 
     const snapPoints = useMemo(() => ['60%', '85%'], []);
 
@@ -156,7 +158,20 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                 // WEB: Direct HTML input styled to match design
                 <View style={styles.datePickerContainer}>
                   <View style={styles.dateButton}>
+                    <div
+                      onClick={() => webDateInputRef.current?.showPicker?.()}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        cursor: 'pointer',
+                        zIndex: 1,
+                      }}
+                    />
                     <input
+                      ref={webDateInputRef}
                       type="date"
                       value={dueDate ? format(dueDate, 'yyyy-MM-dd') : ''}
                       onChange={(e) => {
@@ -167,6 +182,14 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                           setDueDate(null);
                         }
                       }}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          webDateInputRef.current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                          });
+                        }, 100);
+                      }}
                       style={{
                         width: '100%',
                         border: 'none',
@@ -175,6 +198,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                         color: '#2D3436',
                         outline: 'none',
                         padding: 0,
+                        position: 'relative',
+                        zIndex: 0,
                       }}
                     />
                   </View>
