@@ -281,6 +281,9 @@ export default function HomeScreen() {
                       </View>
                     );
                   })}
+                  {chores.length > 5 && (
+                    <Text style={styles.noteMeta}>+{chores.length - 5} more</Text>
+                  )}
                 </>
               )}
               {!choresLoading && chores.length > 0 && (
