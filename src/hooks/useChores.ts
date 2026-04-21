@@ -1,12 +1,12 @@
-import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { addDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
-import { choresCol } from '@/src/firebase/firestore';
 import { db } from '@/src/firebase/config';
-import { useHouseStore } from '@/src/store/houseStore';
+import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
-import { getWeekKey } from '@/src/utils/weekKey';
+import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
+import { getWeekKey } from '@/src/utils/weekKey';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { addDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { useEffect } from 'react';
 
 export function useChores() {
   const queryClient = useQueryClient();
@@ -42,13 +42,16 @@ export function useChores() {
   }, [houseId, weekKey, queryClient]);
 
   const addChore = async (
-    input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'>
+    input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'> & {
+      dueAt?: Timestamp | null;
+    }
   ) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
         ...input,
+        dueAt: input.dueAt ?? null,
         isCompleted: false,
         completedAt: null,
         completedBy: null,

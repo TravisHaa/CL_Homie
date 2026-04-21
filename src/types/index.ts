@@ -28,6 +28,7 @@ export interface Chore {
   assignedTo: string; // userId
   recurrence: ChoreRecurrence;
   dayOfWeek: number | null; // 0–6, used for weekly/biweekly
+  dueAt: Timestamp | null; // for one-time chores
   isCompleted: boolean;
   completedAt: Timestamp | null;
   completedBy: string | null; // userId
