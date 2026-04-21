@@ -5,8 +5,8 @@ import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
-import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -171,7 +171,7 @@ export default function HomeScreen() {
   const now      = new Date();
 
   const chores = allChores.filter(
-    (c) => c.weekKey === weekKey && c.dayOfWeek === todayDow,
+    (c) => c.weekKey === weekKey && (c.dayOfWeek === todayDow || c.dayOfWeek === null),
   );
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
