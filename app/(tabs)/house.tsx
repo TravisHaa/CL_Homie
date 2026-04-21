@@ -43,7 +43,7 @@ export default function HouseScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Join a different house"
-            onPress={() => router.push('/(auth)/join-house')}
+            onPress={() => router.push('/(auth)/join-house?mode=join')}
             style={({ pressed }) => [styles.optionButton, pressed && styles.optionButtonPressed]}
           >
             <Text style={styles.optionButtonText}>Go</Text>
@@ -61,7 +61,7 @@ export default function HouseScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Create a new house"
-            onPress={() => router.push('/(auth)/join-house')}
+            onPress={() => router.push('/(auth)/join-house?mode=create')}
             style={({ pressed }) => [styles.optionButton, pressed && styles.optionButtonPressed]}
           >
             <Text style={styles.optionButtonText}>Go</Text>

@@ -11,7 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { arrayRemove, deleteField, writeBatch } from 'firebase/firestore';
+
+import { db } from '@/src/firebase/config';
 import { signOut } from '@/src/firebase/auth';
+import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -28,10 +32,36 @@ const S = {
 
 export default function SettingsScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isLeavingHouse, setIsLeavingHouse] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  function handleLeaveHouse() {
-    // TODO(#4): wire real leave-house mutation here
-    console.log('[Settings] leave house – placeholder, no Firestore writes yet');
+  const router = useRouter();
+  const house = useHouseStore((s) => s.house);
+  const memberMap = useHouseStore((s) => s.memberMap);
+  const houseId = useAuthStore((s) => s.userProfile?.houseId ?? null);
+  const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
+
+  async function handleLeaveHouse() {
+    if (!currentUid || !houseId) return;
+    setLeaveError(null);
+    setIsLeavingHouse(true);
+    try {
+      const batch = writeBatch(db);
+      batch.update(houseDoc(houseId), {
+        memberIds: arrayRemove(currentUid),
+        [`memberNames.${currentUid}`]: deleteField(),
+      });
+      batch.update(userDoc(currentUid), { houseId: deleteField() });
+      await batch.commit();
+    } catch (err) {
+      const message = (err as { message?: string })?.message ?? 'Could not leave house. Please try again.';
+      setLeaveError(message);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsLeavingHouse(false);
+    }
   }
 
   async function confirmLeaveHouse() {
@@ -39,7 +69,7 @@ export default function SettingsScreen() {
       const confirmed = globalThis.confirm?.(
         "Leave house?\n\nYou'll be removed from this house and will need an invite code to rejoin."
       );
-      if (confirmed) handleLeaveHouse();
+      if (confirmed) await handleLeaveHouse();
     } else {
       Alert.alert(
         'Leave house?',
@@ -49,15 +79,8 @@ export default function SettingsScreen() {
           { text: 'Leave house', style: 'destructive', onPress: handleLeaveHouse },
         ]
       );
-      
     }
   }
-
-  const router = useRouter();
-  const house = useHouseStore((s) => s.house);
-  const memberMap = useHouseStore((s) => s.memberMap);
-  const houseId = useAuthStore((s) => s.userProfile?.houseId ?? null);
-  const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
 
   // Prefer the live memberMap (has color + displayName). 
   const members = useMemo(() => {
@@ -169,14 +192,24 @@ export default function SettingsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Leave house"
                   onPress={confirmLeaveHouse}
+                  disabled={isLeavingHouse}
                   style={({ pressed }) => [
                     styles.leaveButton,
-                    pressed && styles.leaveButtonPressed,
+                    isLeavingHouse && styles.leaveButtonDisabled,
+                    pressed && !isLeavingHouse && styles.leaveButtonPressed,
                   ]}
                 >
-                  <Text style={styles.leaveButtonText}>Leave house</Text>
+                  {isLeavingHouse ? (
+                    <View style={styles.signOutButtonInner}>
+                      <ActivityIndicator />
+                      <Text style={styles.leaveButtonText}>Leaving…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.leaveButtonText}>Leave house</Text>
+                  )}
                 </Pressable>
               </View>
+              {leaveError && <Text style={styles.errorText}>{leaveError}</Text>}
             </View>
           ) : houseId && !house ? (
             <View style={[styles.card, styles.houseLoading]}>
@@ -353,4 +386,6 @@ const styles = StyleSheet.create({
   },
   ctaButtonPressed: { opacity: 0.85 },
   ctaButtonText: { color: '#FFFFFF', fontWeight: '800' },
+  leaveButtonDisabled: { opacity: 0.6 },
+  errorText: { color: S.dangerText, fontSize: 12, marginTop: 8 },
 });
