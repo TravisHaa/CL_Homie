@@ -4,7 +4,7 @@ import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
 import { getWeekKey } from '@/src/utils/weekKey';
-import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
+import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
@@ -173,7 +173,7 @@ export default function HomeScreen() {
   const chores = allChores.filter(
     (c) =>
       (c.recurrence !== 'once' && c.dayOfWeek === todayDow) ||
-      (c.recurrence === 'once' && c.dueAt && isToday(c.dueAt.toDate())),
+      (c.recurrence === 'once' && c.dueAt && (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))),
   );
   const doneCount = chores.filter((c) => c.isCompleted).length;
 

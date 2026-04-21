@@ -26,19 +26,41 @@ export function useChores() {
     if (!houseId) return;
 
     const col = choresCol(houseId);
-    const q = query(col, where('weekKey', '==', weekKey));
 
-    const unsub = onSnapshot(q, (snap) => {
-      const data: Chore[] = snap.docs.map((d) => d.data());
-      // Sort client-side to avoid composite index errors
-      data.sort((a, b) => {
+    // Query 1: current week's chores (recurring + once due this week)
+    const q1 = query(col, where('weekKey', '==', weekKey));
+    // Query 2: incomplete one-time chores from any week (catches overdue)
+    const q2 = query(col, where('recurrence', '==', 'once'), where('isCompleted', '==', false));
+
+    let weekData: Chore[] = [];
+    let onceData: Chore[] = [];
+
+    const merge = () => {
+      const map = new Map<string, Chore>();
+      weekData.forEach((c) => map.set(c.id, c));
+      onceData.forEach((c) => map.set(c.id, c));
+      const merged = Array.from(map.values());
+      merged.sort((a, b) => {
         if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
         return a.title.localeCompare(b.title);
       });
-      queryClient.setQueryData(['chores', houseId, weekKey], data);
+      queryClient.setQueryData(['chores', houseId, weekKey], merged);
+    };
+
+    const unsub1 = onSnapshot(q1, (snap) => {
+      weekData = snap.docs.map((d) => d.data());
+      merge();
     });
 
-    return unsub;
+    const unsub2 = onSnapshot(q2, (snap) => {
+      onceData = snap.docs.map((d) => d.data());
+      merge();
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [houseId, weekKey, queryClient]);
 
   const addChore = async (
