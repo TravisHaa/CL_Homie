@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { z } from 'zod';
 import {
   collection,
@@ -33,7 +34,8 @@ const createSchema = z.object({
 });
 
 export default function JoinHouseScreen() {
-  const [mode, setMode] = useState<'join' | 'create'>('join');
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<'join' | 'create'>(modeParam === 'create' ? 'create' : 'join');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [houseNameInput, setHouseNameInput] = useState('');
   const [joinValidationError, setJoinValidationError] = useState<string | null>(null);

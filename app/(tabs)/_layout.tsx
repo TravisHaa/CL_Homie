@@ -15,7 +15,7 @@ const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName 
   { name: 'settings', title: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },
 ];
 
-const HIDDEN = ['chores', 'calendar', 'two'];
+const HIDDEN = ['chores', 'calendar', 'two', 'house'];
 const TAB_THEME: Record<string, TabTheme> = {
   index: { headerBg: '#FFE3B8', headerTint: '#4A2C1A', tabActive: '#A7572D' },
   pantry: { headerBg: '#DDF4E7', headerTint: '#154D37', tabActive: '#1B8F63' },
