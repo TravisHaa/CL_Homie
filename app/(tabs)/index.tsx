@@ -1,21 +1,16 @@
-import { useCalendarEvents } from "@/src/hooks/useCalendarEvents";
-import { useChores } from "@/src/hooks/useChores";
-import { usePantry } from "@/src/hooks/usePantry";
-import { useShoppingList } from "@/src/hooks/useShoppingList";
-import { useHouseStore } from "@/src/store/houseStore";
-import { getWeekKey } from "@/src/utils/weekKey";
-import {
-  differenceInCalendarDays,
-  format,
-  isToday,
-  isTomorrow,
-} from "date-fns";
-import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
-import { Timestamp } from "firebase/firestore";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { useChores } from '@/src/hooks/useChores';
+import { usePantry } from '@/src/hooks/usePantry';
+import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { useHouseStore } from '@/src/store/houseStore';
+import { getWeekKey } from '@/src/utils/weekKey';
+import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
+import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
+import { Timestamp } from 'firebase/firestore';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
@@ -200,7 +195,9 @@ export default function HomeScreen() {
   const now = new Date();
 
   const chores = allChores.filter(
-    (c) => c.weekKey === weekKey && c.dayOfWeek === todayDow,
+    (c) =>
+      (c.recurrence !== 'once' && c.dayOfWeek === todayDow) ||
+      (c.recurrence === 'once' && c.dueAt && (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))),
   );
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
@@ -336,7 +333,9 @@ export default function HomeScreen() {
                       </View>
                     );
                   })}
-                  <Text style={styles.tapHint}>tap to open →</Text>
+                  {chores.length > 5 && (
+                    <Text style={styles.noteMeta}>+{chores.length - 5} more</Text>
+                  )}
                 </>
               )}
             </Note>

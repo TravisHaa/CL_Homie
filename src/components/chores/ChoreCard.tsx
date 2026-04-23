@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
+import { Ionicons } from '@expo/vector-icons';
+import { format, isPast, isToday } from 'date-fns';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface ChoreCardProps {
   chore: Chore;
@@ -11,6 +12,16 @@ interface ChoreCardProps {
 export function ChoreCard({ chore, onToggle }: ChoreCardProps) {
   const memberMap = useHouseStore((s) => s.memberMap);
   const assignee = memberMap[chore.assignedTo];
+
+  const dueDate = chore.dueAt ? chore.dueAt.toDate() : null;
+  const isOverdue = dueDate && !chore.isCompleted && isPast(dueDate) && !isToday(dueDate);
+  const isDueToday = dueDate && !chore.isCompleted && isToday(dueDate);
+
+  const formatDueDate = () => {
+    if (!dueDate) return null;
+    if (isToday(dueDate)) return 'Due: Today';
+    return `Due: ${format(dueDate, 'MMM d')}`;
+  };
 
   return (
     <View style={styles.card}>
@@ -30,9 +41,20 @@ export function ChoreCard({ chore, onToggle }: ChoreCardProps) {
         <Text style={[styles.title, chore.isCompleted && styles.titleCompleted]}>
           {chore.title}
         </Text>
-        {assignee && (
-          <Text style={styles.assignee}>{assignee.displayName}</Text>
-        )}
+        <View style={styles.metaRow}>
+          {assignee && (
+            <Text style={styles.assignee}>{assignee.displayName}</Text>
+          )}
+          {dueDate && !chore.isCompleted && (
+            <Text style={[
+              styles.dueDate,
+              isOverdue && styles.dueDateOverdue,
+              isDueToday && styles.dueDateToday,
+            ]}>
+              {formatDueDate()}
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -68,5 +90,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#636e72',
     marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  dueDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#636e72',
+  },
+  dueDateOverdue: {
+    color: '#E17055',
+  },
+  dueDateToday: {
+    color: '#F9A825',
   },
 });
