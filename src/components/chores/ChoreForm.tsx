@@ -1,23 +1,28 @@
-import { forwardRef, useCallback, useMemo, useState } from 'react';
-import { Alert, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import {
-  BottomSheetModal,
-  BottomSheetView,
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-} from '@gorhom/bottom-sheet';
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
+import {
+  BottomSheetBackdrop,
+  BottomSheetBackdropProps,
+  BottomSheetModal,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
+import React, { forwardRef, useCallback, useMemo, useState } from 'react';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface ChoreFormProps {
-  onSubmit: (input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'>) => Promise<void>;
+  onSubmit: (input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'> & {
+    dueAt?: Timestamp | null;
+  }) => Promise<void>;
 }
 
 const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
+  { label: 'Once', value: 'once' },
   { label: 'Weekly', value: 'weekly' },
   { label: 'Biweekly', value: 'biweekly' },
   { label: 'Monthly', value: 'monthly' },
-  { label: 'Once', value: 'once' },
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -29,9 +34,13 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
-    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('weekly');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [dayOfWeek, setDayOfWeek] = useState(1);
+    const [dueDate, setDueDate] = useState<Date | null>(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    
+    const webDateInputRef = React.useRef<HTMLInputElement>(null);
 
     const snapPoints = useMemo(() => ['60%', '85%'], []);
 
@@ -43,6 +52,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     );
 
     const showDayPicker = recurrence === 'weekly' || recurrence === 'biweekly';
+    const showDueDatePicker = recurrence === 'once';
 
     const handleSubmit = async () => {
       if (!title.trim()) return;
@@ -57,10 +67,12 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           assignedTo,
           recurrence,
           dayOfWeek: showDayPicker ? dayOfWeek : null,
+          dueAt: dueDate ? Timestamp.fromDate(dueDate) : null,
         });
         setTitle('');
-        setRecurrence('weekly');
+        setRecurrence('once');
         setDayOfWeek(1);
+        setDueDate(null);
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
         Alert.alert('Could not add chore', err.message ?? 'Unknown error');
@@ -135,6 +147,107 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                   </TouchableOpacity>
                 ))}
               </View>
+            </>
+          )}
+
+          {showDueDatePicker && (
+            <>
+              <Text style={styles.label}>Due Date (Optional)</Text>
+              
+              {Platform.OS === 'web' ? (
+                // WEB: Direct HTML input styled to match design
+                <View style={styles.datePickerContainer}>
+                  <View style={styles.dateButton}>
+                    <div
+                      onClick={() => webDateInputRef.current?.showPicker?.()}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        cursor: 'pointer',
+                        zIndex: 1,
+                      }}
+                    />
+                    <input
+                      ref={webDateInputRef}
+                      type="date"
+                      value={dueDate ? format(dueDate, 'yyyy-MM-dd') : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [year, month, day] = e.target.value.split('-').map(Number);
+                          setDueDate(new Date(year, month - 1, day));
+                        } else {
+                          setDueDate(null);
+                        }
+                      }}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          webDateInputRef.current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                          });
+                        }, 100);
+                      }}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        background: 'transparent',
+                        fontSize: 16,
+                        color: '#2D3436',
+                        outline: 'none',
+                        padding: 0,
+                        position: 'relative',
+                        zIndex: 0,
+                      }}
+                    />
+                  </View>
+                  {dueDate && (
+                    <TouchableOpacity
+                      style={styles.clearButton}
+                      onPress={() => setDueDate(null)}
+                    >
+                      <Text style={styles.clearButtonText}>Clear</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                // NATIVE: Button + Modal DateTimePicker
+                <>
+                  <View style={styles.datePickerContainer}>
+                    <TouchableOpacity
+                      style={styles.dateButton}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Text style={styles.dateButtonText}>
+                        {dueDate ? dueDate.toLocaleDateString() : 'Select date'}
+                      </Text>
+                    </TouchableOpacity>
+                    {dueDate && (
+                      <TouchableOpacity
+                        style={styles.clearButton}
+                        onPress={() => setDueDate(null)}
+                      >
+                        <Text style={styles.clearButtonText}>Clear</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={dueDate || new Date()}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) {
+                          setDueDate(selectedDate);
+                        }
+                      }}
+                    />
+                  )}
+                </>
+              )}
             </>
           )}
 
@@ -227,5 +340,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  datePickerContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  dateButton: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#DFE6E9',
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#2D3436',
+  },
+  clearButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#E17055',
+    backgroundColor: '#FFF0ED',
+  },
+  clearButtonText: {
+    fontSize: 14,
+    color: '#E17055',
+    fontWeight: '600',
   },
 });
