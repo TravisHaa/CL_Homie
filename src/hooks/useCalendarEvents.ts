@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { eventsCol } from '@/src/firebase/firestore';
+import { onSnapshot, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { eventsCol, eventDoc } from '@/src/firebase/firestore';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
+import {
+  getOrCreateHomieCalendar,
+  addEventToDeviceCalendar,
+} from '@/src/utils/calendarSync';
 import type { CalendarEvent } from '@/src/types';
 
 export interface NewEventInput {
@@ -11,6 +15,33 @@ export interface NewEventInput {
   description: string;
   startTime: Date;
   endTime: Date;
+  assignedTo: string[];
+}
+
+async function syncEventForCurrentUser(params: {
+  eventFirestoreId: string;
+  houseId: string;
+  userId: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+}): Promise<void> {
+  const calendarId = await getOrCreateHomieCalendar();
+  if (!calendarId) return;
+
+  const nativeId = await addEventToDeviceCalendar({
+    title: params.title,
+    description: params.description,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    calendarId,
+  });
+  if (!nativeId) return;
+
+  await updateDoc(eventDoc(params.houseId, params.eventFirestoreId), {
+    [`deviceCalendarIds.${params.userId}`]: nativeId,
+  });
 }
 
 export function useCalendarEvents() {
@@ -37,23 +68,60 @@ export function useCalendarEvents() {
     return unsub;
   }, [houseId, queryClient]);
 
+  // Reconciliation: sync any assigned events that haven't been written to the device calendar yet
+  useEffect(() => {
+    if (!events.length || !userProfile || !houseId) return;
+
+    const unsynced = events.filter(
+      (e) =>
+        e.assignedTo?.includes(userProfile.id) &&
+        !e.deviceCalendarIds?.[userProfile.id]
+    );
+    if (!unsynced.length) return;
+
+    (async () => {
+      for (const event of unsynced) {
+        await syncEventForCurrentUser({
+          eventFirestoreId: event.id,
+          houseId,
+          userId: userProfile.id,
+          title: event.title,
+          description: event.description,
+          startDate: event.startTime.toDate(),
+          endDate: event.endTime.toDate(),
+        });
+      }
+    })();
+  }, [events, userProfile?.id, houseId]);
+
   const addEvent = async (input: NewEventInput) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
 
-    try {
-      await addDoc(eventsCol(houseId), {
-        id: '',
+    const docRef = await addDoc(eventsCol(houseId), {
+      id: '',
+      title: input.title,
+      description: input.description,
+      startTime: Timestamp.fromDate(input.startTime),
+      endTime: Timestamp.fromDate(input.endTime),
+      color: userProfile.color,
+      googleEventId: null,
+      assignedTo: input.assignedTo,
+      deviceCalendarIds: {},
+      createdBy: userProfile.id,
+      createdAt: serverTimestamp(),
+    } as any);
+
+    // Immediately sync to device calendar if the current user is assigned
+    if (input.assignedTo.includes(userProfile.id)) {
+      await syncEventForCurrentUser({
+        eventFirestoreId: docRef.id,
+        houseId,
+        userId: userProfile.id,
         title: input.title,
         description: input.description,
-        startTime: Timestamp.fromDate(input.startTime),
-        endTime: Timestamp.fromDate(input.endTime),
-        color: userProfile.color,
-        googleEventId: null,
-        createdBy: userProfile.id,
-        createdAt: serverTimestamp(),
-      } as any);
-    } catch (err) {
-      throw err;
+        startDate: input.startTime,
+        endDate: input.endTime,
+      });
     }
   };
 

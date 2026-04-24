@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
 } from 'react-native';
 import BottomSheet, {
   BottomSheetModal,
@@ -15,6 +16,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { parse, isValid } from 'date-fns';
 import type { NewEventInput } from '@/src/hooks/useCalendarEvents';
+import { useHouseStore } from '@/src/store/houseStore';
 
 interface Props {
   onSubmit: (input: NewEventInput) => Promise<void>;
@@ -25,20 +27,30 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
   const [description, setDescription] = useState('');
   const [startTimeStr, setStartTimeStr] = useState('');
   const [endTimeStr, setEndTimeStr] = useState('');
+  const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const memberMap = useHouseStore((s) => s.memberMap);
 
   const reset = () => {
     setTitle('');
     setDescription('');
     setStartTimeStr('');
     setEndTimeStr('');
+    setAssignedTo([]);
     setError('');
   };
 
   const parseDateTime = (str: string): Date | null => {
     const d = parse(str.trim(), 'yyyy-MM-dd HH:mm', new Date());
     return isValid(d) ? d : null;
+  };
+
+  const toggleAssignee = (uid: string) => {
+    setAssignedTo((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+    );
   };
 
   const handleSubmit = async () => {
@@ -68,7 +80,13 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
 
     setSubmitting(true);
     try {
-      await onSubmit({ title: title.trim(), description: description.trim(), startTime, endTime });
+      await onSubmit({
+        title: title.trim(),
+        description: description.trim(),
+        startTime,
+        endTime,
+        assignedTo,
+      });
       reset();
       (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
     } catch (err: any) {
@@ -85,10 +103,12 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
     []
   );
 
+  const memberIds = Object.keys(memberMap);
+
   return (
     <BottomSheetModal
       ref={ref}
-      snapPoints={['70%']}
+      snapPoints={['75%']}
       backdropComponent={renderBackdrop}
       keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
@@ -114,6 +134,33 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
           multiline
           numberOfLines={2}
         />
+
+        {memberIds.length > 0 && (
+          <View style={styles.assigneeSection}>
+            <Text style={styles.label}>Assign To</Text>
+            <View style={styles.chipRow}>
+              {memberIds.map((uid) => {
+                const member = memberMap[uid];
+                const selected = assignedTo.includes(uid);
+                return (
+                  <TouchableOpacity
+                    key={uid}
+                    style={[
+                      styles.chip,
+                      selected && { backgroundColor: member.color, borderColor: member.color },
+                    ]}
+                    onPress={() => toggleAssignee(uid)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      {member.displayName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         <TextInput
           style={styles.input}
@@ -166,6 +213,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   multiline: { height: 64, textAlignVertical: 'top' },
+  assigneeSection: { marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: '600', color: '#636e72', marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#DFE6E9',
+    backgroundColor: '#fff',
+  },
+  chipText: { fontSize: 13, fontWeight: '500', color: '#636e72' },
+  chipTextSelected: { color: '#fff', fontWeight: '600' },
   error: { color: '#E17055', fontSize: 13, marginBottom: 10 },
   button: {
     backgroundColor: '#2D3436',
