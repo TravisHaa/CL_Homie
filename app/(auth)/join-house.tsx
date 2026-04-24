@@ -18,10 +18,12 @@ import {
   doc,
   serverTimestamp,
   arrayUnion,
+  arrayRemove,
+  deleteField,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/src/firebase/config';
-import { userDoc } from '@/src/firebase/firestore';
+import { userDoc, houseDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { nanoid } from '@/src/utils/nanoid';
 
@@ -95,6 +97,17 @@ export default function JoinHouseScreen() {
       const houseRef = snap.docs[0].ref;
       // Keep house membership + user profile update in one commit.
       const batch = writeBatch(db);
+
+      // If the user is already in a house, remove them from it first so we
+      // don't leave behind a ghost member on the old house doc.
+      const prevHouseId = userProfile?.houseId;
+      if (prevHouseId && prevHouseId !== houseRef.id) {
+        batch.update(houseDoc(prevHouseId), {
+          memberIds: arrayRemove(firebaseUser.uid),
+          [`memberNames.${firebaseUser.uid}`]: deleteField(),
+        });
+      }
+
       // Keep a denormalized member name map for quick household rendering.
       batch.update(houseRef, {
         memberIds: arrayUnion(firebaseUser.uid),
@@ -122,6 +135,16 @@ export default function JoinHouseScreen() {
 
       // Keep house creation + profile houseId update in one commit.
       const batch = writeBatch(db);
+
+      // Remove the user from their current house if they're switching.
+      const prevHouseId = userProfile?.houseId;
+      if (prevHouseId) {
+        batch.update(houseDoc(prevHouseId), {
+          memberIds: arrayRemove(firebaseUser.uid),
+          [`memberNames.${firebaseUser.uid}`]: deleteField(),
+        });
+      }
+
       batch.set(houseRef, {
         name: houseName,
         inviteCode,

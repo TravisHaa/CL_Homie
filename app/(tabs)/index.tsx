@@ -168,6 +168,14 @@ function EmojiMagnet({
   );
 }
 
+function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
+  return (
+    <View style={[styles.tapBadge, { borderColor: color + "66" }]}>
+      <Text style={[styles.tapBadgeText, { color }]}>{label} →</Text>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
@@ -282,13 +290,19 @@ export default function HomeScreen() {
           {/* Chores — purple strip, red margin line, ruled paper */}
           <Pressable
             onPress={() => router.push("/(tabs)/chores")}
-            style={{ flex: 1.1 }}
+            style={({ pressed }) => [
+              styles.notePressable,
+              { flex: 1.1 },
+              pressed && styles.notePressablePressed,
+            ]}
+            hitSlop={6}
             accessibilityLabel="Chores"
             accessibilityHint="Tap to view and manage all chores"
           >
             <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
               <Text style={styles.noteLabel}>THIS WEEK</Text>
               <Text style={styles.noteTitle}>Chores</Text>
+              <TapBadge color={C.magnetPurple} label="Tap for full list" />
 
               {choresLoading ? (
                 <Text style={styles.noteMeta}>Loading…</Text>
@@ -344,7 +358,14 @@ export default function HomeScreen() {
           {/* Events — yellow strip, slightly warmer paper */}
           <Pressable
             onPress={() => router.push("/(tabs)/calendar")}
-            style={{ flex: 0.9 }}
+            style={({ pressed }) => [
+              styles.notePressable,
+              { flex: 0.9 },
+              pressed && styles.notePressablePressed,
+            ]}
+            hitSlop={6}
+            accessibilityLabel="Calendar"
+            accessibilityHint="Tap to open the full calendar"
           >
             <Note
               tilt="right"
@@ -354,6 +375,7 @@ export default function HomeScreen() {
             >
               <Text style={styles.noteLabel}>COMING UP</Text>
               <Text style={styles.noteTitle}>Calendar</Text>
+              <TapBadge color={C.magnetYellow} label="Tap for agenda" />
 
               {eventsLoading ? (
                 <Text style={styles.noteMeta}>Loading…</Text>
@@ -445,7 +467,14 @@ export default function HomeScreen() {
         <View style={styles.row}>
           <Pressable
             onPress={() => router.push("/(tabs)/shopping")}
-            style={{ flex: 1 }}
+            style={({ pressed }) => [
+              styles.notePressable,
+              { flex: 1 },
+              pressed && styles.notePressablePressed,
+            ]}
+            hitSlop={6}
+            accessibilityLabel="Shopping list"
+            accessibilityHint="Tap to open and manage your shopping list"
           >
             <Note
               tilt="steep"
@@ -461,8 +490,9 @@ export default function HomeScreen() {
                     ? "All stocked up!"
                     : `${uncheckedCount} to grab`}
               </Text>
+              <TapBadge color={C.magnetMint} label="Tap to open" />
               {!shoppingLoading && uncheckedCount > 0 && (
-                <Text style={styles.tapHint}>tap to open →</Text>
+                <Text style={styles.tapHint}>add checkmarks and clear items fast</Text>
               )}
             </Note>
           </Pressable>
@@ -541,6 +571,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   noteWide: { marginBottom: 14 },
+  notePressable: {
+    // Keep card movement subtle so it feels tactile, not jumpy.
+    transform: [{ scale: 1 }],
+  },
+  notePressablePressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.93,
+  },
 
   // ── Note card ──────────────────────────────────────────────────────────────
   noteOuter: {
@@ -654,6 +692,22 @@ const styles = StyleSheet.create({
     color: C.magnetMint,
     marginTop: 6,
     fontWeight: "600",
+  },
+  tapBadge: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
+    backgroundColor: "rgba(255,255,255,0.55)",
+  },
+  tapBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
 
   // ── Chores ──────────────────────────────────────────────────────────────────
