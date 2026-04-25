@@ -11,11 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { arrayRemove, deleteField, writeBatch } from 'firebase/firestore';
-
-import { db } from '@/src/firebase/config';
 import { signOut } from '@/src/firebase/auth';
-import { houseDoc, userDoc } from '@/src/firebase/firestore';
+import { leaveHouse } from '@/src/firebase/house';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -46,13 +43,7 @@ export default function SettingsScreen() {
     setLeaveError(null);
     setIsLeavingHouse(true);
     try {
-      const batch = writeBatch(db);
-      batch.update(houseDoc(houseId), {
-        memberIds: arrayRemove(currentUid),
-        [`memberNames.${currentUid}`]: deleteField(),
-      });
-      batch.update(userDoc(currentUid), { houseId: deleteField() });
-      await batch.commit();
+      await leaveHouse({ uid: currentUid, houseId });
       const profile = useAuthStore.getState().userProfile;
       if (profile) useAuthStore.getState().setUserProfile({ ...profile, houseId: null });
       useHouseStore.getState().setHouse(null);
