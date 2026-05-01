@@ -1,18 +1,20 @@
-import { useRef } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChoreCard } from '@/src/components/chores/ChoreCard';
+import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
+import { ChoreForm } from '@/src/components/chores/ChoreForm';
+import { useChores } from '@/src/hooks/useChores';
+import type { Chore } from '@/src/types';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { useChores } from '@/src/hooks/useChores';
-import { ChoreCard } from '@/src/components/chores/ChoreCard';
-import { ChoreForm } from '@/src/components/chores/ChoreForm';
+import { useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CH = {
   peachBg: '#FFF0E2',
@@ -26,8 +28,15 @@ const CH = {
 };
 
 export default function ChoresScreen() {
-  const { chores, isLoading, addChore, toggleChore } = useChores();
+  const { chores, isLoading, addChore, toggleChore, updateChore, deleteChore } = useChores();
   const sheetRef = useRef<BottomSheetModal>(null);
+  const detailRef = useRef<BottomSheetModal>(null);
+  const [selectedChore, setSelectedChore] = useState<Chore | null>(null);
+
+  const openChoreDetail = (chore: Chore) => {
+    setSelectedChore(chore);
+    detailRef.current?.present();
+  };
 
   const done = chores.filter((c) => c.isCompleted).length;
   const total = chores.length;
@@ -64,7 +73,7 @@ export default function ChoresScreen() {
           data={chores}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ChoreCard chore={item} onToggle={toggleChore} />
+            <ChoreCard chore={item} onToggle={toggleChore} onPress={openChoreDetail} />
           )}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
@@ -74,6 +83,12 @@ export default function ChoresScreen() {
       )}
 
       <ChoreForm ref={sheetRef} onSubmit={addChore} />
+      <ChoreDetailSheet
+        ref={detailRef}
+        chore={selectedChore}
+        onUpdate={updateChore}
+        onDelete={deleteChore}
+      />
     </SafeAreaView>
   );
 }
