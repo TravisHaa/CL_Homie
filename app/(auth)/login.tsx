@@ -1,18 +1,20 @@
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
-import { Link } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
+import { PillInput } from '@/src/components/lofi/PillInput';
+import { PillButton } from '@/src/components/lofi/PillButton';
+import { LOFI } from '@/src/utils/lofiTheme';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -27,118 +29,109 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' },
+  });
 
   async function onSubmit({ email, password }: FormData) {
     setAuthError('');
     try {
-      console.log('[Login] attempting signIn for', email);
       await signIn(email, password);
-      console.log('[Login] signIn succeeded — waiting for AuthGate redirect');
     } catch (err: any) {
-      console.error('[Login] signIn error:', err.code, err.message);
       setAuthError(err.message ?? 'Login failed');
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.inner}>
-        <Text style={styles.logo}>Homie</Text>
-        <Text style={styles.tagline}>Your shared home, organized.</Text>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.body}>
+          <Text style={styles.title}>Sign into your account</Text>
 
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="Email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={onChange}
-              value={value}
+          <View style={styles.field}>
+            <Text style={styles.label}>Email</Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <PillInput
+                  placeholder="Write here"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  onChangeText={onChange}
+                  value={value}
+                  invalid={!!errors.email}
+                />
+              )}
             />
-          )}
-        />
-        {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+            <Text style={styles.helper}>
+              {errors.email?.message ?? 'Forgot email?'}
+            </Text>
+          </View>
 
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Password"
-              secureTextEntry
-              onChangeText={onChange}
-              value={value}
+          <View style={styles.field}>
+            <Text style={styles.label}>Password</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <PillInput
+                  placeholder="Write here"
+                  secureTextEntry
+                  onChangeText={onChange}
+                  value={value}
+                  invalid={!!errors.password}
+                />
+              )}
             />
-          )}
-        />
-        {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+            <Text style={styles.helper}>
+              {errors.password?.message ?? 'Forgot password?'}
+            </Text>
+          </View>
 
-        {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+          {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+        </View>
 
-        <TouchableOpacity
-          style={[styles.button, isSubmitting && styles.buttonDisabled]}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.buttonText}>{isSubmitting ? 'Signing in...' : 'Sign In'}</Text>
-        </TouchableOpacity>
-
-        <Link href="/(auth)/signup" style={styles.link}>
-          Don't have an account? Sign up
-        </Link>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={styles.footer}>
+          <PillButton
+            label="Continue"
+            onPress={handleSubmit(onSubmit)}
+            loading={isSubmitting}
+          />
+          <TouchableOpacity onPress={() => {}} style={styles.linkBtn}>
+            <Text style={styles.linkText}>Need an account? Tap "Get started"</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF5' },
-  inner: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
-  },
-  logo: {
-    fontSize: 48,
-    fontWeight: '800',
+  container: { flex: 1, backgroundColor: LOFI.bg },
+  flex: { flex: 1 },
+  body: { flex: 1, paddingHorizontal: 40, justifyContent: 'center', gap: 18 },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: LOFI.text,
     textAlign: 'center',
-    color: '#2D3436',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  tagline: {
-    fontSize: 16,
+  field: { gap: 8 },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LOFI.text,
     textAlign: 'center',
-    color: '#636e72',
-    marginBottom: 24,
   },
-  input: {
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  inputError: { borderColor: '#FF6B6B' },
-  errorText: { color: '#FF6B6B', fontSize: 12, marginTop: -6 },
-  authError: { color: '#FF6B6B', fontSize: 14, textAlign: 'center', marginTop: -4 },
-  button: {
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  link: { textAlign: 'center', color: '#636e72', marginTop: 8 },
+  helper: { fontSize: 12, color: LOFI.textMuted, marginLeft: 6 },
+  authError: { color: LOFI.error, fontSize: 13, textAlign: 'center' },
+  footer: { paddingHorizontal: 40, paddingBottom: 36, gap: 8, alignItems: 'center' },
+  linkBtn: { padding: 8 },
+  linkText: { fontSize: 12, color: LOFI.textMuted },
 });

@@ -62,7 +62,7 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!firebaseUser) {
-      if (!inAuthGroup) router.replace('/(auth)/login');
+      if (!inAuthGroup) router.replace('/(auth)' as any);
     } else if (!userProfile?.houseId) {
       if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
         router.replace('/(auth)/join-house');

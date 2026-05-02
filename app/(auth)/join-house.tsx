@@ -1,12 +1,12 @@
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { z } from 'zod';
@@ -26,6 +26,10 @@ import { db } from '@/src/firebase/config';
 import { userDoc, houseDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { nanoid } from '@/src/utils/nanoid';
+import { PillInput } from '@/src/components/lofi/PillInput';
+import { PillButton } from '@/src/components/lofi/PillButton';
+import { SegmentedToggle } from '@/src/components/lofi/SegmentedToggle';
+import { LOFI } from '@/src/utils/lofiTheme';
 
 const joinSchema = z.object({
   inviteCode: z.string().length(6, 'Invite code must be 6 characters').toUpperCase(),
@@ -33,258 +37,208 @@ const joinSchema = z.object({
 
 const createSchema = z.object({
   houseName: z.string().min(2, 'House name must be at least 2 characters'),
+  displayName: z.string().min(2, 'Name must be at least 2 characters'),
 });
+
+type Mode = 'join' | 'create';
 
 export default function JoinHouseScreen() {
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
-  const [mode, setMode] = useState<'join' | 'create'>(modeParam === 'create' ? 'create' : 'join');
+  const [mode, setMode] = useState<Mode>(modeParam === 'create' ? 'create' : 'join');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [houseNameInput, setHouseNameInput] = useState('');
-  const [joinValidationError, setJoinValidationError] = useState<string | null>(null);
-  const [createValidationError, setCreateValidationError] = useState<string | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [isJoining, setIsJoining] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const { firebaseUser, userProfile } = useAuthStore();
-  const displayNameForHouse =
+
+  const fallbackName =
     userProfile?.displayName ??
     firebaseUser?.displayName ??
     firebaseUser?.email?.split('@')[0] ??
     'User';
 
-  // Surface backend failures inline on web where Alert is not visible.
-  function showError(
-    setError: (msg: string | null) => void,
-    error: unknown,
-    fallbackMessage: string
-  ) {
-    const err = error as { code?: string; message?: string };
-    let message = err?.message ?? fallbackMessage;
-    if (err?.code === 'permission-denied') {
+  function showError(err: unknown, fallback: string) {
+    const e = err as { code?: string; message?: string };
+    let message = e?.message ?? fallback;
+    if (e?.code === 'permission-denied') {
       message =
-        'Permission denied in Firestore rules. Allow signed-in users to create houses and update their own user profile.';
+        'Permission denied. Allow signed-in users to create houses and update their profile.';
     }
-    console.error('[JoinHouse]', err?.code ?? 'unknown-error', message);
     setError(message);
-    if (Platform.OS !== 'web') {
-      Alert.alert('Error', message);
-    }
+    if (Platform.OS !== 'web') Alert.alert('Error', message);
   }
 
-  async function handleJoin({ inviteCode }: { inviteCode: string }) {
-    if (!firebaseUser) {
-      setJoinError('You must be logged in to join a house.');
+  async function handleJoin(inviteCode: string) {
+    if (!firebaseUser) return setError('You must be logged in.');
+    const q = query(collection(db, 'houses'), where('inviteCode', '==', inviteCode.toUpperCase()));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      setError('No house found with that invite code.');
       return;
     }
-    setJoinError(null);
+    const houseRef = snap.docs[0].ref;
+    const batch = writeBatch(db);
+    const prevHouseId = userProfile?.houseId;
+    if (prevHouseId && prevHouseId !== houseRef.id) {
+      batch.update(houseDoc(prevHouseId), {
+        memberIds: arrayRemove(firebaseUser.uid),
+        [`memberNames.${firebaseUser.uid}`]: deleteField(),
+      });
+    }
+    batch.update(houseRef, {
+      memberIds: arrayUnion(firebaseUser.uid),
+      [`memberNames.${firebaseUser.uid}`]: fallbackName,
+    });
+    batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
+    await batch.commit();
+  }
+
+  async function handleCreate(houseName: string, displayName: string) {
+    if (!firebaseUser) return setError('You must be logged in.');
+    const inviteCode = nanoid(6).toUpperCase();
+    const houseRef = doc(collection(db, 'houses'));
+    const batch = writeBatch(db);
+    const prevHouseId = userProfile?.houseId;
+    if (prevHouseId) {
+      batch.update(houseDoc(prevHouseId), {
+        memberIds: arrayRemove(firebaseUser.uid),
+        [`memberNames.${firebaseUser.uid}`]: deleteField(),
+      });
+    }
+    batch.set(houseRef, {
+      name: houseName,
+      inviteCode,
+      memberIds: [firebaseUser.uid],
+      memberNames: { [firebaseUser.uid]: displayName },
+      createdBy: firebaseUser.uid,
+      createdAt: serverTimestamp(),
+    });
+    batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id, displayName });
+  await batch.commit();
+  }
+
+  async function onContinue() {
+    setError(null);
+    setBusy(true);
     try {
-      // Debug trace: confirms submit handler is running on the current bundle.
-      console.log('[JoinHouse] join submit', inviteCode.toUpperCase());
-      const q = query(
-        collection(db, 'houses'),
-        where('inviteCode', '==', inviteCode.toUpperCase())
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        const message = 'No house found with that invite code.';
-        setJoinError(message);
-        if (Platform.OS !== 'web') {
-          Alert.alert('Not found', message);
+      if (mode === 'join') {
+        const parsed = joinSchema.safeParse({ inviteCode: inviteCodeInput });
+        if (!parsed.success) {
+          setError(parsed.error.issues[0]?.message ?? 'Invalid invite code.');
+          return;
         }
-        return;
-      }
-      const houseRef = snap.docs[0].ref;
-      // Keep house membership + user profile update in one commit.
-      const batch = writeBatch(db);
-
-      // If the user is already in a house, remove them from it first so we
-      // don't leave behind a ghost member on the old house doc.
-      const prevHouseId = userProfile?.houseId;
-      if (prevHouseId && prevHouseId !== houseRef.id) {
-        batch.update(houseDoc(prevHouseId), {
-          memberIds: arrayRemove(firebaseUser.uid),
-          [`memberNames.${firebaseUser.uid}`]: deleteField(),
+        await handleJoin(parsed.data.inviteCode);
+      } else {
+        const parsed = createSchema.safeParse({
+          houseName: houseNameInput,
+          displayName: displayNameInput || fallbackName,
         });
+        if (!parsed.success) {
+          setError(parsed.error.issues[0]?.message ?? 'Invalid input.');
+          return;
+        }
+        await handleCreate(parsed.data.houseName, parsed.data.displayName);
       }
-
-      // Keep a denormalized member name map for quick household rendering.
-      batch.update(houseRef, {
-        memberIds: arrayUnion(firebaseUser.uid),
-        [`memberNames.${firebaseUser.uid}`]: displayNameForHouse,
-      });
-      batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
-      await batch.commit();
-      console.log('[JoinHouse] join success', houseRef.id);
     } catch (err) {
-      showError(setJoinError, err, 'Could not join the house. Please try again.');
-    }
-  }
-
-  async function handleCreate({ houseName }: { houseName: string }) {
-    if (!firebaseUser) {
-      setCreateError('You must be logged in to create a house.');
-      return;
-    }
-    setCreateError(null);
-    try {
-      // Debug trace: confirms create branch and payload are executing.
-      console.log('[JoinHouse] create submit', houseName);
-      const inviteCode = nanoid(6).toUpperCase();
-      const houseRef = doc(collection(db, 'houses'));
-
-      // Keep house creation + profile houseId update in one commit.
-      const batch = writeBatch(db);
-
-      // Remove the user from their current house if they're switching.
-      const prevHouseId = userProfile?.houseId;
-      if (prevHouseId) {
-        batch.update(houseDoc(prevHouseId), {
-          memberIds: arrayRemove(firebaseUser.uid),
-          [`memberNames.${firebaseUser.uid}`]: deleteField(),
-        });
-      }
-
-      batch.set(houseRef, {
-        name: houseName,
-        inviteCode,
-        memberIds: [firebaseUser.uid],
-        // Store a lightweight name map on house for quick lookups.
-        memberNames: {
-          [firebaseUser.uid]: displayNameForHouse,
-        },
-        createdBy: firebaseUser.uid,
-        createdAt: serverTimestamp(),
-      });
-      batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
-      await batch.commit();
-      console.log('[JoinHouse] create success', houseRef.id, inviteCode);
-    } catch (err) {
-      showError(setCreateError, err, 'Could not create the house. Please try again.');
-    }
-  }
-
-  async function submitJoin() {
-    setJoinValidationError(null);
-    setJoinError(null);
-    const parsed = joinSchema.safeParse({ inviteCode: inviteCodeInput });
-    if (!parsed.success) {
-      setJoinValidationError(parsed.error.issues[0]?.message ?? 'Invalid invite code.');
-      return;
-    }
-    setIsJoining(true);
-    try {
-      await handleJoin({ inviteCode: parsed.data.inviteCode });
+      showError(err, 'Something went wrong. Please try again.');
     } finally {
-      setIsJoining(false);
-    }
-  }
-
-  async function submitCreate() {
-    setCreateValidationError(null);
-    setCreateError(null);
-    const parsed = createSchema.safeParse({ houseName: houseNameInput });
-    if (!parsed.success) {
-      setCreateValidationError(parsed.error.issues[0]?.message ?? 'Invalid house name.');
-      return;
-    }
-    setIsCreating(true);
-    try {
-      await handleCreate({ houseName: parsed.data.houseName });
-    } finally {
-      setIsCreating(false);
+      setBusy(false);
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Your Home</Text>
-      <Text style={styles.subtitle}>Join an existing house or create a new one</Text>
-
-      <View style={styles.toggle}>
-        {(['join', 'create'] as const).map((m) => (
-          <TouchableOpacity
-            key={m}
-            style={[styles.toggleBtn, mode === m && styles.toggleActive]}
-            onPress={() => setMode(m)}
-          >
-            <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
-              {m === 'join' ? 'Join a house' : 'Create a house'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {mode === 'join' ? (
-        <View style={styles.form}>
-          <Text style={styles.label}>Invite code</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="ABC123"
-            autoCapitalize="characters"
-            maxLength={6}
-            onChangeText={setInviteCodeInput}
-            value={inviteCodeInput}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.toggleWrap}>
+          <SegmentedToggle<Mode>
+            value={mode}
+            onChange={(v) => {
+              setMode(v);
+              setError(null);
+            }}
+            options={[
+              { value: 'join', label: 'Join home' },
+              { value: 'create', label: 'Create home' },
+            ]}
           />
-          {joinValidationError && <Text style={styles.errorText}>{joinValidationError}</Text>}
-          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-          <TouchableOpacity style={styles.button} onPress={submitJoin} disabled={isJoining}>
-            <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Join House'}</Text>
-          </TouchableOpacity>
         </View>
-      ) : (
-        <View style={styles.form}>
-          <Text style={styles.label}>House name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. The Dungeon, 204 Oak St"
-            onChangeText={setHouseNameInput}
-            value={houseNameInput}
+
+        <View style={styles.body}>
+          {mode === 'join' ? (
+            <View style={styles.section}>
+              <Text style={styles.title}>Enter your home code</Text>
+              <Text style={styles.subtitle}>
+                Contact your home admin to receive your join code
+              </Text>
+              <PillInput
+                placeholder="Enter code"
+                autoCapitalize="characters"
+                maxLength={6}
+                onChangeText={setInviteCodeInput}
+                value={inviteCodeInput}
+              />
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.title}>Welcome to Homie!</Text>
+              <Text style={styles.label}>What's the name of your home?</Text>
+              <PillInput
+                placeholder="Write here"
+                onChangeText={setHouseNameInput}
+                value={houseNameInput}
+              />
+              <Text style={[styles.label, { marginTop: 12 }]}>What is your name?</Text>
+              <PillInput
+                placeholder="Write here"
+                autoCapitalize="words"
+                onChangeText={setDisplayNameInput}
+                value={displayNameInput}
+              />
+            </View>
+          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+        </View>
+
+        <View style={styles.footer}>
+          <PillButton
+            label={mode === 'join' ? 'Continue' : 'Create home'}
+            onPress={onContinue}
+            loading={busy}
           />
-          {createValidationError && <Text style={styles.errorText}>{createValidationError}</Text>}
-          {createError && <Text style={styles.errorText}>{createError}</Text>}
-          <TouchableOpacity style={styles.button} onPress={submitCreate} disabled={isCreating}>
-            <Text style={styles.buttonText}>{isCreating ? 'Creating...' : 'Create House'}</Text>
-          </TouchableOpacity>
         </View>
-      )}
-    </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF5', padding: 32, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '800', color: '#2D3436', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#636e72', marginBottom: 32 },
-  toggle: { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  toggleBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    alignItems: 'center',
+  container: { flex: 1, backgroundColor: LOFI.bg },
+  flex: { flex: 1 },
+  toggleWrap: { paddingTop: 16, paddingBottom: 8 },
+  body: { flex: 1, paddingHorizontal: 40, justifyContent: 'center', gap: 12 },
+  section: { gap: 12 },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: LOFI.text,
+    textAlign: 'center',
   },
-  toggleActive: { backgroundColor: '#2D3436', borderColor: '#2D3436' },
-  toggleText: { fontWeight: '600', color: '#636e72' },
-  toggleTextActive: { color: '#fff' },
-  form: { gap: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#2D3436' },
-  input: {
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#fff',
+  subtitle: {
+    fontSize: 14,
+    color: LOFI.textMuted,
+    textAlign: 'center',
+    marginBottom: 12,
   },
-  errorText: { color: '#FF6B6B', fontSize: 12 },
-  button: {
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LOFI.text,
+    textAlign: 'center',
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  error: { color: LOFI.error, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  footer: { paddingHorizontal: 40, paddingBottom: 36, alignItems: 'center' },
 });
