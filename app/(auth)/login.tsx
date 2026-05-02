@@ -4,7 +4,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -12,9 +11,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
-import { PillInput } from '@/src/components/lofi/PillInput';
-import { PillButton } from '@/src/components/lofi/PillButton';
-import { LOFI } from '@/src/utils/lofiTheme';
+import { HiFiInput } from '@/src/components/hifi/HiFiInput';
+import { HiFiButton } from '@/src/components/hifi/HiFiButton';
+import { HIFI } from '@/src/utils/hifiTheme';
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -50,61 +49,65 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.body}>
-          <Text style={styles.title}>Sign into your account</Text>
+          <View style={styles.form}>
+            <Text style={styles.title}>Sign into your account</Text>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, value } }) => (
-                <PillInput
-                  placeholder="Write here"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  onChangeText={onChange}
-                  value={value}
-                  invalid={!!errors.email}
+            <View style={styles.fields}>
+              <View style={styles.field}>
+                <Text style={styles.label}>Email</Text>
+                <Controller
+                  control={control}
+                  name="email"
+                  render={({ field: { onChange, value } }) => (
+                    <HiFiInput
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      onChangeText={onChange}
+                      value={value}
+                      invalid={!!errors.email}
+                    />
+                  )}
                 />
-              )}
-            />
-            <Text style={styles.helper}>
-              {errors.email?.message ?? 'Forgot email?'}
-            </Text>
-          </View>
+                {errors.email ? (
+                  <Text style={styles.errorHelper}>{errors.email.message}</Text>
+                ) : null}
+              </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, value } }) => (
-                <PillInput
-                  placeholder="Write here"
-                  secureTextEntry
-                  onChangeText={onChange}
-                  value={value}
-                  invalid={!!errors.password}
+              <View style={styles.field}>
+                <Text style={styles.label}>Password</Text>
+                <Controller
+                  control={control}
+                  name="password"
+                  render={({ field: { onChange, value } }) => (
+                    <HiFiInput
+                      secureTextEntry
+                      onChangeText={onChange}
+                      value={value}
+                      invalid={!!errors.password}
+                    />
+                  )}
                 />
-              )}
-            />
-            <Text style={styles.helper}>
-              {errors.password?.message ?? 'Forgot password?'}
-            </Text>
-          </View>
+                <Text
+                  style={[
+                    styles.helper,
+                    errors.password && styles.errorHelper,
+                  ]}
+                >
+                  {errors.password?.message ?? 'Forgot password?'}
+                </Text>
+              </View>
+            </View>
 
-          {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+            {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+          </View>
         </View>
 
         <View style={styles.footer}>
-          <PillButton
+          <HiFiButton
             label="Continue"
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
           />
-          <TouchableOpacity onPress={() => {}} style={styles.linkBtn}>
-            <Text style={styles.linkText}>Need an account? Tap "Get started"</Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -112,26 +115,46 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: LOFI.bg },
+  container: { flex: 1, backgroundColor: HIFI.bg },
   flex: { flex: 1 },
-  body: { flex: 1, paddingHorizontal: 40, justifyContent: 'center', gap: 18 },
+  body: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+  form: { width: '100%', gap: 36 },
   title: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: LOFI.text,
+    fontSize: 20,
+    fontWeight: '400',
+    color: HIFI.text,
     textAlign: 'center',
-    marginBottom: 12,
   },
-  field: { gap: 8 },
+  fields: { gap: 24 },
+  field: { gap: 16 },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: LOFI.text,
+    fontSize: 16,
+    fontWeight: '400',
+    color: HIFI.text,
     textAlign: 'center',
   },
-  helper: { fontSize: 12, color: LOFI.textMuted, marginLeft: 6 },
-  authError: { color: LOFI.error, fontSize: 13, textAlign: 'center' },
-  footer: { paddingHorizontal: 40, paddingBottom: 36, gap: 8, alignItems: 'center' },
-  linkBtn: { padding: 8 },
-  linkText: { fontSize: 12, color: LOFI.textMuted },
+  helper: {
+    fontSize: 14,
+    fontWeight: '300',
+    color: HIFI.text,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  errorHelper: {
+    fontSize: 14,
+    fontWeight: '300',
+    color: HIFI.error,
+    marginTop: 8,
+    marginLeft: 4,
+  },
+  authError: {
+    color: HIFI.error,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: 60,
+  },
 });
