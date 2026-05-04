@@ -46,6 +46,8 @@ export interface CalendarEvent {
   createdBy: string; // userId
   color: string; // denormalized from user.color at write time
   googleEventId: string | null;
+  assignedTo: string[]; // userIds; empty array = no assignees
+  deviceCalendarIds: Record<string, string>; // { [userId]: nativeCalendarEventId }
   createdAt: Timestamp;
 }
 
