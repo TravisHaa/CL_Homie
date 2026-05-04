@@ -5,9 +5,11 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { setDoc, serverTimestamp } from 'firebase/firestore';
+import { Platform } from 'react-native';
 import { auth } from './config';
-import { userDoc } from './firestore';
+import { userDoc, deviceDoc } from './firestore';
 import { ROOMMATE_COLORS } from '../utils/colors';
+import { getOrCreateDeviceId } from '../utils/deviceId';
 
 export async function signUp(
   email: string,
@@ -39,5 +41,22 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
+  const uid = auth.currentUser?.uid;
+  if (uid && Platform.OS !== 'web') {
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      await setDoc(
+        deviceDoc(uid, deviceId),
+        {
+          expoPushToken: null,
+          notificationsEnabled: false,
+          updatedAt: serverTimestamp(),
+        } as any,
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('[Auth] failed to deactivate device on signOut:', err);
+    }
+  }
   await firebaseSignOut(auth);
 }

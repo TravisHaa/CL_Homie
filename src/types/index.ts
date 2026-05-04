@@ -82,6 +82,19 @@ export interface ShoppingItem {
   createdAt: Timestamp;
 }
 
+export type DevicePlatform = 'ios' | 'android' | 'web';
+
+export interface DeviceToken {
+  id: string;
+  expoPushToken: string | null;
+  platform: DevicePlatform;
+  deviceId: string;
+  notificationsEnabled: boolean;
+  houseId: string | null;
+  updatedAt: Timestamp;
+  createdAt: Timestamp;
+}
+
 export interface ExpirationPrediction {
   estimatedDays: number;
   range: string;

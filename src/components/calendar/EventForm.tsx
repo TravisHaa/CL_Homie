@@ -134,7 +134,6 @@ function DatePickerDropdown({
 
   return (
     <View style={pickerStyles.wrap}>
-      {/* Highlight band sits behind the columns */}
       <View style={pickerStyles.highlight} pointerEvents="none" />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
         <PickerCol
@@ -143,7 +142,6 @@ function DatePickerDropdown({
           onChange={(i) => apply({ mo: i })}
           width={52}
         />
-        {/* key=daysInMonth forces re-mount when month changes */}
         <PickerCol
           key={daysInMonth}
           data={days}

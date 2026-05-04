@@ -10,6 +10,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 
 import { useAuthListener } from '@/src/hooks/useAuth';
+import { useNotificationsRegistration } from '@/src/hooks/useNotifications';
 import { useAuthStore } from '@/src/store/authStore';
 
 export { ErrorBoundary } from 'expo-router';
@@ -51,6 +52,7 @@ const styles = StyleSheet.create({
 
 function AuthGate() {
   useAuthListener();
+  useNotificationsRegistration();
 
   const { firebaseUser, userProfile, isLoading } = useAuthStore();
   const segments = useSegments();
