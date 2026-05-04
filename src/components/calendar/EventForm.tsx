@@ -1,4 +1,4 @@
-import { forwardRef, useState, useCallback } from 'react';
+import { forwardRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,196 +6,225 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView,
 } from 'react-native';
-import BottomSheet, {
+import {
   BottomSheetModal,
   BottomSheetView,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { parse, isValid } from 'date-fns';
+import { format, parse, isValid } from 'date-fns';
 import type { NewEventInput } from '@/src/hooks/useCalendarEvents';
+import type { CalendarEvent } from '@/src/types';
 import { useHouseStore } from '@/src/store/houseStore';
 
 interface Props {
   onSubmit: (input: NewEventInput) => Promise<void>;
+  onUpdate?: (id: string, updates: NewEventInput) => Promise<void>;
+  event?: CalendarEvent | null;
 }
 
-export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref) => {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [startTimeStr, setStartTimeStr] = useState('');
-  const [endTimeStr, setEndTimeStr] = useState('');
-  const [assignedTo, setAssignedTo] = useState<string[]>([]);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+export const EventForm = forwardRef<BottomSheetModal, Props>(
+  ({ onSubmit, onUpdate, event }, ref) => {
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [startTimeStr, setStartTimeStr] = useState('');
+    const [endTimeStr, setEndTimeStr] = useState('');
+    const [assignedTo, setAssignedTo] = useState<string[]>([]);
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-  const memberMap = useHouseStore((s) => s.memberMap);
+    const memberMap = useHouseStore((s) => s.memberMap);
 
-  const reset = () => {
-    setTitle('');
-    setDescription('');
-    setStartTimeStr('');
-    setEndTimeStr('');
-    setAssignedTo([]);
-    setError('');
-  };
+    // Pre-fill fields when switching to edit mode
+    useEffect(() => {
+      if (event) {
+        setTitle(event.title);
+        setDescription(event.description ?? '');
+        setStartTimeStr(format(event.startTime.toDate(), 'yyyy-MM-dd HH:mm'));
+        setEndTimeStr(format(event.endTime.toDate(), 'yyyy-MM-dd HH:mm'));
+        setAssignedTo(event.assignedTo ?? []);
+        setError('');
+      } else {
+        reset();
+      }
+    }, [event]);
 
-  const parseDateTime = (str: string): Date | null => {
-    const d = parse(str.trim(), 'yyyy-MM-dd HH:mm', new Date());
-    return isValid(d) ? d : null;
-  };
+    const reset = () => {
+      setTitle('');
+      setDescription('');
+      setStartTimeStr('');
+      setEndTimeStr('');
+      setAssignedTo([]);
+      setError('');
+    };
 
-  const toggleAssignee = (uid: string) => {
-    setAssignedTo((prev) =>
-      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
-    );
-  };
+    const parseDateTime = (str: string): Date | null => {
+      const d = parse(str.trim(), 'yyyy-MM-dd HH:mm', new Date());
+      return isValid(d) ? d : null;
+    };
 
-  const handleSubmit = async () => {
-    setError('');
+    const toggleAssignee = (uid: string) => {
+      setAssignedTo((prev) =>
+        prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+      );
+    };
 
-    if (!title.trim()) {
-      setError('Title is required');
-      return;
-    }
+    const handleSubmit = async () => {
+      setError('');
 
-    const startTime = parseDateTime(startTimeStr);
-    if (!startTime) {
-      setError('Start time must be in format YYYY-MM-DD HH:MM');
-      return;
-    }
+      if (!title.trim()) {
+        setError('Title is required');
+        return;
+      }
 
-    const endTime = parseDateTime(endTimeStr);
-    if (!endTime) {
-      setError('End time must be in format YYYY-MM-DD HH:MM');
-      return;
-    }
+      const startTime = parseDateTime(startTimeStr);
+      if (!startTime) {
+        setError('Start time must be in format YYYY-MM-DD HH:MM');
+        return;
+      }
 
-    if (endTime <= startTime) {
-      setError('End time must be after start time');
-      return;
-    }
+      const endTime = parseDateTime(endTimeStr);
+      if (!endTime) {
+        setError('End time must be in format YYYY-MM-DD HH:MM');
+        return;
+      }
 
-    setSubmitting(true);
-    try {
-      await onSubmit({
+      if (endTime <= startTime) {
+        setError('End time must be after start time');
+        return;
+      }
+
+      const payload: NewEventInput = {
         title: title.trim(),
         description: description.trim(),
         startTime,
         endTime,
         assignedTo,
-      });
-      reset();
-      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-    } catch (err: any) {
-      Alert.alert('Could not add event', err?.message ?? 'Unknown error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      };
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
-    ),
-    []
-  );
+      setSubmitting(true);
+      try {
+        if (event && onUpdate) {
+          await onUpdate(event.id, payload);
+        } else {
+          await onSubmit(payload);
+        }
+        reset();
+        (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+      } catch (err: any) {
+        Alert.alert(
+          event ? 'Could not update event' : 'Could not add event',
+          err?.message ?? 'Unknown error'
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
-  const memberIds = Object.keys(memberMap);
+    const renderBackdrop = useCallback(
+      (props: BottomSheetBackdropProps) => (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      ),
+      []
+    );
 
-  return (
-    <BottomSheetModal
-      ref={ref}
-      snapPoints={['75%']}
-      backdropComponent={renderBackdrop}
-      keyboardBehavior="extend"
-      keyboardBlurBehavior="restore"
-      onDismiss={reset}
-    >
-      <BottomSheetView style={styles.container}>
-        <Text style={styles.heading}>Add Event</Text>
+    const memberIds = Object.keys(memberMap);
 
-        <TextInput
-          style={styles.input}
-          placeholder="Title"
-          placeholderTextColor="#B2BEC3"
-          value={title}
-          onChangeText={setTitle}
-        />
+    return (
+      <BottomSheetModal
+        ref={ref}
+        snapPoints={['75%']}
+        backdropComponent={renderBackdrop}
+        keyboardBehavior="extend"
+        keyboardBlurBehavior="restore"
+        onDismiss={reset}
+      >
+        <BottomSheetView style={styles.container}>
+          <Text style={styles.heading}>{event ? event.title : 'Add Event'}</Text>
 
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          placeholder="Description (optional)"
-          placeholderTextColor="#B2BEC3"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={2}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Title"
+            placeholderTextColor="#B2BEC3"
+            value={title}
+            onChangeText={setTitle}
+          />
 
-        {memberIds.length > 0 && (
-          <View style={styles.assigneeSection}>
-            <Text style={styles.label}>Assign To</Text>
-            <View style={styles.chipRow}>
-              {memberIds.map((uid) => {
-                const member = memberMap[uid];
-                const selected = assignedTo.includes(uid);
-                return (
-                  <TouchableOpacity
-                    key={uid}
-                    style={[
-                      styles.chip,
-                      selected && { backgroundColor: member.color, borderColor: member.color },
-                    ]}
-                    onPress={() => toggleAssignee(uid)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                      {member.displayName}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="Description (optional)"
+            placeholderTextColor="#B2BEC3"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={2}
+          />
+
+          {memberIds.length > 0 && (
+            <View style={styles.assigneeSection}>
+              <Text style={styles.label}>Assign To</Text>
+              <View style={styles.chipRow}>
+                {memberIds.map((uid) => {
+                  const member = memberMap[uid];
+                  const selected = assignedTo.includes(uid);
+                  return (
+                    <TouchableOpacity
+                      key={uid}
+                      style={[
+                        styles.chip,
+                        selected && { backgroundColor: member.color, borderColor: member.color },
+                      ]}
+                      onPress={() => toggleAssignee(uid)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {member.displayName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Start: YYYY-MM-DD HH:MM"
-          placeholderTextColor="#B2BEC3"
-          value={startTimeStr}
-          onChangeText={setStartTimeStr}
-          keyboardType="numbers-and-punctuation"
-          autoCorrect={false}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Start: YYYY-MM-DD HH:MM"
+            placeholderTextColor="#B2BEC3"
+            value={startTimeStr}
+            onChangeText={setStartTimeStr}
+            keyboardType="numbers-and-punctuation"
+            autoCorrect={false}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="End: YYYY-MM-DD HH:MM"
-          placeholderTextColor="#B2BEC3"
-          value={endTimeStr}
-          onChangeText={setEndTimeStr}
-          keyboardType="numbers-and-punctuation"
-          autoCorrect={false}
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="End: YYYY-MM-DD HH:MM"
+            placeholderTextColor="#B2BEC3"
+            value={endTimeStr}
+            onChangeText={setEndTimeStr}
+            keyboardType="numbers-and-punctuation"
+            autoCorrect={false}
+          />
 
-        {!!error && <Text style={styles.error}>{error}</Text>}
+          {!!error && <Text style={styles.error}>{error}</Text>}
 
-        <TouchableOpacity
-          style={[styles.button, submitting && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>{submitting ? 'Saving…' : 'Add Event'}</Text>
-        </TouchableOpacity>
-      </BottomSheetView>
-    </BottomSheetModal>
-  );
-});
+          <TouchableOpacity
+            style={[styles.button, submitting && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>
+              {submitting ? 'Saving…' : event ? 'Edit' : 'Add Event'}
+            </Text>
+          </TouchableOpacity>
+        </BottomSheetView>
+      </BottomSheetModal>
+    );
+  }
+);
 
 EventForm.displayName = 'EventForm';
 

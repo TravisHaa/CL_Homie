@@ -125,5 +125,16 @@ export function useCalendarEvents() {
     }
   };
 
-  return { events, isLoading, addEvent };
+  const updateEvent = async (id: string, updates: NewEventInput) => {
+    if (!houseId) throw new Error('No house connected.');
+    await updateDoc(eventDoc(houseId, id), {
+      title: updates.title,
+      description: updates.description,
+      startTime: Timestamp.fromDate(updates.startTime),
+      endTime: Timestamp.fromDate(updates.endTime),
+      assignedTo: updates.assignedTo,
+    });
+  };
+
+  return { events, isLoading, addEvent, updateEvent };
 }
