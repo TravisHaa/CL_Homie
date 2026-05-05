@@ -58,6 +58,15 @@ export function useAuthListener() {
                   console.log('[Auth] members snapshot, count=', membersSnap.size);
                   setMemberMap(membersSnap.docs.map((d) => d.data()));
                 });
+              } else {
+                // houseId was cleared (leave / switch) — stop old listeners and wipe store
+                // so stale house data can't leak back in via a delayed snapshot fire.
+                unsubHouse?.();
+                unsubHouse = undefined;
+                unsubMembers?.();
+                unsubMembers = undefined;
+                setHouse(null);
+                setMemberMap([]);
               }
             } else {
               console.log('[Auth] no profile doc — creating one');

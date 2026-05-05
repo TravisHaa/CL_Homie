@@ -96,6 +96,7 @@ export interface DeviceToken {
 }
 
 export interface ExpirationPrediction {
+  id: string;
   estimatedDays: number;
   range: string;
   category: string;

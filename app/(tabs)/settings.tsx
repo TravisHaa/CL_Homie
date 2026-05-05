@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { signOut } from '@/src/firebase/auth';
+import { leaveHouse } from '@/src/firebase/house';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -28,12 +29,52 @@ const S = {
 
 export default function SettingsScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isLeavingHouse, setIsLeavingHouse] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const router = useRouter();
   const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
   const houseId = useAuthStore((s) => s.userProfile?.houseId ?? null);
   const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
+
+  async function handleLeaveHouse() {
+    if (!currentUid || !houseId) return;
+    setLeaveError(null);
+    setIsLeavingHouse(true);
+    try {
+      await leaveHouse({ uid: currentUid, houseId });
+      const profile = useAuthStore.getState().userProfile;
+      if (profile) useAuthStore.getState().setUserProfile({ ...profile, houseId: null });
+      useHouseStore.getState().setHouse(null);
+    } catch (err) {
+      const message = (err as { message?: string })?.message ?? 'Could not leave house. Please try again.';
+      setLeaveError(message);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setIsLeavingHouse(false);
+    }
+  }
+
+  async function confirmLeaveHouse() {
+    if (Platform.OS === 'web') {
+      const confirmed = globalThis.confirm?.(
+        "Leave house?\n\nYou'll be removed from this house and will need an invite code to rejoin."
+      );
+      if (confirmed) await handleLeaveHouse();
+    } else {
+      Alert.alert(
+        'Leave house?',
+        "You'll be removed from this house and will need an invite code to rejoin.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Leave house', style: 'destructive', onPress: handleLeaveHouse },
+        ]
+      );
+    }
+  }
 
   // Prefer the live memberMap (has color + displayName). 
   const members = useMemo(() => {
@@ -127,6 +168,42 @@ export default function SettingsScreen() {
                   </View>
                 ))}
               </View>
+
+              <View style={styles.houseActionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Switch house"
+                  onPress={() => router.push('/(tabs)/house')}
+                  style={({ pressed }) => [
+                    styles.secondaryButton,
+                    pressed && styles.secondaryButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.secondaryButtonText}>Switch house</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Leave house"
+                  onPress={confirmLeaveHouse}
+                  disabled={isLeavingHouse}
+                  style={({ pressed }) => [
+                    styles.leaveButton,
+                    isLeavingHouse && styles.leaveButtonDisabled,
+                    pressed && !isLeavingHouse && styles.leaveButtonPressed,
+                  ]}
+                >
+                  {isLeavingHouse ? (
+                    <View style={styles.signOutButtonInner}>
+                      <ActivityIndicator />
+                      <Text style={styles.leaveButtonText}>Leaving…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.leaveButtonText}>Leave house</Text>
+                  )}
+                </Pressable>
+              </View>
+              {leaveError && <Text style={styles.errorText}>{leaveError}</Text>}
             </View>
           ) : houseId && !house ? (
             <View style={[styles.card, styles.houseLoading]}>
@@ -263,6 +340,33 @@ const styles = StyleSheet.create({
   colorDot: { width: 10, height: 10, borderRadius: 5 },
   memberName: { color: S.textStrong, fontWeight: '600' },
   houseLoading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  houseActionRow: { marginTop: 14, flexDirection: 'row', gap: 10 },
+  secondaryButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: S.cardBorder,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonPressed: { opacity: 0.75 },
+  secondaryButtonText: { color: S.textStrong, fontWeight: '700' },
+  leaveButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: S.dangerBorder,
+    backgroundColor: S.dangerBg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaveButtonPressed: { opacity: 0.75 },
+  leaveButtonText: { color: S.dangerText, fontWeight: '700' },
   ctaButton: {
     marginTop: 14,
     borderRadius: 12,
@@ -276,4 +380,6 @@ const styles = StyleSheet.create({
   },
   ctaButtonPressed: { opacity: 0.85 },
   ctaButtonText: { color: '#FFFFFF', fontWeight: '800' },
+  leaveButtonDisabled: { opacity: 0.6 },
+  errorText: { color: S.dangerText, fontSize: 12, marginTop: 8 },
 });

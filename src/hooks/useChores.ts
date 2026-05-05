@@ -5,7 +5,7 @@ import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { addDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { useEffect } from 'react';
 
 export function useChores() {
@@ -99,5 +99,26 @@ export function useChores() {
     });
   };
 
-  return { chores, isLoading, addChore, toggleChore };
+  const updateChore = async (
+    choreId: string,
+    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt'>>,
+    opts?: { recurrence?: Chore['recurrence'] }
+  ) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    const choreRef = doc(db, 'houses', houseId, 'chores', choreId);
+    const update: Record<string, unknown> = { ...patch };
+    // Mirror addChore: a one-time chore's weekKey is derived from dueAt so it
+    // remains visible in the right week query when the date changes.
+    if ('dueAt' in patch && opts?.recurrence === 'once') {
+      update.weekKey = patch.dueAt ? getWeekKey(patch.dueAt.toDate()) : weekKey;
+    }
+    await updateDoc(choreRef, update);
+  };
+
+  const deleteChore = async (choreId: string) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    await deleteDoc(doc(db, 'houses', houseId, 'chores', choreId));
+  };
+
+  return { chores, isLoading, addChore, toggleChore, updateChore, deleteChore };
 }
