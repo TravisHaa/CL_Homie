@@ -53,7 +53,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
     const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
-    const [dayOfWeek, setDayOfWeek] = useState<number>(1);
+    const [dayOfWeek, setDayOfWeek] = useState<number>(0);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -75,7 +75,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
       setRecurrence(chore.recurrence);
-      setDayOfWeek(chore.dayOfWeek ?? 1);
+      setDayOfWeek(chore.dayOfWeek ?? 0);
       setDueDate(chore.dueAt ? chore.dueAt.toDate() : null);
       setShowDatePicker(false);
       setSubmitting(false);
@@ -105,7 +105,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       title.trim() !== chore.title ||
       assignedTo !== chore.assignedTo ||
       recurrence !== chore.recurrence ||
-      (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 1)) ||
+      (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
       (showDueDatePicker && (dueDate?.getTime() ?? null) !== (chore.dueAt?.toDate().getTime() ?? null));
 
     const handleSave = async () => {
@@ -126,7 +126,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         if (recurrence === 'weekly' || recurrence === 'biweekly') {
           patch.dayOfWeek = dayOfWeek;
         }
-      } else if (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 1)) {
+      } else if (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) {
         patch.dayOfWeek = dayOfWeek;
       }
       if (showDueDatePicker) {
@@ -226,7 +226,25 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
                 <TouchableOpacity
                   key={value}
                   style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => setRecurrence(value)}
+                  onPress={() => {
+                    const prev = recurrence;
+                    setRecurrence(value);
+                    // Day-of-week handling on recurrence change:
+                    //  - Tapping back to the chore's original recurrence:
+                    //    restore the chore's stored day so a stray tap doesn't
+                    //    silently lose the user's setting.
+                    //  - weekly ↔ biweekly: both carry a day-of-week, so keep
+                    //    the currently selected day (per user request).
+                    //  - Anything else (involving once/monthly): default to
+                    //    Sunday so the chip row starts from a known baseline.
+                    const prevHasDay = prev === 'weekly' || prev === 'biweekly';
+                    const nextHasDay = value === 'weekly' || value === 'biweekly';
+                    if (value === chore.recurrence) {
+                      setDayOfWeek(chore.dayOfWeek ?? 0);
+                    } else if (!(prevHasDay && nextHasDay)) {
+                      setDayOfWeek(0);
+                    }
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>

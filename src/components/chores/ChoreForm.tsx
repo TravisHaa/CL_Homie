@@ -1,10 +1,10 @@
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
 import {
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-  BottomSheetModal,
-  BottomSheetView,
+    BottomSheetBackdrop,
+    BottomSheetBackdropProps,
+    BottomSheetModal,
+    BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
@@ -35,7 +35,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
     const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
-    const [dayOfWeek, setDayOfWeek] = useState(1);
+    const [dayOfWeek, setDayOfWeek] = useState(0);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -71,7 +71,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         });
         setTitle('');
         setRecurrence('once');
-        setDayOfWeek(1);
+        setDayOfWeek(0);
         setDueDate(null);
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
