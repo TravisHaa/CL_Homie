@@ -26,18 +26,20 @@ const CH = {
   dangerBg: '#FBE9E7',
 };
 
-const RECURRENCE_LABEL: Record<Chore['recurrence'], string> = {
-  once: 'Does not repeat',
-  weekly: 'Weekly',
-  biweekly: 'Biweekly',
-  monthly: 'Monthly',
-};
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
+  { label: 'Once', value: 'once' },
+  { label: 'Weekly', value: 'weekly' },
+  { label: 'Biweekly', value: 'biweekly' },
+  { label: 'Monthly', value: 'monthly' },
+];
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 interface ChoreDetailSheetProps {
   chore: Chore | null;
   onUpdate: (
     choreId: string,
-    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt'>>,
+    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>>,
     opts?: { recurrence?: Chore['recurrence'] }
   ) => Promise<void>;
   onDelete: (choreId: string) => Promise<void>;
@@ -50,6 +52,8 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
+    const [dayOfWeek, setDayOfWeek] = useState<number>(1);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -70,6 +74,8 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (!chore) return;
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
+      setRecurrence(chore.recurrence);
+      setDayOfWeek(chore.dayOfWeek ?? 1);
       setDueDate(chore.dueAt ? chore.dueAt.toDate() : null);
       setShowDatePicker(false);
       setSubmitting(false);
@@ -92,11 +98,14 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       );
     }
 
-    const showDueDatePicker = chore.recurrence === 'once';
+    const showDueDatePicker = recurrence === 'once';
+    const showDayPicker = recurrence === 'weekly' || recurrence === 'biweekly';
 
     const isDirty =
       title.trim() !== chore.title ||
       assignedTo !== chore.assignedTo ||
+      recurrence !== chore.recurrence ||
+      (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 1)) ||
       (showDueDatePicker && (dueDate?.getTime() ?? null) !== (chore.dueAt?.toDate().getTime() ?? null));
 
     const handleSave = async () => {
@@ -107,9 +116,19 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         return;
       }
 
-      const patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt'>> = {};
+      const patch: Partial<
+        Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>
+      > = {};
       if (trimmed !== chore.title) patch.title = trimmed;
       if (assignedTo && assignedTo !== chore.assignedTo) patch.assignedTo = assignedTo;
+      if (recurrence !== chore.recurrence) {
+        patch.recurrence = recurrence;
+        if (recurrence === 'weekly' || recurrence === 'biweekly') {
+          patch.dayOfWeek = dayOfWeek;
+        }
+      } else if (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 1)) {
+        patch.dayOfWeek = dayOfWeek;
+      }
       if (showDueDatePicker) {
         const nextTs = dueDate ? Timestamp.fromDate(dueDate) : null;
         const prevMs = chore.dueAt?.toDate().getTime() ?? null;
@@ -198,12 +217,44 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
             onChangeText={setTitle}
           />
 
-          {/* Recurrence (UI-only placeholder) */}
+          {/* Recurrence */}
           <Text style={styles.label}>Recurrence</Text>
-          <View style={styles.recurrencePill}>
-            <Text style={styles.recurrencePillText}>{RECURRENCE_LABEL[chore.recurrence]}</Text>
-            <Ionicons name="chevron-down" size={16} color={CH.textSoft} />
+          <View style={styles.chipRow}>
+            {RECURRENCES.map(({ label, value }) => {
+              const active = recurrence === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setRecurrence(value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+
+          {showDayPicker && (
+            <>
+              <Text style={styles.label}>Day of Week</Text>
+              <View style={styles.chipRow}>
+                {DAYS.map((day, idx) => {
+                  const active = dayOfWeek === idx;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setDayOfWeek(idx)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{day}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
           {/* Due Date — only for one-time chores */}
           {showDueDatePicker && (
@@ -408,23 +459,31 @@ const styles = StyleSheet.create({
     color: CH.textStrong,
     backgroundColor: CH.white,
   },
-  recurrencePill: {
-    alignSelf: 'flex-start',
+  chipRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
     borderWidth: 1.5,
     borderColor: CH.plateBorder,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     backgroundColor: CH.white,
-    opacity: 0.85,
   },
-  recurrencePillText: {
+  chipActive: {
+    backgroundColor: CH.fill,
+    borderColor: CH.fill,
+  },
+  chipText: {
     fontSize: 14,
     color: CH.textStrong,
     fontWeight: '500',
+  },
+  chipTextActive: {
+    color: CH.white,
+    fontWeight: '700',
   },
   datePickerContainer: {
     flexDirection: 'row',

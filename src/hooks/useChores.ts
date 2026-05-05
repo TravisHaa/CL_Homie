@@ -108,17 +108,47 @@ export function useChores() {
 
   const updateChore = async (
     choreId: string,
-    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt'>>,
+    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>>,
     opts?: { recurrence?: Chore['recurrence'] }
   ) => {
     if (!houseId) throw new Error('No house connected. Join a house first.');
     const choreRef = doc(db, 'houses', houseId, 'chores', choreId);
     const update: Record<string, unknown> = { ...patch };
+
+    // Effective recurrence after this update: prefer the patched value, else
+    // the caller-provided current recurrence (legacy opts arg).
+    const effectiveRecurrence = patch.recurrence ?? opts?.recurrence;
+
     // Mirror addChore: a one-time chore's weekKey is derived from dueAt so it
     // remains visible in the right week query when the date changes.
-    if ('dueAt' in patch && opts?.recurrence === 'once') {
+    if ('dueAt' in patch && effectiveRecurrence === 'once') {
       update.weekKey = patch.dueAt ? getWeekKey(patch.dueAt.toDate()) : weekKey;
     }
+
+    // Switching recurrence requires shape adjustments. We intentionally do NOT
+    // touch isCompleted/completedAt/completedBy here — completion state is
+    // preserved across recurrence changes (per the agreed plan).
+    //  - once → recurring: clear dueAt, snap weekKey to the current week so
+    //    the chore appears in this week's listing immediately.
+    //  - recurring → once: clear dayOfWeek; weekKey only changes if the
+    //    caller also patches dueAt (handled above).
+    //  - recurring → recurring: no weekKey change; only fix up dayOfWeek
+    //    (null for monthly, default-to-Sunday for weekly/biweekly when unset).
+    if (patch.recurrence) {
+      if (patch.recurrence === 'once') {
+        update.dayOfWeek = null;
+      } else {
+        update.dueAt = null;
+        update.weekKey = weekKey;
+        if (patch.recurrence === 'monthly') {
+          update.dayOfWeek = null;
+        } else if (patch.dayOfWeek == null) {
+          // Caller didn't supply one — default to Sunday.
+          update.dayOfWeek = 0;
+        }
+      }
+    }
+
     await updateDoc(choreRef, update);
   };
 
