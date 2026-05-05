@@ -7,6 +7,7 @@ export interface User {
   avatarUrl: string | null;
   houseId: string | null;
   color: string; // hex color for calendar
+  googleCalendarLinked?: boolean; // set by exchangeGoogleAuthCode after server-side token storage
   createdAt: Timestamp;
 }
 
