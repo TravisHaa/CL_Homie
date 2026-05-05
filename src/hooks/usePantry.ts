@@ -20,6 +20,7 @@ export interface AddPantryItemInput {
   category: string;
   isShared: boolean;
   expirationDate: Date | null;
+  barcode?: string | null;
 }
 
 export function usePantry() {
@@ -61,7 +62,7 @@ export function usePantry() {
         expirationConfidence: 'manual' as const,
         ownedBy: userProfile.id,
         addedBy: userProfile.id,
-        barcode: null,
+        barcode: input.barcode ?? null,
         imageUrl: null,
         createdAt: Timestamp.now(),
       } as PantryItem);
