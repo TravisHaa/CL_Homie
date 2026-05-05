@@ -1,4 +1,4 @@
-import { arrayRemove, deleteField, writeBatch } from 'firebase/firestore';
+import { arrayRemove, deleteField, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from './config';
 import { houseDoc, userDoc } from './firestore';
 
@@ -10,4 +10,11 @@ export async function leaveHouse({ uid, houseId }: { uid: string; houseId: strin
   });
   batch.update(userDoc(uid), { houseId: deleteField() });
   await batch.commit();
+}
+
+export async function setWeeklyScrambleEnabled(
+  houseId: string,
+  enabled: boolean
+): Promise<void> {
+  await updateDoc(houseDoc(houseId), { weeklyScrambleEnabled: enabled });
 }

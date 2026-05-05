@@ -1,17 +1,19 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import 'react-native-reanimated';
 
+import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { useAuthListener } from '@/src/hooks/useAuth';
 import { useNotificationsRegistration } from '@/src/hooks/useNotifications';
 import { useAuthStore } from '@/src/store/authStore';
+import { useHouseStore } from '@/src/store/houseStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -57,6 +59,19 @@ function AuthGate() {
   const { firebaseUser, userProfile, isLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  // Primary weekly chore-rollover trigger. Runs once per house per session.
+  // The transaction inside maybeRolloverChores has its own race-guard, so the
+  // backup trigger in useChores is harmless if this already ran.
+  const houseId = useHouseStore((s) => s.house?.id) ?? null;
+  const rolledForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!houseId || rolledForRef.current === houseId) return;
+    rolledForRef.current = houseId;
+    maybeRolloverChores(houseId).catch((e) =>
+      console.warn('[Rollover] failed', e)
+    );
+  }, [houseId]);
 
   useEffect(() => {
     if (isLoading) return;

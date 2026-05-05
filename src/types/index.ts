@@ -18,6 +18,10 @@ export interface House {
   memberNames?: Record<string, string>; // denormalized userId -> displayName for quick reads
   createdBy: string; // userId
   createdAt: Timestamp;
+  // Weekly chore rollover (client-driven; see src/firebase/choreRollover.ts).
+  weeklyScrambleEnabled?: boolean; // user-controlled toggle
+  lastRolloverWeekKey?: string;    // last week the rollover transaction succeeded; race guard
+  rotationOffset?: number;         // monotonic count of completed weekly rollovers
 }
 
 export type ChoreRecurrence = 'weekly' | 'biweekly' | 'monthly' | 'once';
