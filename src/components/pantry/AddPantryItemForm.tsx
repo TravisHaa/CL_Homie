@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -24,6 +25,7 @@ import { parseISO, isValid } from 'date-fns';
 import { PANTRY_CATEGORIES } from '@/src/utils/categories';
 import type { AddPantryItemInput } from '@/src/hooks/usePantry';
 import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { lookupBarcode } from '@/src/services/openFoodFacts';
 
 interface Props {
   onAdd: (input: AddPantryItemInput) => Promise<void>;
@@ -47,10 +49,30 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
     const [submitting, setSubmitting] = useState(false);
     const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
     const [scannerVisible, setScannerVisible] = useState(false);
+    const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle');
+
+    useEffect(() => {
+      if (!scannedBarcode) {
+        setLookupStatus('idle');
+        return;
+      }
+      let cancelled = false;
+      setLookupStatus('loading');
+      lookupBarcode(scannedBarcode).then((result) => {
+        if (cancelled) return;
+        setLookupStatus(result.status);
+        if (result.status === 'found') {
+          setField('name', result.name);
+          setField('category', result.category);
+        }
+      });
+      return () => { cancelled = true; };
+    }, [scannedBarcode]);
 
     function reset() {
       setForm(INITIAL_STATE);
       setScannedBarcode(null);
+      setLookupStatus('idle');
     }
 
     function setField<K extends keyof typeof INITIAL_STATE>(
@@ -141,7 +163,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
             {scannedBarcode ? (
               <View style={styles.barcodeChip}>
                 <Text style={styles.barcodeChipText} numberOfLines={1}>
-                  Barcode: {scannedBarcode}
+                  {lookupStatus === 'loading' ? 'Looking up…' : `Barcode: ${scannedBarcode}`}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setScannedBarcode(null)}
@@ -150,6 +172,17 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
                   <Text style={styles.barcodeChipClear}>✕</Text>
                 </TouchableOpacity>
               </View>
+            ) : null}
+            {lookupStatus === 'found' ? (
+              <Text style={styles.lookupNotice}>✓ Name and category auto-filled from barcode</Text>
+            ) : lookupStatus === 'not_found' ? (
+              <Text style={[styles.lookupNotice, styles.lookupNoticeWarn]}>
+                Product not found — fill in details manually
+              </Text>
+            ) : lookupStatus === 'error' ? (
+              <Text style={[styles.lookupNotice, styles.lookupNoticeMute]}>
+                Lookup unavailable — fill in details manually
+              </Text>
             ) : null}
 
             {/* Quantity + Unit */}
@@ -325,6 +358,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#636e72',
     fontWeight: '700',
+  },
+  lookupNotice: {
+    fontSize: 12,
+    color: '#00B894',
+    fontWeight: '500',
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  lookupNoticeWarn: {
+    color: '#E17055',
+  },
+  lookupNoticeMute: {
+    color: '#b2bec3',
   },
   input: {
     backgroundColor: '#FFFFFF',
