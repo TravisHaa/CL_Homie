@@ -1,10 +1,12 @@
 import { useHouseStore } from '@/src/store/houseStore';
-import type { Chore } from '@/src/types';
+import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
+import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
     BottomSheetBackdropProps,
     BottomSheetModal,
+    BottomSheetScrollView,
     BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -12,6 +14,9 @@ import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AssignmentTile } from './AssignmentTile';
+import { MonthDayPicker } from './MonthDayPicker';
+import { RecurrenceDropdown } from './RecurrenceDropdown';
 
 // Peach palette mirrors app/(tabs)/chores.tsx (CH constants).
 const CH = {
@@ -26,20 +31,42 @@ const CH = {
   dangerBg: '#FBE9E7',
 };
 
-const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
-  { label: 'Once', value: 'once' },
+type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
+
+const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+  { label: 'Does not repeat', value: 'once' },
+  { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
-  { label: 'Biweekly', value: 'biweekly' },
   { label: 'Monthly', value: 'monthly' },
+  { label: 'Custom', value: 'custom' },
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Coerces the (possibly legacy 'biweekly') stored value to an editable form.
+function toEditable(r: Chore['recurrence']): EditableRecurrence {
+  return r === 'biweekly' ? 'custom' : r;
+}
+
+type ChoreUpdatePatch = Partial<
+  Pick<
+    Chore,
+    | 'title'
+    | 'assignedTo'
+    | 'dueAt'
+    | 'recurrence'
+    | 'dayOfWeek'
+    | 'dayOfMonth'
+    | 'customRecurrence'
+    | 'autoRotate'
+  >
+>;
 
 interface ChoreDetailSheetProps {
   chore: Chore | null;
   onUpdate: (
     choreId: string,
-    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>>,
+    patch: ChoreUpdatePatch,
     opts?: { recurrence?: Chore['recurrence'] }
   ) => Promise<void>;
   onDelete: (choreId: string) => Promise<void>;
@@ -50,17 +77,26 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const memberMap = useHouseStore((s) => s.memberMap);
     const memberIds = Object.keys(memberMap);
 
+    const house = useHouseStore((s) => s.house);
+    const masterAutoRotate = house?.weeklyScrambleEnabled !== false;
+
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
-    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
+    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [autoRotate, setAutoRotate] = useState(false);
     const [dayOfWeek, setDayOfWeek] = useState<number>(0);
+    const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+    const [customCount, setCustomCount] = useState<number>(1);
+    const [customUnit, setCustomUnit] = useState<CustomIntervalUnit>('weeks');
+    const [customDays, setCustomDays] = useState<number[]>([]);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const webDateInputRef = React.useRef<HTMLInputElement>(null);
 
-    const snapPoints = useMemo(() => ['65%', '90%'], []);
+    // Single fixed snap point so the sheet never resizes when fields change.
+    const snapPoints = useMemo(() => ['90%'], []);
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
@@ -72,10 +108,22 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     // Reset form whenever a different chore is opened.
     useEffect(() => {
       if (!chore) return;
+      const editable = toEditable(chore.recurrence);
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
-      setRecurrence(chore.recurrence);
+      setRecurrence(editable);
+      setAutoRotate(!!chore.autoRotate);
       setDayOfWeek(chore.dayOfWeek ?? 0);
+      setDayOfMonth(chore.dayOfMonth ?? 1);
+      // Seed custom controls from the stored shape, or sensible defaults when
+      // switching INTO custom from a different recurrence in the editor.
+      const cr = chore.customRecurrence ?? null;
+      setCustomCount(cr?.count ?? (chore.recurrence === 'biweekly' ? 2 : 1));
+      setCustomUnit(cr?.unit ?? 'weeks');
+      setCustomDays(
+        cr?.daysOfWeek ??
+          (chore.dayOfWeek != null ? [chore.dayOfWeek] : [new Date().getDay()])
+      );
       setDueDate(chore.dueAt ? chore.dueAt.toDate() : null);
       setShowDatePicker(false);
       setSubmitting(false);
@@ -87,6 +135,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         <BottomSheetModal
           ref={ref}
           snapPoints={snapPoints}
+          enableDynamicSizing={false}
           backdropComponent={renderBackdrop}
           backgroundStyle={styles.sheetBackground}
           handleIndicatorStyle={styles.handle}
@@ -99,13 +148,36 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     }
 
     const showDueDatePicker = recurrence === 'once';
-    const showDayPicker = recurrence === 'weekly' || recurrence === 'biweekly';
+    const showWeeklyDayPicker = recurrence === 'weekly';
+    const showMonthlyDayPicker = recurrence === 'monthly';
+    const showCustomBlock = recurrence === 'custom';
+    const supportsAutoRotate =
+      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const requiresMemberPick = !supportsAutoRotate || !autoRotate;
+
+    const toggleCustomDay = (idx: number) => {
+      setCustomDays((prev) =>
+        prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort()
+      );
+    };
+
+    // Compare the form's current custom shape vs the chore's stored one.
+    const storedCustom = chore.customRecurrence ?? null;
+    const customDirty =
+      recurrence === 'custom' &&
+      (storedCustom?.count !== customCount ||
+        storedCustom?.unit !== customUnit ||
+        JSON.stringify(storedCustom?.daysOfWeek ?? []) !==
+          JSON.stringify(customUnit === 'weeks' ? customDays : []));
 
     const isDirty =
       title.trim() !== chore.title ||
-      assignedTo !== chore.assignedTo ||
-      recurrence !== chore.recurrence ||
-      (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
+      (requiresMemberPick && assignedTo !== chore.assignedTo) ||
+      recurrence !== toEditable(chore.recurrence) ||
+      (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
+      (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
+      (showMonthlyDayPicker && dayOfMonth !== (chore.dayOfMonth ?? 1)) ||
+      customDirty ||
       (showDueDatePicker && (dueDate?.getTime() ?? null) !== (chore.dueAt?.toDate().getTime() ?? null));
 
     const handleSave = async () => {
@@ -116,18 +188,42 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         return;
       }
 
-      const patch: Partial<
-        Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>
-      > = {};
-      if (trimmed !== chore.title) patch.title = trimmed;
-      if (assignedTo && assignedTo !== chore.assignedTo) patch.assignedTo = assignedTo;
-      if (recurrence !== chore.recurrence) {
-        patch.recurrence = recurrence;
-        if (recurrence === 'weekly' || recurrence === 'biweekly') {
-          patch.dayOfWeek = dayOfWeek;
+      // Validate custom shape before building the patch.
+      if (recurrence === 'custom') {
+        if (customCount < 1) {
+          Alert.alert('Invalid interval', 'Repeat-every count must be at least 1.');
+          return;
         }
-      } else if (showDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) {
+        if (customUnit === 'weeks' && customDays.length === 0) {
+          Alert.alert('Pick a day', 'Choose at least one day of the week to repeat on.');
+          return;
+        }
+      }
+
+      const patch: ChoreUpdatePatch = {};
+      if (trimmed !== chore.title) patch.title = trimmed;
+      if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
+        patch.assignedTo = assignedTo;
+      }
+      if (recurrence !== toEditable(chore.recurrence)) {
+        patch.recurrence = recurrence;
+      }
+      if (supportsAutoRotate && autoRotate !== !!chore.autoRotate) {
+        patch.autoRotate = autoRotate;
+      }
+      if (recurrence === 'weekly' && dayOfWeek !== (chore.dayOfWeek ?? 0)) {
         patch.dayOfWeek = dayOfWeek;
+      }
+      if (recurrence === 'monthly' && dayOfMonth !== (chore.dayOfMonth ?? 1)) {
+        patch.dayOfMonth = dayOfMonth;
+      }
+      if (recurrence === 'custom' && (patch.recurrence || customDirty)) {
+        const next: CustomRecurrence = {
+          count: customCount,
+          unit: customUnit,
+          ...(customUnit === 'weeks' ? { daysOfWeek: customDays } : {}),
+        };
+        patch.customRecurrence = next;
       }
       if (showDueDatePicker) {
         const nextTs = dueDate ? Timestamp.fromDate(dueDate) : null;
@@ -192,12 +288,16 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       <BottomSheetModal
         ref={ref}
         snapPoints={snapPoints}
+        enableDynamicSizing={false}
         backdropComponent={renderBackdrop}
         backgroundStyle={styles.sheetBackground}
         handleIndicatorStyle={styles.handle}
         keyboardBehavior="interactive"
       >
-        <BottomSheetView style={styles.content}>
+        <BottomSheetScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <View style={styles.headerRow}>
             <Text style={styles.heading}>Edit Chore</Text>
@@ -219,41 +319,14 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
           {/* Recurrence */}
           <Text style={styles.label}>Recurrence</Text>
-          <View style={styles.chipRow}>
-            {RECURRENCES.map(({ label, value }) => {
-              const active = recurrence === value;
-              return (
-                <TouchableOpacity
-                  key={value}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => {
-                    const prev = recurrence;
-                    setRecurrence(value);
-                    // Day-of-week handling on recurrence change:
-                    //  - Tapping back to the chore's original recurrence:
-                    //    restore the chore's stored day so a stray tap doesn't
-                    //    silently lose the user's setting.
-                    //  - weekly ↔ biweekly: both carry a day-of-week, so keep
-                    //    the currently selected day (per user request).
-                    //  - Anything else (involving once/monthly): default to
-                    //    Sunday so the chip row starts from a known baseline.
-                    const prevHasDay = prev === 'weekly' || prev === 'biweekly';
-                    const nextHasDay = value === 'weekly' || value === 'biweekly';
-                    if (value === chore.recurrence) {
-                      setDayOfWeek(chore.dayOfWeek ?? 0);
-                    } else if (!(prevHasDay && nextHasDay)) {
-                      setDayOfWeek(0);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={styles.summary}>{formatRecurrenceLabel(chore)}</Text>
+          <RecurrenceDropdown
+            value={recurrence}
+            options={RECURRENCES}
+            onChange={(v) => setRecurrence(v)}
+          />
 
-          {showDayPicker && (
+          {showWeeklyDayPicker && (
             <>
               <Text style={styles.label}>Day of Week</Text>
               <View style={styles.chipRow}>
@@ -271,6 +344,69 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
                   );
                 })}
               </View>
+            </>
+          )}
+
+          {showMonthlyDayPicker && (
+            <>
+              <Text style={styles.label}>Day of Month</Text>
+              <MonthDayPicker value={dayOfMonth} onChange={setDayOfMonth} />
+            </>
+          )}
+
+          {showCustomBlock && (
+            <>
+              <Text style={styles.label}>Repeat every</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={() => setCustomCount((n) => Math.max(1, n - 1))}
+                >
+                  <Text style={styles.stepperButtonText}>–</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepperValue}>{customCount}</Text>
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={() => setCustomCount((n) => n + 1)}
+                >
+                  <Text style={styles.stepperButtonText}>+</Text>
+                </TouchableOpacity>
+                <View style={styles.unitGroup}>
+                  {(['days', 'weeks'] as CustomIntervalUnit[]).map((u) => {
+                    const active = customUnit === u;
+                    const label = customCount === 1 ? u.slice(0, -1) : u;
+                    return (
+                      <TouchableOpacity
+                        key={u}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => setCustomUnit(u)}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              {customUnit === 'weeks' && (
+                <>
+                  <Text style={styles.label}>Repeat on</Text>
+                  <View style={styles.chipRow}>
+                    {DAYS.map((day, idx) => {
+                      const active = customDays.includes(idx);
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => toggleCustomDay(idx)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{day}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
             </>
           )}
 
@@ -362,33 +498,37 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           <View style={styles.avatarRow}>
             {memberIds.map((uid) => {
               const m = memberMap[uid];
-              const active = assignedTo === uid;
+              const active = !autoRotate && assignedTo === uid;
               return (
-                <TouchableOpacity
+                <AssignmentTile
                   key={uid}
-                  style={styles.avatarItem}
-                  onPress={() => setAssignedTo(uid)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.avatarCircle,
-                      { backgroundColor: m.color || CH.plateBg },
-                      active && styles.avatarCircleActive,
-                    ]}
-                  >
-                    <Text style={styles.avatarInitial}>{initialOf(m.displayName)}</Text>
-                  </View>
-                  <Text
-                    style={[styles.avatarName, active && styles.avatarNameActive]}
-                    numberOfLines={1}
-                  >
-                    {m.displayName}
-                  </Text>
-                </TouchableOpacity>
+                  label={m.displayName}
+                  initial={initialOf(m.displayName)}
+                  color={m.color}
+                  selected={active}
+                  onPress={() => {
+                    setAutoRotate(false);
+                    setAssignedTo(uid);
+                  }}
+                />
               );
             })}
+            {supportsAutoRotate && (
+              <AssignmentTile
+                label="Auto Rotate"
+                iconName="sync-circle-outline"
+                selected={autoRotate}
+                onPress={() => setAutoRotate(true)}
+              />
+            )}
           </View>
+          {!requiresMemberPick && (
+            <Text style={[styles.summary, { marginTop: 8 }]}>
+              Currently with {memberMap[chore.assignedTo]?.displayName ?? 'unassigned'}; will
+              {masterAutoRotate ? ' rotate ' : ' stay (master switch off) '}
+              on the next cycle.
+            </Text>
+          )}
 
           {/* Footer actions */}
           <View style={styles.footerRow}>
@@ -422,7 +562,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
             <Ionicons name="trash-outline" size={16} color={CH.danger} />
             <Text style={styles.deleteButtonText}>Delete chore</Text>
           </TouchableOpacity>
-        </BottomSheetView>
+        </BottomSheetScrollView>
       </BottomSheetModal>
     );
   }
@@ -438,8 +578,8 @@ const styles = StyleSheet.create({
     backgroundColor: CH.plateBorder,
   },
   content: {
-    flex: 1,
     padding: 24,
+    paddingBottom: 48,
   },
   headerRow: {
     flexDirection: 'row',
@@ -498,6 +638,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: CH.textStrong,
     fontWeight: '500',
+  },
+  summary: {
+    color: CH.textSoft,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  stepperButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: CH.plateBorder,
+    backgroundColor: CH.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperButtonText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: CH.textStrong,
+    lineHeight: 22,
+  },
+  stepperValue: {
+    minWidth: 36,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: CH.textStrong,
+  },
+  unitGroup: {
+    flexDirection: 'row',
+    gap: 8,
+    marginLeft: 12,
   },
   chipTextActive: {
     color: CH.white,

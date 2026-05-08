@@ -9,6 +9,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { migrateChoreSchema } from '@/src/firebase/choreMigrations';
 import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { useAuthListener } from '@/src/hooks/useAuth';
 import { useNotificationsRegistration } from '@/src/hooks/useNotifications';
@@ -68,9 +69,19 @@ function AuthGate() {
   useEffect(() => {
     if (!houseId || rolledForRef.current === houseId) return;
     rolledForRef.current = houseId;
-    maybeRolloverChores(houseId).catch((e) =>
-      console.warn('[Rollover] failed', e)
-    );
+    // Run schema migration before rollover so the engine sees the new shape.
+    (async () => {
+      try {
+        await migrateChoreSchema(houseId);
+      } catch (e) {
+        console.warn('[Migration] failed', e);
+      }
+      try {
+        await maybeRolloverChores(houseId);
+      } catch (e) {
+        console.warn('[Rollover] failed', e);
+      }
+    })();
   }, [houseId]);
 
   useEffect(() => {

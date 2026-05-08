@@ -1,27 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  BottomSheetBackdrop,
-  BottomSheetBackdropProps,
-  BottomSheetModal,
-  BottomSheetView,
+    BottomSheetBackdrop,
+    BottomSheetBackdropProps,
+    BottomSheetModal,
+    BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { format } from 'date-fns';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
+    Alert,
+    Image,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Switch,
+    Text,
+    View,
 } from 'react-native';
 
 import { setWeeklyScrambleEnabled } from '@/src/firebase/house';
 import { useChores } from '@/src/hooks/useChores';
 import { useHouseStore } from '@/src/store/houseStore';
-import type { Chore } from '@/src/types';
+import { recurrenceLabel } from '@/src/utils/choreSchedule';
 import { nextMondayDate } from '@/src/utils/weekKey';
 
 const S = {
@@ -31,21 +31,6 @@ const S = {
   textSoft: '#7A6BB0',
   pillBg: '#FFFFFF',
 };
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-function recurrenceLabel(chore: Chore): string {
-  switch (chore.recurrence) {
-    case 'weekly':
-      return chore.dayOfWeek != null ? `Every ${DAY_NAMES[chore.dayOfWeek]}` : 'Weekly';
-    case 'biweekly':
-      return chore.dayOfWeek != null ? `Every other ${DAY_NAMES[chore.dayOfWeek]}` : 'Every 2 weeks';
-    case 'monthly':
-      return 'Monthly';
-    default:
-      return '';
-  }
-}
 
 function initialOf(name: string | undefined | null): string {
   if (!name) return '?';
@@ -68,8 +53,11 @@ export function RotationCard() {
   const memberIds = house?.memberIds ?? [];
   const sortedMembers = useMemo(() => [...memberIds].sort(), [memberIds]);
 
+  // Show only chores opted into auto-rotate — the per-chore flag is now the
+  // source of truth for what's part of "the rotation". Recurring chores with
+  // a pinned assignee are intentionally hidden here.
   const recurringChores = useMemo(
-    () => chores.filter((c) => c.recurrence !== 'once'),
+    () => chores.filter((c) => c.autoRotate === true),
     [chores]
   );
 
@@ -218,7 +206,8 @@ export function RotationCard() {
             <View style={{ flex: 1 }}>
               <Text style={styles.sheetRowTitle}>Auto-rotate weekly</Text>
               <Text style={styles.sheetRowSubtitle}>
-                Shuffle assignees each week so the same chore doesn’t always land on the same person.
+                Master switch — chores opted into auto-rotate will shuffle on their cycle. Off pins
+                everything to its current assignee.
               </Text>
             </View>
             <Switch

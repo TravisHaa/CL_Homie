@@ -1,6 +1,8 @@
 import {
     differenceInCalendarDays,
     differenceInCalendarMonths,
+    format,
+    getDaysInMonth,
     getISOWeek,
     getISOWeekYear,
     nextMonday,
@@ -56,4 +58,45 @@ export function monthsBetween(a: string, b: string): number {
  */
 export function nextMondayDate(from: Date = new Date()): Date {
   return nextMonday(from);
+}
+
+/**
+ * Stable day identifier in device-local time, like "2026-05-04".
+ * Used as the per-day rollover race-guard and for daily/custom-multi-day chores.
+ */
+export function getDayKey(date: Date = new Date()): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+/**
+ * Signed day difference: b - a. Same day → 0.
+ */
+export function daysBetweenKeys(a: string, b: string): number {
+  return differenceInCalendarDays(parseDayKey(b), parseDayKey(a));
+}
+
+/**
+ * Parses a day key like "2026-05-04" into a local-midnight Date.
+ */
+export function parseDayKey(key: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) throw new Error(`Invalid day key: ${key}`);
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/**
+ * Monotonic ISO-week index (ISO-year * 53 + week). Lets us compare two dates
+ * by ISO-week regardless of year boundaries.
+ */
+export function isoWeekIndex(date: Date): number {
+  return getISOWeekYear(date) * 53 + getISOWeek(date);
+}
+
+/**
+ * Clamp a target day-of-month to the actual length of the month containing
+ * `reference`. e.g. dayOfMonth=31 in February → 28 or 29.
+ */
+export function clampDayOfMonth(reference: Date, dayOfMonth: number): number {
+  const max = getDaysInMonth(reference);
+  return Math.min(Math.max(1, dayOfMonth), max);
 }

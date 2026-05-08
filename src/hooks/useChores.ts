@@ -71,7 +71,12 @@ export function useChores() {
   }, [houseId, weekKey, queryClient]);
 
   const addChore = async (
-    input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'> & {
+    input: Pick<Chore, 'title' | 'recurrence'> & {
+      assignedTo?: string;        // optional when autoRotate=true; we'll seed
+      autoRotate?: boolean;
+      dayOfWeek?: number | null;
+      dayOfMonth?: number | null;
+      customRecurrence?: Chore['customRecurrence'];
       dueAt?: Timestamp | null;
     }
   ) => {
@@ -79,11 +84,38 @@ export function useChores() {
     const choreWeekKey = input.recurrence === 'once' && input.dueAt
       ? getWeekKey(input.dueAt.toDate())
       : weekKey;
+
+    // Auto-rotate is only meaningful for recurring (non-once, non-daily) chores.
+    const autoRotate = !!input.autoRotate &&
+      input.recurrence !== 'once' &&
+      input.recurrence !== 'daily';
+
+    // Seed assignee for new auto-rotate chores using house.rotationOffset so
+    // successive creations stagger across members.
+    let assignedTo = input.assignedTo ?? '';
+    if (autoRotate && house) {
+      const sortedMembers = [...(house.memberIds ?? [])].sort();
+      if (sortedMembers.length > 0) {
+        const offset = (house.rotationOffset ?? 0) % sortedMembers.length;
+        assignedTo = sortedMembers[offset];
+      }
+    }
+    if (!assignedTo) {
+      throw new Error('A chore must be assigned to someone, or use auto-rotate with members in the house.');
+    }
+
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
-        ...input,
+        title: input.title,
+        assignedTo,
+        recurrence: input.recurrence,
+        autoRotate,
+        dayOfWeek: input.dayOfWeek ?? null,
+        dayOfMonth: input.dayOfMonth ?? null,
+        customRecurrence: input.customRecurrence ?? null,
         dueAt: input.dueAt ?? null,
+        lastTriggeredKey: null,
         isCompleted: false,
         completedAt: null,
         completedBy: null,
@@ -108,7 +140,19 @@ export function useChores() {
 
   const updateChore = async (
     choreId: string,
-    patch: Partial<Pick<Chore, 'title' | 'assignedTo' | 'dueAt' | 'recurrence' | 'dayOfWeek'>>,
+    patch: Partial<
+      Pick<
+        Chore,
+        | 'title'
+        | 'assignedTo'
+        | 'dueAt'
+        | 'recurrence'
+        | 'dayOfWeek'
+        | 'dayOfMonth'
+        | 'customRecurrence'
+        | 'autoRotate'
+      >
+    >,
     opts?: { recurrence?: Chore['recurrence'] }
   ) => {
     if (!houseId) throw new Error('No house connected. Join a house first.');
@@ -125,28 +169,32 @@ export function useChores() {
       update.weekKey = patch.dueAt ? getWeekKey(patch.dueAt.toDate()) : weekKey;
     }
 
-    // Switching recurrence requires shape adjustments. We intentionally do NOT
-    // touch isCompleted/completedAt/completedBy here — completion state is
-    // preserved across recurrence changes (per the agreed plan).
-    //  - once → recurring: clear dueAt, snap weekKey to the current week so
-    //    the chore appears in this week's listing immediately.
-    //  - recurring → once: clear dayOfWeek; weekKey only changes if the
-    //    caller also patches dueAt (handled above).
-    //  - recurring → recurring: no weekKey change; only fix up dayOfWeek
-    //    (null for monthly, default-to-Sunday for weekly/biweekly when unset).
+    // Switching recurrence: clear fields that don't apply to the new shape so
+    // stale data doesn't leak into rollover decisions. Completion state is
+    // intentionally preserved across recurrence changes.
     if (patch.recurrence) {
-      if (patch.recurrence === 'once') {
-        update.dayOfWeek = null;
+      const r = patch.recurrence;
+      // Always reset shape-specific fields; the caller can re-set them in the
+      // same patch and our spread above will win.
+      const shapeReset: Record<string, unknown> = {
+        dayOfWeek: null,
+        dayOfMonth: null,
+        customRecurrence: null,
+      };
+      if (r === 'once') {
+        shapeReset.autoRotate = false;
+      } else if (r === 'daily') {
+        update.dueAt = null;
+        update.weekKey = weekKey;
+        shapeReset.autoRotate = false;
       } else {
         update.dueAt = null;
         update.weekKey = weekKey;
-        if (patch.recurrence === 'monthly') {
-          update.dayOfWeek = null;
-        } else if (patch.dayOfWeek == null) {
-          // Caller didn't supply one — default to Sunday.
-          update.dayOfWeek = 0;
-        }
+        if (r === 'weekly' && patch.dayOfWeek == null) shapeReset.dayOfWeek = 0;
+        if (r === 'monthly' && patch.dayOfMonth == null) shapeReset.dayOfMonth = 1;
       }
+      // Apply resets first, then let the patch's explicit values win via spread.
+      Object.assign(update, shapeReset, patch);
     }
 
     await updateDoc(choreRef, update);
