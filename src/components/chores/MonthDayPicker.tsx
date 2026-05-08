@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const CH = {
   plateBg: '#FFE2CB',
@@ -28,7 +28,7 @@ export function MonthDayPicker({ value, onChange }: MonthDayPickerProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <View>
+    <View style={[styles.wrapper, open && styles.wrapperOpen]}>
       <TouchableOpacity
         style={styles.trigger}
         onPress={() => setOpen((o) => !o)}
@@ -42,6 +42,10 @@ export function MonthDayPicker({ value, onChange }: MonthDayPickerProps) {
           color={CH.textStrong}
         />
       </TouchableOpacity>
+
+      {open && (
+        <Pressable onPress={() => setOpen(false)} style={styles.backdrop} />
+      )}
 
       {open && (
         <View style={styles.menu}>
@@ -95,6 +99,22 @@ export function MonthDayPicker({ value, onChange }: MonthDayPickerProps) {
 const CELL_SIZE = 34;
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+    zIndex: 1,
+    alignSelf: 'flex-start',
+  },
+  wrapperOpen: {
+    zIndex: 1000,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: -2000,
+    bottom: -2000,
+    left: -2000,
+    right: -2000,
+    zIndex: 999,
+  },
   trigger: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -113,18 +133,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   menu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
     marginTop: 8,
-    alignSelf: 'flex-start',
     backgroundColor: CH.plateBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: CH.plateBorder,
     padding: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    zIndex: 1000,
   },
   headerRow: {
     flexDirection: 'row',

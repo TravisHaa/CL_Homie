@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const CH = {
   plateBg: '#FFE2CB',
@@ -34,7 +34,7 @@ export function RecurrenceDropdown<V extends string>({
   const current = options.find((o) => o.value === value);
 
   return (
-    <View>
+    <View style={[styles.wrapper, open && styles.wrapperOpen]}>
       <TouchableOpacity
         style={styles.trigger}
         onPress={() => setOpen((o) => !o)}
@@ -47,6 +47,15 @@ export function RecurrenceDropdown<V extends string>({
           color={CH.textStrong}
         />
       </TouchableOpacity>
+
+      {open && (
+        <Pressable
+          onPress={() => setOpen(false)}
+          style={styles.backdrop}
+          // Catches taps anywhere on the sheet to close the menu without
+          // visually obscuring anything (transparent).
+        />
+      )}
 
       {open && (
         <View style={styles.menu}>
@@ -82,6 +91,28 @@ export function RecurrenceDropdown<V extends string>({
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+    zIndex: 1,
+    alignSelf: 'flex-start',
+  },
+  wrapperOpen: {
+    // Raise the entire dropdown above sibling form rows when open so the
+    // floating menu paints over them on web/iOS. `elevation` on the menu
+    // itself handles Android stacking.
+    zIndex: 1000,
+  },
+  backdrop: {
+    // Cover the entire bottom sheet with a transparent layer so taps
+    // outside the menu close it. Large negative offsets make this work
+    // even though the parent wrapper has `alignSelf: 'flex-start'`.
+    position: 'absolute',
+    top: -2000,
+    bottom: -2000,
+    left: -2000,
+    right: -2000,
+    zIndex: 999,
+  },
   trigger: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -100,8 +131,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   menu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
     marginTop: 8,
-    alignSelf: 'flex-start',
     minWidth: 180,
     backgroundColor: CH.white,
     borderRadius: 12,
@@ -109,10 +142,11 @@ const styles = StyleSheet.create({
     borderColor: CH.plateBorder,
     paddingVertical: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    zIndex: 1000,
   },
   menuItem: {
     flexDirection: 'row',
