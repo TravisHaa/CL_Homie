@@ -6,6 +6,7 @@ import {
   getDocs,
   query,
   where,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -56,4 +57,9 @@ export async function joinHouseByInviteCode({
   batch.update(userDoc(uid), { houseId: newHouseId });
   await batch.commit();
   return newHouseId;
+export async function setWeeklyScrambleEnabled(
+  houseId: string,
+  enabled: boolean
+): Promise<void> {
+  await updateDoc(houseDoc(houseId), { weeklyScrambleEnabled: enabled });
 }

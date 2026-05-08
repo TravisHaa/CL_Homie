@@ -7,9 +7,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface ChoreCardProps {
   chore: Chore;
   onToggle: (choreId: string, currentValue: boolean) => void;
+  onPress?: (chore: Chore) => void;
 }
 
-export function ChoreCard({ chore, onToggle }: ChoreCardProps) {
+export function ChoreCard({ chore, onToggle, onPress }: ChoreCardProps) {
   const memberMap = useHouseStore((s) => s.memberMap);
   const assignee = memberMap[chore.assignedTo];
 
@@ -37,7 +38,12 @@ export function ChoreCard({ chore, onToggle }: ChoreCardProps) {
           color={chore.isCompleted ? '#2D3436' : '#DFE6E9'}
         />
       </TouchableOpacity>
-      <View style={styles.info}>
+      <TouchableOpacity
+        style={styles.info}
+        onPress={onPress ? () => onPress(chore) : undefined}
+        disabled={!onPress}
+        activeOpacity={0.7}
+      >
         <Text style={[styles.title, chore.isCompleted && styles.titleCompleted]}>
           {chore.title}
         </Text>
@@ -55,7 +61,7 @@ export function ChoreCard({ chore, onToggle }: ChoreCardProps) {
             </Text>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
