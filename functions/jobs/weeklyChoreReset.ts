@@ -174,9 +174,12 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
       return true;
     case 'weekly':
       return chore.dayOfWeek === dow;
-    case 'biweekly':
-      // Legacy until migration runs; treat like weekly so it stays visible.
-      return chore.dayOfWeek === dow;
+    case 'biweekly': {
+      if (chore.dayOfWeek !== dow) return false;
+      const anchor = chore.createdAt?.toDate() ?? date;
+      const cyclesSinceAnchor = isoWeekIndex(date) - isoWeekIndex(anchor);
+      return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
+    }
     case 'monthly': {
       if (chore.dayOfMonth == null) return false;
       const target = clampDayOfMonth(date, chore.dayOfMonth);
