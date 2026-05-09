@@ -6,15 +6,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ScrollView,
 } from 'react-native';
-import BottomSheet, {
+import DateTimePicker from '@react-native-community/datetimepicker';
+import {
   BottomSheetModal,
   BottomSheetView,
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { parse, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import type { NewEventInput } from '@/src/hooks/useCalendarEvents';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -25,8 +25,10 @@ interface Props {
 export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [startTimeStr, setStartTimeStr] = useState('');
-  const [endTimeStr, setEndTimeStr] = useState('');
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -36,15 +38,12 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
   const reset = () => {
     setTitle('');
     setDescription('');
-    setStartTimeStr('');
-    setEndTimeStr('');
+    setStartTime(null);
+    setEndTime(null);
+    setShowStartPicker(false);
+    setShowEndPicker(false);
     setAssignedTo([]);
     setError('');
-  };
-
-  const parseDateTime = (str: string): Date | null => {
-    const d = parse(str.trim(), 'yyyy-MM-dd HH:mm', new Date());
-    return isValid(d) ? d : null;
   };
 
   const toggleAssignee = (uid: string) => {
@@ -60,19 +59,14 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
       setError('Title is required');
       return;
     }
-
-    const startTime = parseDateTime(startTimeStr);
     if (!startTime) {
-      setError('Start time must be in format YYYY-MM-DD HH:MM');
+      setError('Start time is required');
       return;
     }
-
-    const endTime = parseDateTime(endTimeStr);
     if (!endTime) {
-      setError('End time must be in format YYYY-MM-DD HH:MM');
+      setError('End time is required');
       return;
     }
-
     if (endTime <= startTime) {
       setError('End time must be after start time');
       return;
@@ -108,9 +102,9 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
   return (
     <BottomSheetModal
       ref={ref}
-      snapPoints={['75%']}
+      snapPoints={['85%']}
       backdropComponent={renderBackdrop}
-      keyboardBehavior="extend"
+      keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       onDismiss={reset}
     >
@@ -162,25 +156,47 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref)
           </View>
         )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Start: YYYY-MM-DD HH:MM"
-          placeholderTextColor="#B2BEC3"
-          value={startTimeStr}
-          onChangeText={setStartTimeStr}
-          keyboardType="numbers-and-punctuation"
-          autoCorrect={false}
-        />
+        <TouchableOpacity
+          style={styles.dateRow}
+          onPress={() => { setShowEndPicker(false); setShowStartPicker((v) => !v); }}
+          activeOpacity={0.7}
+        >
+          <Text style={startTime ? styles.dateText : styles.datePlaceholder}>
+            {startTime ? format(startTime, 'MMM d, yyyy  h:mm a') : 'Start time'}
+          </Text>
+        </TouchableOpacity>
+        {showStartPicker && (
+          <DateTimePicker
+            value={startTime ?? new Date()}
+            mode="datetime"
+            display="spinner"
+            onChange={(_, date) => {
+              if (date) setStartTime(date);
+            }}
+            style={styles.picker}
+          />
+        )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="End: YYYY-MM-DD HH:MM"
-          placeholderTextColor="#B2BEC3"
-          value={endTimeStr}
-          onChangeText={setEndTimeStr}
-          keyboardType="numbers-and-punctuation"
-          autoCorrect={false}
-        />
+        <TouchableOpacity
+          style={styles.dateRow}
+          onPress={() => { setShowStartPicker(false); setShowEndPicker((v) => !v); }}
+          activeOpacity={0.7}
+        >
+          <Text style={endTime ? styles.dateText : styles.datePlaceholder}>
+            {endTime ? format(endTime, 'MMM d, yyyy  h:mm a') : 'End time'}
+          </Text>
+        </TouchableOpacity>
+        {showEndPicker && (
+          <DateTimePicker
+            value={endTime ?? startTime ?? new Date()}
+            mode="datetime"
+            display="spinner"
+            onChange={(_, date) => {
+              if (date) setEndTime(date);
+            }}
+            style={styles.picker}
+          />
+        )}
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -226,6 +242,17 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 13, fontWeight: '500', color: '#636e72' },
   chipTextSelected: { color: '#fff', fontWeight: '600' },
+  dateRow: {
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+  },
+  dateText: { fontSize: 15, color: '#2D3436' },
+  datePlaceholder: { fontSize: 15, color: '#B2BEC3' },
+  picker: { marginBottom: 8 },
   error: { color: '#E17055', fontSize: 13, marginBottom: 10 },
   button: {
     backgroundColor: '#2D3436',

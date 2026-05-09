@@ -3,6 +3,7 @@ import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
+import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
 import * as Clipboard from 'expo-clipboard';
@@ -199,14 +200,18 @@ export default function HomeScreen() {
     useShoppingList();
 
   const weekKey = getWeekKey();
-  const todayDow = new Date().getDay();
   const now = new Date();
 
-  const chores = allChores.filter(
-    (c) =>
-      (c.recurrence !== 'once' && c.dayOfWeek === todayDow) ||
-      (c.recurrence === 'once' && c.dueAt && (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))),
-  );
+  const chores = allChores.filter((c) => {
+    // Overdue / today's one-time chores remain visible.
+    if (c.recurrence === 'once') {
+      return (
+        !!c.dueAt &&
+        (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))
+      );
+    }
+    return isChoreDueOn(c, now);
+  });
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
   const events = allEvents
