@@ -1,16 +1,18 @@
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
+import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
     BottomSheetBackdropProps,
     BottomSheetModal,
     BottomSheetScrollView,
+    BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import React, { forwardRef, useCallback, useMemo, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
@@ -25,25 +27,12 @@ const CH = {
   textSoft: '#946345',
   fill: '#D97745',
   white: '#FFFFFF',
+  danger: '#C0392B',
+  dangerBg: '#FBE9E7',
 };
-
-export type ChoreFormPayload = Pick<Chore, 'title' | 'recurrence'> & {
-  assignedTo?: string;
-  autoRotate?: boolean;
-  dayOfWeek?: number | null;
-  dayOfMonth?: number | null;
-  customRecurrence?: CustomRecurrence | null;
-  dueAt?: Timestamp | null;
-};
-
-interface ChoreFormProps {
-  onSubmit: (input: ChoreFormPayload) => Promise<void>;
-}
 
 type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
 
-// User-facing recurrence options. Order matches the spec; 'biweekly' is
-// intentionally absent — it now lives under 'Custom' (every 2 weeks).
 const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
@@ -52,29 +41,54 @@ const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
   { label: 'Custom', value: 'custom' },
 ];
 
-const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const initialOf = (name: string) => name?.trim()?.[0]?.toUpperCase() ?? '?';
+// Coerces the (possibly legacy 'biweekly') stored value to an editable form.
+function toEditable(r: Chore['recurrence']): EditableRecurrence {
+  return r === 'biweekly' ? 'custom' : r;
+}
 
-export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
-  ({ onSubmit }, ref) => {
+type ChoreUpdatePatch = Partial<
+  Pick<
+    Chore,
+    | 'title'
+    | 'assignedTo'
+    | 'dueAt'
+    | 'recurrence'
+    | 'dayOfWeek'
+    | 'dayOfMonth'
+    | 'customRecurrence'
+    | 'autoRotate'
+  >
+>;
+
+interface ChoreDetailSheetProps {
+  chore: Chore | null;
+  onUpdate: (
+    choreId: string,
+    patch: ChoreUpdatePatch,
+    opts?: { recurrence?: Chore['recurrence'] }
+  ) => Promise<void>;
+  onDelete: (choreId: string) => Promise<void>;
+}
+
+export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetProps>(
+  ({ chore, onUpdate, onDelete }, ref) => {
     const memberMap = useHouseStore((s) => s.memberMap);
-    const house = useHouseStore((s) => s.house);
     const memberIds = Object.keys(memberMap);
 
-    // Auto-rotate is only available for recurring (non-once, non-daily) chores.
-    // It defaults ON when the house-wide master switch is enabled.
+    const house = useHouseStore((s) => s.house);
     const masterAutoRotate = house?.weeklyScrambleEnabled !== false;
 
     const [title, setTitle] = useState('');
-    const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
+    const [assignedTo, setAssignedTo] = useState('');
     const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
-    const [autoRotate, setAutoRotate] = useState(masterAutoRotate);
-    const [dayOfWeek, setDayOfWeek] = useState(0);
+    const [autoRotate, setAutoRotate] = useState(false);
+    const [dayOfWeek, setDayOfWeek] = useState<number>(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
     const [customCount, setCustomCount] = useState<number>(1);
     const [customUnit, setCustomUnit] = useState<CustomIntervalUnit>('weeks');
-    const [customDays, setCustomDays] = useState<number[]>([new Date().getDay()]);
+    const [customDays, setCustomDays] = useState<number[]>([]);
     const [dueDate, setDueDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -91,10 +105,52 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
       []
     );
 
+    // Reset form whenever a different chore is opened.
+    useEffect(() => {
+      if (!chore) return;
+      const editable = toEditable(chore.recurrence);
+      setTitle(chore.title);
+      setAssignedTo(chore.assignedTo);
+      setRecurrence(editable);
+      setAutoRotate(!!chore.autoRotate);
+      setDayOfWeek(chore.dayOfWeek ?? 0);
+      setDayOfMonth(chore.dayOfMonth ?? 1);
+      // Seed custom controls from the stored shape, or sensible defaults when
+      // switching INTO custom from a different recurrence in the editor.
+      const cr = chore.customRecurrence ?? null;
+      setCustomCount(cr?.count ?? (chore.recurrence === 'biweekly' ? 2 : 1));
+      setCustomUnit(cr?.unit ?? 'weeks');
+      setCustomDays(
+        cr?.daysOfWeek ??
+          (chore.dayOfWeek != null ? [chore.dayOfWeek] : [new Date().getDay()])
+      );
+      setDueDate(chore.dueAt ? chore.dueAt.toDate() : null);
+      setShowDatePicker(false);
+      setSubmitting(false);
+    }, [chore?.id]);
+
+    if (!chore) {
+      // Keep the modal mounted (so ref stays valid) but render nothing inside.
+      return (
+        <BottomSheetModal
+          ref={ref}
+          snapPoints={snapPoints}
+          enableDynamicSizing={false}
+          backdropComponent={renderBackdrop}
+          backgroundStyle={styles.sheetBackground}
+          handleIndicatorStyle={styles.handle}
+        >
+          <BottomSheetView style={styles.content}>
+            <View />
+          </BottomSheetView>
+        </BottomSheetModal>
+      );
+    }
+
+    const showDueDatePicker = recurrence === 'once';
     const showWeeklyDayPicker = recurrence === 'weekly';
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
-    const showDueDatePicker = recurrence === 'once';
     const supportsAutoRotate =
       recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
@@ -105,32 +161,34 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
       );
     };
 
-    const resetState = () => {
-      setTitle('');
-      setRecurrence('once');
-      setAutoRotate(masterAutoRotate);
-      setDayOfWeek(0);
-      setDayOfMonth(1);
-      setCustomCount(1);
-      setCustomUnit('weeks');
-      setCustomDays([new Date().getDay()]);
-      setDueDate(null);
-    };
+    // Compare the form's current custom shape vs the chore's stored one.
+    const storedCustom = chore.customRecurrence ?? null;
+    const customDirty =
+      recurrence === 'custom' &&
+      (storedCustom?.count !== customCount ||
+        storedCustom?.unit !== customUnit ||
+        JSON.stringify(storedCustom?.daysOfWeek ?? []) !==
+          JSON.stringify(customUnit === 'weeks' ? customDays : []));
 
-    const handleAddToCalendar = () => {
-      Alert.alert('Coming soon', 'Calendar sync will be available in a future update.');
-    };
+    const isDirty =
+      title.trim() !== chore.title ||
+      (requiresMemberPick && assignedTo !== chore.assignedTo) ||
+      recurrence !== toEditable(chore.recurrence) ||
+      (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
+      (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
+      (showMonthlyDayPicker && dayOfMonth !== (chore.dayOfMonth ?? 1)) ||
+      customDirty ||
+      (showDueDatePicker && (dueDate?.getTime() ?? null) !== (chore.dueAt?.toDate().getTime() ?? null));
 
-    const handleSubmit = async () => {
-      if (!title.trim()) return;
-      if (memberIds.length === 0) {
-        Alert.alert('No members', 'Join a house before adding chores.');
+    const handleSave = async () => {
+      if (!chore) return;
+      const trimmed = title.trim();
+      if (!trimmed) {
+        Alert.alert('Title required', 'Please enter a chore name.');
         return;
       }
-      if (requiresMemberPick && !assignedTo) {
-        Alert.alert('Pick a member', 'Choose who this chore goes to, or enable auto-rotate.');
-        return;
-      }
+
+      // Validate custom shape before building the patch.
       if (recurrence === 'custom') {
         if (customCount < 1) {
           Alert.alert('Invalid interval', 'Repeat-every count must be at least 1.');
@@ -142,42 +200,89 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         }
       }
 
-      // Build the recurrence-specific payload pieces.
-      const payload: ChoreFormPayload = {
-        title: title.trim(),
-        recurrence,
-        autoRotate: supportsAutoRotate ? autoRotate : false,
-        // When auto-rotate is on, leave assignedTo empty so useChores seeds it
-        // deterministically using house.rotationOffset.
-        assignedTo: requiresMemberPick ? assignedTo : undefined,
-        dayOfWeek: recurrence === 'weekly' ? dayOfWeek : null,
-        dayOfMonth: recurrence === 'monthly' ? dayOfMonth : null,
-        customRecurrence:
-          recurrence === 'custom'
-            ? {
-                count: customCount,
-                unit: customUnit,
-                ...(customUnit === 'weeks' ? { daysOfWeek: customDays } : {}),
-              }
-            : null,
-        dueAt: recurrence === 'once' && dueDate ? Timestamp.fromDate(dueDate) : null,
-      };
+      const patch: ChoreUpdatePatch = {};
+      if (trimmed !== chore.title) patch.title = trimmed;
+      if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
+        patch.assignedTo = assignedTo;
+      }
+      if (recurrence !== toEditable(chore.recurrence)) {
+        patch.recurrence = recurrence;
+      }
+      if (supportsAutoRotate && autoRotate !== !!chore.autoRotate) {
+        patch.autoRotate = autoRotate;
+      }
+      if (recurrence === 'weekly' && dayOfWeek !== (chore.dayOfWeek ?? 0)) {
+        patch.dayOfWeek = dayOfWeek;
+      }
+      if (recurrence === 'monthly' && dayOfMonth !== (chore.dayOfMonth ?? 1)) {
+        patch.dayOfMonth = dayOfMonth;
+      }
+      if (recurrence === 'custom' && (patch.recurrence || customDirty)) {
+        const next: CustomRecurrence = {
+          count: customCount,
+          unit: customUnit,
+          ...(customUnit === 'weeks' ? { daysOfWeek: customDays } : {}),
+        };
+        patch.customRecurrence = next;
+      }
+      if (showDueDatePicker) {
+        const nextTs = dueDate ? Timestamp.fromDate(dueDate) : null;
+        const prevMs = chore.dueAt?.toDate().getTime() ?? null;
+        const nextMs = dueDate?.getTime() ?? null;
+        if (prevMs !== nextMs) patch.dueAt = nextTs;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+        return;
+      }
 
       setSubmitting(true);
       try {
-        await onSubmit(payload);
-        resetState();
+        await onUpdate(chore.id, patch, { recurrence: chore.recurrence });
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
-        Alert.alert('Could not add chore', err.message ?? 'Unknown error');
+        Alert.alert('Could not update chore', err.message ?? 'Unknown error');
       } finally {
         setSubmitting(false);
       }
     };
 
+    const handleDelete = () => {
+      if (!chore) return;
+      Alert.alert(
+        'Delete chore?',
+        `"${chore.title}" will be removed. This cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              setSubmitting(true);
+              try {
+                await onDelete(chore.id);
+                (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+              } catch (err: any) {
+                Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
+              } finally {
+                setSubmitting(false);
+              }
+            },
+          },
+        ]
+      );
+    };
+
+    const handleAddToCalendar = () => {
+      Alert.alert('Coming soon', 'Calendar sync will be available in a future update.');
+    };
+
     const handleClose = () => {
       (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
     };
+
+    const initialOf = (name: string) => name?.trim()?.[0]?.toUpperCase() ?? '?';
 
     return (
       <BottomSheetModal
@@ -195,11 +300,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         >
           {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.heading}>New Chore</Text>
-            <TouchableOpacity
-              onPress={handleClose}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
+            <Text style={styles.heading}>Edit Chore</Text>
+            <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color={CH.textStrong} />
             </TouchableOpacity>
           </View>
@@ -209,7 +311,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           <Text style={styles.label}>Chore Name</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Vacuum living room"
+            placeholder="e.g. Clean the bathroom"
             placeholderTextColor={CH.textSoft}
             value={title}
             onChangeText={setTitle}
@@ -217,6 +319,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
           {/* Recurrence */}
           <Text style={styles.label}>Recurrence</Text>
+          <Text style={styles.summary}>{formatRecurrenceLabel(chore)}</Text>
           <RecurrenceDropdown
             value={recurrence}
             options={RECURRENCES}
@@ -225,27 +328,21 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
           {showWeeklyDayPicker && (
             <>
-              <Text style={styles.label}>Recurrence Settings</Text>
-              <View style={styles.settingsCard}>
-                <Text style={styles.subLabel}>Repeat on</Text>
-                <View style={styles.chipRow}>
-                  {DAYS.map((day, idx) => {
-                    const active = dayOfWeek === idx;
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[styles.dayChip, active && styles.dayChipActive]}
-                        onPress={() => setDayOfWeek(idx)}
-                      >
-                        <Text
-                          style={[styles.dayChipText, active && styles.dayChipTextActive]}
-                        >
-                          {day}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+              <Text style={styles.label}>Day of Week</Text>
+              <View style={styles.chipRow}>
+                {DAYS.map((day, idx) => {
+                  const active = dayOfWeek === idx;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.chip, active && styles.chipActive]}
+                      onPress={() => setDayOfWeek(idx)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{day}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </>
           )}
@@ -264,7 +361,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                 <TouchableOpacity
                   style={styles.stepperButton}
                   onPress={() => setCustomCount((n) => Math.max(1, n - 1))}
-                  accessibilityLabel="Decrease interval"
                 >
                   <Text style={styles.stepperButtonText}>–</Text>
                 </TouchableOpacity>
@@ -272,7 +368,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                 <TouchableOpacity
                   style={styles.stepperButton}
                   onPress={() => setCustomCount((n) => n + 1)}
-                  accessibilityLabel="Increase interval"
                 >
                   <Text style={styles.stepperButtonText}>+</Text>
                 </TouchableOpacity>
@@ -283,20 +378,15 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                     return (
                       <TouchableOpacity
                         key={u}
-                        style={[styles.unitChip, active && styles.unitChipActive]}
+                        style={[styles.chip, active && styles.chipActive]}
                         onPress={() => setCustomUnit(u)}
                       >
-                        <Text
-                          style={[styles.unitChipText, active && styles.unitChipTextActive]}
-                        >
-                          {label}
-                        </Text>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
               </View>
-
               {customUnit === 'weeks' && (
                 <>
                   <Text style={styles.label}>Repeat on</Text>
@@ -306,14 +396,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                       return (
                         <TouchableOpacity
                           key={idx}
-                          style={[styles.dayChip, active && styles.dayChipActive]}
+                          style={[styles.chip, active && styles.chipActive]}
                           onPress={() => toggleCustomDay(idx)}
+                          activeOpacity={0.7}
                         >
-                          <Text
-                            style={[styles.dayChipText, active && styles.dayChipTextActive]}
-                          >
-                            {day}
-                          </Text>
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>{day}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -323,10 +410,10 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
             </>
           )}
 
+          {/* Due Date — only for one-time chores */}
           {showDueDatePicker && (
             <>
-              <Text style={styles.label}>Due Date (Optional)</Text>
-
+              <Text style={styles.label}>Due Date</Text>
               {Platform.OS === 'web' ? (
                 <View style={styles.datePickerContainer}>
                   <View style={styles.dateButton}>
@@ -354,14 +441,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                           setDueDate(null);
                         }
                       }}
-                      onFocus={() => {
-                        setTimeout(() => {
-                          webDateInputRef.current?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center',
-                          });
-                        }, 100);
-                      }}
                       style={{
                         width: '100%',
                         border: 'none',
@@ -376,10 +455,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                     />
                   </View>
                   {dueDate && (
-                    <TouchableOpacity
-                      style={styles.clearButton}
-                      onPress={() => setDueDate(null)}
-                    >
+                    <TouchableOpacity style={styles.clearButton} onPress={() => setDueDate(null)}>
                       <Text style={styles.clearButtonText}>Clear</Text>
                     </TouchableOpacity>
                   )}
@@ -396,10 +472,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                       </Text>
                     </TouchableOpacity>
                     {dueDate && (
-                      <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={() => setDueDate(null)}
-                      >
+                      <TouchableOpacity style={styles.clearButton} onPress={() => setDueDate(null)}>
                         <Text style={styles.clearButtonText}>Clear</Text>
                       </TouchableOpacity>
                     )}
@@ -409,11 +482,9 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                       value={dueDate || new Date()}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, selectedDate) => {
+                      onChange={(_event, selectedDate) => {
                         setShowDatePicker(false);
-                        if (selectedDate) {
-                          setDueDate(selectedDate);
-                        }
+                        if (selectedDate) setDueDate(selectedDate);
                       }}
                     />
                   )}
@@ -424,7 +495,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
           {/* Assignment */}
           <Text style={styles.label}>Assignment</Text>
-          <View style={styles.assignmentRow}>
+          <View style={styles.avatarRow}>
             {memberIds.map((uid) => {
               const m = memberMap[uid];
               const active = !autoRotate && assignedTo === uid;
@@ -451,6 +522,13 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
               />
             )}
           </View>
+          {!requiresMemberPick && (
+            <Text style={[styles.summary, { marginTop: 8 }]}>
+              Currently with {memberMap[chore.assignedTo]?.displayName ?? 'unassigned'}; will
+              {masterAutoRotate ? ' rotate ' : ' stay (master switch off) '}
+              on the next cycle.
+            </Text>
+          )}
 
           {/* Footer actions */}
           <View style={styles.footerRow}>
@@ -462,21 +540,35 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
               <Text style={styles.outlineButtonText}>+ Add to calendar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={submitting}
+              style={[
+                styles.primaryButton,
+                (submitting || !isDirty || !title.trim()) && styles.primaryButtonDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={submitting || !isDirty || !title.trim()}
               activeOpacity={0.8}
             >
               <Text style={styles.primaryButtonText}>{submitting ? 'Saving…' : 'Save'}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Delete */}
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDelete}
+            disabled={submitting}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={16} color={CH.danger} />
+            <Text style={styles.deleteButtonText}>Delete chore</Text>
+          </TouchableOpacity>
         </BottomSheetScrollView>
       </BottomSheetModal>
     );
   }
 );
 
-ChoreForm.displayName = 'ChoreForm';
+ChoreDetailSheet.displayName = 'ChoreDetailSheet';
 
 const styles = StyleSheet.create({
   sheetBackground: {
@@ -515,12 +607,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  subLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: CH.textSoft,
-    marginBottom: 8,
-  },
   input: {
     borderWidth: 1.5,
     borderColor: CH.plateBorder,
@@ -531,39 +617,32 @@ const styles = StyleSheet.create({
     color: CH.textStrong,
     backgroundColor: CH.white,
   },
-  settingsCard: {
-    backgroundColor: CH.plateBg,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: CH.plateBorder,
-  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
-  dayChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: CH.white,
-    borderWidth: 1,
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1.5,
     borderColor: CH.plateBorder,
+    backgroundColor: CH.white,
   },
-  dayChipActive: {
+  chipActive: {
     backgroundColor: CH.fill,
     borderColor: CH.fill,
   },
-  dayChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+  chipText: {
+    fontSize: 14,
     color: CH.textStrong,
+    fontWeight: '500',
   },
-  dayChipTextActive: {
-    color: CH.white,
+  summary: {
+    color: CH.textSoft,
+    fontSize: 13,
+    marginBottom: 8,
   },
   stepperRow: {
     flexDirection: 'row',
@@ -599,24 +678,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginLeft: 12,
   },
-  unitChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
-  },
-  unitChipActive: {
-    backgroundColor: CH.fill,
-    borderColor: CH.fill,
-  },
-  unitChipText: {
-    fontSize: 14,
-    color: CH.textStrong,
-    fontWeight: '500',
-  },
-  unitChipTextActive: {
+  chipTextActive: {
     color: CH.white,
     fontWeight: '700',
   },
@@ -651,10 +713,41 @@ const styles = StyleSheet.create({
     color: CH.fill,
     fontWeight: '600',
   },
-  assignmentRow: {
+  avatarRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
+  },
+  avatarItem: {
+    alignItems: 'center',
+    width: 64,
+  },
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  avatarCircleActive: {
+    borderColor: CH.fill,
+  },
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: CH.white,
+  },
+  avatarName: {
+    fontSize: 12,
+    color: CH.textSoft,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  avatarNameActive: {
+    color: CH.textStrong,
+    fontWeight: '700',
   },
   footerRow: {
     flexDirection: 'row',
@@ -689,5 +782,18 @@ const styles = StyleSheet.create({
     color: CH.white,
     fontSize: 15,
     fontWeight: '700',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 10,
+  },
+  deleteButtonText: {
+    color: CH.danger,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
