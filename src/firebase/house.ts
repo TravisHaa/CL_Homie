@@ -5,6 +5,7 @@ import {
   deleteField,
   getDocs,
   query,
+  updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
@@ -19,6 +20,13 @@ export async function leaveHouse({ uid, houseId }: { uid: string; houseId: strin
   });
   batch.update(userDoc(uid), { houseId: deleteField() });
   await batch.commit();
+}
+
+export async function setWeeklyScrambleEnabled(
+  houseId: string,
+  enabled: boolean
+): Promise<void> {
+  await updateDoc(houseDoc(houseId), { weeklyScrambleEnabled: enabled });
 }
 
 export async function joinHouseByInviteCode({

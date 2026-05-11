@@ -2,6 +2,20 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // The following flags are inherited from `expo/tsconfig.base` but are
+    // duplicated here so the IDE TypeScript language server picks them up
+    // reliably without depending on `extends` resolution. Removing them
+    // produces spurious "Cannot use JSX unless the '--jsx' flag is provided"
+    // and `esModuleInterop` errors in editor diagnostics even though
+    // command-line `tsc --noEmit` passes.
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "lib": ["DOM", "ESNext"],
+    "target": "ESNext",
     "paths": {
       "@/*": [
         "./*"

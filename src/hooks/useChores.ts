@@ -1,3 +1,4 @@
+import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { db } from '@/src/firebase/config';
 import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
@@ -5,7 +6,7 @@ import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { addDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { useEffect } from 'react';
 
 export function useChores() {
@@ -24,6 +25,12 @@ export function useChores() {
 
   useEffect(() => {
     if (!houseId) return;
+
+    // Backup weekly-rollover trigger. The transaction's lastRolloverWeekKey
+    // race-guard makes this idempotent if AuthGate already ran it.
+    maybeRolloverChores(houseId).catch((e) =>
+      console.warn('[Rollover] failed', e)
+    );
 
     const col = choresCol(houseId);
 
@@ -64,7 +71,12 @@ export function useChores() {
   }, [houseId, weekKey, queryClient]);
 
   const addChore = async (
-    input: Pick<Chore, 'title' | 'assignedTo' | 'recurrence' | 'dayOfWeek'> & {
+    input: Pick<Chore, 'title' | 'recurrence'> & {
+      assignedTo?: string;        // optional when autoRotate=true; we'll seed
+      autoRotate?: boolean;
+      dayOfWeek?: number | null;
+      dayOfMonth?: number | null;
+      customRecurrence?: Chore['customRecurrence'];
       dueAt?: Timestamp | null;
     }
   ) => {
@@ -72,11 +84,38 @@ export function useChores() {
     const choreWeekKey = input.recurrence === 'once' && input.dueAt
       ? getWeekKey(input.dueAt.toDate())
       : weekKey;
+
+    // Auto-rotate is only meaningful for recurring (non-once, non-daily) chores.
+    const autoRotate = !!input.autoRotate &&
+      input.recurrence !== 'once' &&
+      input.recurrence !== 'daily';
+
+    // Seed assignee for new auto-rotate chores using house.rotationOffset so
+    // successive creations stagger across members.
+    let assignedTo = input.assignedTo ?? '';
+    if (autoRotate && house) {
+      const sortedMembers = [...(house.memberIds ?? [])].sort();
+      if (sortedMembers.length > 0) {
+        const offset = (house.rotationOffset ?? 0) % sortedMembers.length;
+        assignedTo = sortedMembers[offset];
+      }
+    }
+    if (!assignedTo) {
+      throw new Error('A chore must be assigned to someone, or use auto-rotate with members in the house.');
+    }
+
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
-        ...input,
+        title: input.title,
+        assignedTo,
+        recurrence: input.recurrence,
+        autoRotate,
+        dayOfWeek: input.dayOfWeek ?? null,
+        dayOfMonth: input.dayOfMonth ?? null,
+        customRecurrence: input.customRecurrence ?? null,
         dueAt: input.dueAt ?? null,
+        lastTriggeredKey: null,
         isCompleted: false,
         completedAt: null,
         completedBy: null,
@@ -99,5 +138,72 @@ export function useChores() {
     });
   };
 
-  return { chores, isLoading, addChore, toggleChore };
+  const updateChore = async (
+    choreId: string,
+    patch: Partial<
+      Pick<
+        Chore,
+        | 'title'
+        | 'assignedTo'
+        | 'dueAt'
+        | 'recurrence'
+        | 'dayOfWeek'
+        | 'dayOfMonth'
+        | 'customRecurrence'
+        | 'autoRotate'
+      >
+    >,
+    opts?: { recurrence?: Chore['recurrence'] }
+  ) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    const choreRef = doc(db, 'houses', houseId, 'chores', choreId);
+    const update: Record<string, unknown> = { ...patch };
+
+    // Effective recurrence after this update: prefer the patched value, else
+    // the caller-provided current recurrence (legacy opts arg).
+    const effectiveRecurrence = patch.recurrence ?? opts?.recurrence;
+
+    // Mirror addChore: a one-time chore's weekKey is derived from dueAt so it
+    // remains visible in the right week query when the date changes.
+    if ('dueAt' in patch && effectiveRecurrence === 'once') {
+      update.weekKey = patch.dueAt ? getWeekKey(patch.dueAt.toDate()) : weekKey;
+    }
+
+    // Switching recurrence: clear fields that don't apply to the new shape so
+    // stale data doesn't leak into rollover decisions. Completion state is
+    // intentionally preserved across recurrence changes.
+    if (patch.recurrence) {
+      const r = patch.recurrence;
+      // Always reset shape-specific fields; the caller can re-set them in the
+      // same patch and our spread above will win.
+      const shapeReset: Record<string, unknown> = {
+        dayOfWeek: null,
+        dayOfMonth: null,
+        customRecurrence: null,
+      };
+      if (r === 'once') {
+        shapeReset.autoRotate = false;
+      } else if (r === 'daily') {
+        update.dueAt = null;
+        update.weekKey = weekKey;
+        shapeReset.autoRotate = false;
+      } else {
+        update.dueAt = null;
+        update.weekKey = weekKey;
+        if (r === 'weekly' && patch.dayOfWeek == null) shapeReset.dayOfWeek = 0;
+        if (r === 'monthly' && patch.dayOfMonth == null) shapeReset.dayOfMonth = 1;
+      }
+      // Apply resets first, then let the patch's explicit values win via spread.
+      Object.assign(update, shapeReset, patch);
+    }
+
+    await updateDoc(choreRef, update);
+  };
+
+  const deleteChore = async (choreId: string) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    await deleteDoc(doc(db, 'houses', houseId, 'chores', choreId));
+  };
+
+  return { chores, isLoading, addChore, toggleChore, updateChore, deleteChore };
 }
