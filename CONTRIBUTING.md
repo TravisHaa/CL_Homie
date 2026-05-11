@@ -44,10 +44,10 @@ EXPO_PUBLIC_FIREBASE_APP_ID=...
 
 ### 4. Branch, PR, and commit conventions
 
-- **Base branch**: branch off `staging`, not `main`. `main` is behind.
+- **Base branch**: branch off `main`.
 - **Branch names**: `feature/<name>`, `fix/<short-description>`, `docs/<short-description>`
 - **PR scope**: one feature or fix per PR. Do not bundle unrelated changes.
-- **Stability**: keep `staging` green. Do not merge a PR that breaks the dev server or leaves the app in a visibly broken state.
+- **Stability**: keep `main` green. Do not merge a PR that breaks the dev server or leaves the app in a visibly broken state.
 - **Commit messages**: use Conventional-Commits style prefixes, e.g.
   - `docs: add Firebase onboarding to contributing`
   - `feat: add pantry item delete action`

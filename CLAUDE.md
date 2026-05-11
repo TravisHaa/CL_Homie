@@ -18,7 +18,7 @@ There are no lint or test scripts configured yet.
 
 ## Implementation Status
 
-All core features are implemented on the `staging` branch with real Firestore integrations. `main` holds the earlier foundation (auth, routing, design system only).
+All core features are implemented on `main` with real Firestore integrations.
 
 | Feature | Screen | Hook | Components | Status |
 |---|---|---|---|---|
@@ -33,7 +33,7 @@ Not yet built: Firebase Cloud Functions (weekly chore reset, expiration alerts),
 
 ## Current State & Known Issues (as of 2026-04-14)
 
-**Branch:** `staging` — actively being tested on `localhost:8081` via `npm run web`.
+**Branch:** `main` — actively being tested on `localhost:8081` via `npm run web`.
 
 ### Temporary code in place — must be cleaned up
 
@@ -54,7 +54,6 @@ The login redirect was broken — after a valid sign-in, the user stayed on the 
 2. Test that all 4 tabs load real Firestore data once a house exists
 3. Remove debug logs from `useAuth.ts` and `_layout.tsx`
 4. Restore join-house gate in `_layout.tsx`
-5. Merge `staging` → `main` once all tabs verified
 
 ## Architecture
 
