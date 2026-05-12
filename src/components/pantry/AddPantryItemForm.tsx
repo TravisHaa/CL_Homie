@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -23,6 +24,8 @@ import {
 import { parseISO, isValid } from 'date-fns';
 import { PANTRY_CATEGORIES } from '@/src/utils/categories';
 import type { AddPantryItemInput } from '@/src/hooks/usePantry';
+import { BarcodeScannerModal } from './BarcodeScannerModal';
+import { lookupBarcode } from '@/src/services/openFoodFacts';
 
 interface Props {
   onAdd: (input: AddPantryItemInput) => Promise<void>;
@@ -44,9 +47,32 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
     const SheetInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
     const [form, setForm] = useState(INITIAL_STATE);
     const [submitting, setSubmitting] = useState(false);
+    const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+    const [scannerVisible, setScannerVisible] = useState(false);
+    const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle');
+
+    useEffect(() => {
+      if (!scannedBarcode) {
+        setLookupStatus('idle');
+        return;
+      }
+      let cancelled = false;
+      setLookupStatus('loading');
+      lookupBarcode(scannedBarcode).then((result) => {
+        if (cancelled) return;
+        setLookupStatus(result.status);
+        if (result.status === 'found') {
+          setField('name', result.name);
+          setField('category', result.category);
+        }
+      });
+      return () => { cancelled = true; };
+    }, [scannedBarcode]);
 
     function reset() {
       setForm(INITIAL_STATE);
+      setScannedBarcode(null);
+      setLookupStatus('idle');
     }
 
     function setField<K extends keyof typeof INITIAL_STATE>(
@@ -87,6 +113,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
           category: form.category,
           isShared: form.isShared,
           expirationDate: expDate,
+          barcode: scannedBarcode,
         });
         reset();
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
@@ -98,6 +125,7 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
     }
 
     return (
+      <>
       <BottomSheetModal
         ref={ref}
         snapPoints={snapPoints}
@@ -114,7 +142,16 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
             keyboardShouldPersistTaps="handled"
           >
             {/* Name */}
-            <Text style={styles.label}>Name *</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Name *</Text>
+              <TouchableOpacity
+                style={styles.scanBtn}
+                onPress={() => setScannerVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.scanBtnText}>📷 Scan</Text>
+              </TouchableOpacity>
+            </View>
             <SheetInput
               style={styles.input}
               placeholder="e.g. Almond Milk"
@@ -123,6 +160,30 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
               onChangeText={(v) => setField('name', v)}
               returnKeyType="next"
             />
+            {scannedBarcode ? (
+              <View style={styles.barcodeChip}>
+                <Text style={styles.barcodeChipText} numberOfLines={1}>
+                  {lookupStatus === 'loading' ? 'Looking up…' : `Barcode: ${scannedBarcode}`}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setScannedBarcode(null)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.barcodeChipClear}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {lookupStatus === 'found' ? (
+              <Text style={styles.lookupNotice}>✓ Name and category auto-filled from barcode</Text>
+            ) : lookupStatus === 'not_found' ? (
+              <Text style={[styles.lookupNotice, styles.lookupNoticeWarn]}>
+                Product not found — fill in details manually
+              </Text>
+            ) : lookupStatus === 'error' ? (
+              <Text style={[styles.lookupNotice, styles.lookupNoticeMute]}>
+                Lookup unavailable — fill in details manually
+              </Text>
+            ) : null}
 
             {/* Quantity + Unit */}
             <View style={styles.row}>
@@ -219,6 +280,16 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
           </ScrollView>
         </BottomSheetView>
       </BottomSheetModal>
+
+      <BarcodeScannerModal
+        visible={scannerVisible}
+        onScan={(barcode) => {
+          setScannedBarcode(barcode);
+          setScannerVisible(false);
+        }}
+        onClose={() => setScannerVisible(false)}
+      />
+      </>
     );
   },
 );
@@ -244,12 +315,62 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     marginBottom: 20,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   label: {
     fontSize: 13,
     fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 6,
     marginTop: 14,
+    marginBottom: 6,
+  },
+  scanBtn: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  scanBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  barcodeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F8F2',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 6,
+    gap: 8,
+  },
+  barcodeChipText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#00B894',
+    fontWeight: '600',
+  },
+  barcodeChipClear: {
+    fontSize: 13,
+    color: '#636e72',
+    fontWeight: '700',
+  },
+  lookupNotice: {
+    fontSize: 12,
+    color: '#00B894',
+    fontWeight: '500',
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  lookupNoticeWarn: {
+    color: '#E17055',
+  },
+  lookupNoticeMute: {
+    color: '#b2bec3',
   },
   input: {
     backgroundColor: '#FFFFFF',
