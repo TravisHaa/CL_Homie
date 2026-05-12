@@ -37,7 +37,6 @@ import {
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
-  FieldValue,
   Firestore,
   Timestamp,
   getFirestore,
@@ -397,7 +396,11 @@ async function rolloverHouse(
       lastRolloverWeekKey: targetWeekKey,
     };
     if (rolled > 0) {
-      houseUpdate.rotationOffset = FieldValue.increment(1);
+      // Use explicit read-modify-write to match src/firebase/choreRollover.ts.
+      // FieldValue.increment is atomic on its own, but mixing it here with the
+      // client's direct-write would make the two implementations diverge in a
+      // way that's easy to misread when comparing them.
+      houseUpdate.rotationOffset = (house.rotationOffset ?? 0) + 1;
     }
     tx.update(houseRef, houseUpdate);
 
