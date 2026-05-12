@@ -109,7 +109,7 @@ function DatePickerDropdown({
 
   const isAM  = h24 < 12;
   const h12   = h24 % 12 || 12;
-  const miIdx = Math.round(min / 5) % 12;
+  const miIdx = Math.min(Math.round(min / 5), 11);
 
   const daysInMonth = new Date(yr, mo + 1, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
