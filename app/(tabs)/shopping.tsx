@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { useRef, useState } from 'react';
 import {
   View,
@@ -87,6 +88,7 @@ export default function ShoppingScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <GridBackground />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -233,7 +235,7 @@ export default function ShoppingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: R.paperDark },
+  safe:   { flex: 1, backgroundColor: '#FCF5EE' },
   scroll: { flex: 1 },
   scrollContent: { padding: 12, paddingTop: 8 },
 

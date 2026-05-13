@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { useRef } from 'react';
 import {
   ActivityIndicator,
@@ -44,6 +45,7 @@ function PantryContent() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <GridBackground />
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -106,7 +108,7 @@ function PantryContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: P.mintBg,
+    backgroundColor: '#FCF5EE',
   },
   header: {
     paddingHorizontal: 20,

@@ -2,21 +2,20 @@ import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
-import { useHouseStore } from '@/src/store/houseStore';
 import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
-import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
+import { GridBackground } from '@/src/components/GridBackground';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
   // Sunset-kitchen palette: warm walls + saturated fridge magnets.
-  fridgeBg: "#F3E0BF",
+  fridgeBg: "#FCF5EE",
   noteCream: "#FFF0D9",
   noteAlt: "#FFE8C6",
   noteText: "#3A2A1E",
@@ -180,18 +179,6 @@ function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
-  const house = useHouseStore((s) => s.house);
-  const memberMap = useHouseStore((s) => s.memberMap);
-  const inviteCode = useHouseStore((s) => s.house?.inviteCode);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyInvite = async () => {
-    if (!inviteCode) return;
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   const { chores: allChores = [], isLoading: choresLoading } = useChores();
   const { events: allEvents = [], isLoading: eventsLoading } =
     useCalendarEvents();
@@ -228,54 +215,15 @@ export default function HomeScreen() {
   });
 
   const uncheckedCount = allShopping.filter((i) => !i.isChecked).length;
-  const members = Object.entries(memberMap).map(([id, info]) => ({
-    id,
-    ...info,
-  }));
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
+      <GridBackground />
       <ScrollView
         style={styles.fridge}
         contentContainerStyle={styles.fridgeContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <View style={styles.fridgeHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.houseName}>{house?.name ?? "Home"}</Text>
-            <Text style={styles.houseDate}>{format(now, "EEEE, MMMM d")}</Text>
-            {inviteCode && (
-              <View style={styles.inviteRow}>
-                <Text style={styles.inviteCodeText}>
-                  Code <Text style={styles.inviteCodeValue}>{inviteCode}</Text>
-                </Text>
-                <Pressable
-                  onPress={handleCopyInvite}
-                  hitSlop={8}
-                  style={({ pressed }) => pressed && { opacity: 0.6 }}
-                >
-                  <Text style={styles.inviteCopyAction}>
-                    {copied ? "Copied!" : "Copy"}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-          <View style={styles.avatarRow}>
-            {members.map((m) => (
-              <View
-                key={m.id}
-                style={[styles.avatar, { backgroundColor: m.color }]}
-              >
-                <Text style={styles.avatarInitial}>
-                  {m.displayName[0].toUpperCase()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
         {/* ── Filler: HOMIE letter tiles ───────────────────────────────────
             These look like the plastic letter magnets everyone has on their fridge.
             They are purely decorative — not interactive. */}
@@ -304,7 +252,7 @@ export default function HomeScreen() {
             accessibilityLabel="Chores"
             accessibilityHint="Tap to view and manage all chores"
           >
-            <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
+            <Note color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
               <Text style={styles.noteLabel}>THIS WEEK</Text>
               <Text style={styles.noteTitle}>Chores</Text>
               <TapBadge color={C.magnetPurple} label="Tap for full list" />
@@ -373,7 +321,6 @@ export default function HomeScreen() {
             accessibilityHint="Tap to open the full calendar"
           >
             <Note
-              tilt="right"
               color={C.magnetYellow}
               bg={C.noteAlt}
               style={{ flex: 1 }}
@@ -421,7 +368,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Row 2: Expiring soon — coral strip, full width ───────────────── */}
-        <Note tilt="mild" color={C.magnetCoral} style={styles.noteWide}>
+        <Note color={C.magnetCoral} style={styles.noteWide}>
           <Text style={styles.noteLabel}>PANTRY ALERT</Text>
           <Text style={styles.noteTitle}>Expiring Soon</Text>
 
@@ -482,7 +429,6 @@ export default function HomeScreen() {
             accessibilityHint="Tap to open and manage your shopping list"
           >
             <Note
-              tilt="steep"
               color={C.magnetMint}
               foldCorner
               style={{ flex: 1 }}
@@ -519,7 +465,7 @@ export default function HomeScreen() {
 // ─── styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.fridgeBg },
-  fridge: { flex: 1, backgroundColor: C.fridgeBg },
+  fridge: { flex: 1, backgroundColor: 'transparent' },
   fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 4 },
 
   // header
@@ -532,7 +478,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 10,
     borderRadius: 16,
-    backgroundColor: C.headerPlate,
     borderWidth: 1,
     borderColor: C.headerBorder,
     shadowColor: "#7A4E2A",

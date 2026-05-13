@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
@@ -44,6 +45,7 @@ export default function ChoresScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <GridBackground />
       <View style={styles.header}>
         <Text style={styles.title}>Chores</Text>
         <TouchableOpacity
@@ -96,7 +98,7 @@ export default function ChoresScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: CH.peachBg,
+    backgroundColor: '#FCF5EE',
   },
   header: {
     flexDirection: 'row',

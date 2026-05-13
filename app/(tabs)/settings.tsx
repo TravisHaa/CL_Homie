@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -130,6 +131,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <GridBackground />
       <View style={styles.container}>
         {/* Settings gets its own themed intro panel to match tab identity. */}
         <View style={styles.hero}>
@@ -270,7 +272,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: S.lavenderBg },
+  safe: { flex: 1, backgroundColor: '#FCF5EE' },
   container: { flex: 1, padding: 20 },
   hero: {
     marginTop: 8,

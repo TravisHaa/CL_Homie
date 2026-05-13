@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { EventCard } from "@/src/components/calendar/EventCard";
 import { EventForm } from "@/src/components/calendar/EventForm";
 import { useCalendarEvents } from "@/src/hooks/useCalendarEvents";
@@ -59,6 +60,7 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
+      <GridBackground />
       <View style={styles.screenContainer}>
         <ScrollView
           style={styles.container}
@@ -213,7 +215,7 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: CAL.skyBg },
+  safe: { flex: 1, backgroundColor: '#FCF5EE' },
   screenContainer: { flex: 1 },
   container: { flex: 1, padding: 20 },
 
