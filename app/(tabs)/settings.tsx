@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
