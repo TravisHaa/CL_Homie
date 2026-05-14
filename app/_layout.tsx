@@ -2,6 +2,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
+import {
+  AlbertSans_400Regular,
+  AlbertSans_500Medium,
+  AlbertSans_600SemiBold,
+  AlbertSans_700Bold,
+  AlbertSans_800ExtraBold,
+} from '@expo-google-fonts/albert-sans';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
@@ -25,6 +32,11 @@ const queryClient = new QueryClient();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    AlbertSans_400Regular,
+    AlbertSans_500Medium,
+    AlbertSans_600SemiBold,
+    AlbertSans_700Bold,
+    AlbertSans_800ExtraBold,
     ...FontAwesome.font,
   });
 

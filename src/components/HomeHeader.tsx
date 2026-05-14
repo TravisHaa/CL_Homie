@@ -1,8 +1,9 @@
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Defs, FeColorMatrix, FeTurbulence, Filter, Rect, Svg } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore } from '@/src/store/houseStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,9 @@ export function HomeHeader() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const { width } = useWindowDimensions();
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const onLayout = useCallback((e: any) => setHeaderHeight(e.nativeEvent.layout.height), []);
   const members = Object.entries(memberMap).map(([id, info]) => ({ id, ...info }));
   const now = new Date();
 
@@ -27,12 +31,22 @@ export function HomeHeader() {
   };
 
   return (
-    <LinearGradient
-      colors={['#FFDFD2', '#9EC5D1']}
-      start={{ x: 0, y: 0.5 }}
-      end={{ x: 1, y: 0.5 }}
-      style={[styles.container, { paddingTop: insets.top }]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top }]} onLayout={onLayout}>
+      <LinearGradient
+        colors={['#EEC4B7', '#F1CFB3', '#94C7D6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Svg style={StyleSheet.absoluteFill} width={width} height={headerHeight} pointerEvents="none">
+        <Defs>
+          <Filter id="grain" x="0%" y="0%" width="100%" height="100%">
+            <FeTurbulence type="fractalNoise" baseFrequency={0.65} numOctaves={3} stitchTiles="stitch" />
+            <FeColorMatrix type="saturate" values="0" />
+          </Filter>
+        </Defs>
+        <Rect x="0" y="0" width={width} height={headerHeight} filter="url(#grain)" opacity={0.45} />
+      </Svg>
       <View style={styles.inner}>
         <View style={styles.center}>
           <Text style={styles.houseName}>{house?.name ?? 'Home'}</Text>
@@ -71,21 +85,18 @@ export function HomeHeader() {
           <Ionicons name="settings-outline" size={24} color="#3A3835" />
         </Pressable>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D7B58A',
-  },
+  container: {},
   inner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 24,
   },
   houseName: {
     fontSize: 22,

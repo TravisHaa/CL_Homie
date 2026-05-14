@@ -9,6 +9,9 @@ import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
 import { useState } from 'react';
 import { GridBackground } from '@/src/components/GridBackground';
+import { useHouseStore } from '@/src/store/houseStore';
+import { NotificationCard } from '@/src/components/NotificationCard';
+import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -37,7 +40,7 @@ function formatEventTime(ts: Timestamp): string {
   const d = ts.toDate();
   if (isToday(d)) return `Today · ${format(d, "h:mm a")}`;
   if (isTomorrow(d)) return `Tomorrow · ${format(d, "h:mm a")}`;
-  return format(d, "MMM d");
+  return format(d, "MMM d · h:mm a");
 }
 
 // ─── Magnet ───────────────────────────────────────────────────────────────────
@@ -60,17 +63,29 @@ function Note({
   children,
   tilt,
   color,
-  bg = C.noteCream,
+  bg = '#FFFFFF',
   showMarginLine = false,
   foldCorner = false,
+  hideStrip = false,
+  hideMagnet = false,
+  hideLines = false,
+  stripLabel,
+  stripContent,
+  stripHeight,
   style,
 }: {
   children: React.ReactNode;
-  tilt: "left" | "right" | "mild" | "steep";
+  tilt?: "left" | "right" | "mild" | "steep";
   color: string;
   bg?: string;
   showMarginLine?: boolean;
   foldCorner?: boolean;
+  hideStrip?: boolean;
+  hideMagnet?: boolean;
+  hideLines?: boolean;
+  stripLabel?: string;
+  stripContent?: React.ReactNode;
+  stripHeight?: number;
   style?: object;
 }) {
   const rotations = {
@@ -83,25 +98,26 @@ function Note({
     <View
       style={[
         styles.noteOuter,
-        { transform: [{ rotate: rotations[tilt] }] },
+        { transform: [{ rotate: tilt? rotations[tilt] : '0deg' }] },
         style,
       ]}
     >
       {/* colored top strip */}
-      <View style={[styles.noteStrip, { backgroundColor: color }]} />
-      {/* magnet overlapping strip */}
-      <View style={styles.magnetAnchor}>
-        <Magnet color={color} />
-      </View>
+      {!hideStrip && (
+        <View style={[styles.noteStrip, { backgroundColor: color, justifyContent: 'center', paddingHorizontal: 12, ...(stripHeight ? { height: stripHeight } : {}) }]}>
+          {stripContent ?? (stripLabel && <Text style={styles.stripLabelText}>{stripLabel}</Text>)}
+        </View>
+      )}
+      {!hideStrip && !hideMagnet && !stripLabel && !stripContent && <View style={styles.magnetAnchor}><Magnet color={color} /></View>}
       {/* paper body */}
       <View style={[styles.notePaper, { backgroundColor: bg }]}>
         {/* red margin line on some cards */}
         {showMarginLine && <View style={styles.marginLine} />}
         {/* subtle ruled lines */}
-        <View style={styles.ruleLine} />
-        <View style={[styles.ruleLine, { top: 56 }]} />
-        <View style={[styles.ruleLine, { top: 72 }]} />
-        <View style={[styles.ruleLine, { top: 88 }]} />
+        {!hideLines && <View style={styles.ruleLine} />}
+        {!hideLines && <View style={[styles.ruleLine, { top: 56 }]} />}
+        {!hideLines && <View style={[styles.ruleLine, { top: 72 }]} />}
+        {!hideLines && <View style={[styles.ruleLine, { top: 88 }]} />}
         {children}
       </View>
       {/* folded corner triangle */}
@@ -179,7 +195,8 @@ function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
-  const { chores: allChores = [], isLoading: choresLoading } = useChores();
+  const memberMap = useHouseStore((s) => s.memberMap);
+  const { chores: allChores = [], isLoading: choresLoading, toggleChore } = useChores();
   const { events: allEvents = [], isLoading: eventsLoading } =
     useCalendarEvents();
   const { items: allPantry = [], isLoading: pantryLoading } = usePantry();
@@ -189,16 +206,7 @@ export default function HomeScreen() {
   const weekKey = getWeekKey();
   const now = new Date();
 
-  const chores = allChores.filter((c) => {
-    // Overdue / today's one-time chores remain visible.
-    if (c.recurrence === 'once') {
-      return (
-        !!c.dueAt &&
-        (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))
-      );
-    }
-    return isChoreDueOn(c, now);
-  });
+  const chores = allChores;
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
   const events = allEvents
@@ -224,236 +232,122 @@ export default function HomeScreen() {
         contentContainerStyle={styles.fridgeContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Filler: HOMIE letter tiles ───────────────────────────────────
-            These look like the plastic letter magnets everyone has on their fridge.
-            They are purely decorative — not interactive. */}
-        <View style={styles.fillerRow}>
-          <LetterTile char="H" color="#E17055" rotate="-3deg" nudgeTop={4} />
-          <LetterTile char="O" color="#74B9FF" rotate="2deg" nudgeTop={0} />
-          <LetterTile char="M" color="#00B894" rotate="-1deg" nudgeTop={6} />
-          <LetterTile char="I" color="#F9A825" rotate="3deg" nudgeTop={2} />
-          <LetterTile char="E" color="#6C5CE7" rotate="-2deg" nudgeTop={5} />
-          <View style={{ flex: 1 }} />
-          <LetterTile char="!" color="#FD79A8" rotate="4deg" nudgeTop={3} />
-          <LetterTile char="★" color="#FDCB6E" rotate="-2deg" nudgeTop={0} />
-        </View>
+        {/* ── Two independent columns ───────────────────────────────────────── */}
+        <View style={styles.columnsContainer}>
 
-        {/* ── Row 1: Chores + Events ───────────────────────────────────────── */}
-        <View style={styles.row}>
-          {/* Chores — purple strip, red margin line, ruled paper */}
-          <Pressable
-            onPress={() => router.push("/(tabs)/chores")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 1.1 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Chores"
-            accessibilityHint="Tap to view and manage all chores"
-          >
-            <Note color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
-              <Text style={styles.noteLabel}>THIS WEEK</Text>
-              <Text style={styles.noteTitle}>Chores</Text>
-              <TapBadge color={C.magnetPurple} label="Tap for full list" />
-
-              {choresLoading ? (
-                <Text style={styles.noteMeta}>Loading…</Text>
-              ) : chores.length === 0 ? (
-                <Text style={styles.noteMeta}>Nothing today ✓</Text>
-              ) : (
-                <>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${(doneCount / chores.length) * 100}%` as any },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.progressLabel}>
-                    {doneCount}/{chores.length} done
-                  </Text>
-                  {chores.slice(0, 5).map((c) => {
-                    const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
-                    return (
-                      <View key={c.id} style={styles.choreRow}>
-                        <View
-                          style={[
-                            styles.choreDot,
-                            {
-                              backgroundColor: c.isCompleted
-                                ? C.progressBg
-                                : dotColor,
-                            },
-                          ]}
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.choreText,
-                            c.isCompleted && styles.choreTextDone,
-                          ]}
-                        >
+          {/* Left column: Chores → Calendar → Shopping */}
+          <View style={[styles.column, { paddingRight: 14 }]}>
+            <Pressable
+              onPress={() => router.push("/(tabs)/chores")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Chores"
+              accessibilityHint="Tap to view and manage all chores"
+            >
+              <Note color={C.magnetPurple} showMarginLine hideStrip hideLines style={{ minHeight: 240 }}>
+                <Text style={[styles.noteTitle, { paddingLeft: 20 }]}>Chores</Text>
+                {choresLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : chores.length === 0 ? (
+                  <Text style={styles.noteMeta}>Nothing today ✓</Text>
+                ) : (
+                  <>
+                    <View style={[styles.progressTrack, { marginHorizontal: -14 }]}>
+                      <View style={[styles.progressFill, { width: `${(doneCount / chores.length) * 100}%` as any }]} />
+                    </View>
+                    <Text style={[styles.progressLabel, { paddingLeft: 20 }]}>{doneCount}/{chores.length} done</Text>
+                    {chores.slice(0, 5).map((c) => (
+                      <Pressable
+                        key={c.id}
+                        style={styles.choreRow}
+                        onPress={() => toggleChore(c.id, c.isCompleted)}
+                      >
+                        <View style={[styles.choreCheckbox, c.isCompleted && styles.choreCheckboxDone]}>
+                          {c.isCompleted && <Text style={styles.choreCheckmark}>✓</Text>}
+                        </View>
+                        <Text numberOfLines={1} style={[styles.choreText, c.isCompleted && styles.choreTextDone]}>
                           {c.title}
                         </Text>
-                      </View>
-                    );
-                  })}
-                  {chores.length > 5 && (
-                    <Text style={styles.noteMeta}>+{chores.length - 5} more</Text>
-                  )}
-                </>
-              )}
-            </Note>
-          </Pressable>
+                      </Pressable>
+                    ))}
+                    {chores.length > 5 && <Text style={styles.noteMeta}>+{chores.length - 5} more</Text>}
+                  </>
+                )}
+              </Note>
+            </Pressable>
 
-          {/* Events — yellow strip, slightly warmer paper */}
-          <Pressable
-            onPress={() => router.push("/(tabs)/calendar")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 0.9 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Calendar"
-            accessibilityHint="Tap to open the full calendar"
-          >
-            <Note
-              color={C.magnetYellow}
-              bg={C.noteAlt}
-              style={{ flex: 1 }}
+            <Pressable
+              onPress={() => router.push("/(tabs)/calendar")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Calendar"
+              accessibilityHint="Tap to open the full calendar"
             >
-              <Text style={styles.noteLabel}>COMING UP</Text>
-              <Text style={styles.noteTitle}>Calendar</Text>
-              <TapBadge color={C.magnetYellow} label="Tap for agenda" />
+              <Note color="#B5E2F1" stripContent={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><CalendarIcon width={16} height={16} color="#2E0800" /><Text style={styles.stripLabelText}>Next Event</Text></View>} hideLines stripHeight={38} style={{ minHeight: 150 }}>
+                {eventsLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : events.length === 0 ? (
+                  <Text style={styles.noteMeta}>All clear!</Text>
+                ) : (() => {
+                  const next = [...events].sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis())[0];
+                  return (
+                    <View style={styles.eventRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.eventTitle} numberOfLines={1}>{next.title}</Text>
+                        <Text style={styles.eventTime}>{formatEventTime(next.startTime)}</Text>
+                      </View>
+                    </View>
+                  );
+                })()}
+              </Note>
+            </Pressable>
 
-              {eventsLoading ? (
-                <Text style={styles.noteMeta}>Loading…</Text>
-              ) : events.length === 0 ? (
-                <Text style={styles.noteMeta}>All clear!</Text>
-              ) : (
-                events.map((e) => (
-                  <View key={e.id} style={styles.eventRow}>
-                    <View
-                      style={[styles.eventDot, { backgroundColor: e.color }]}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.eventTitle} numberOfLines={1}>
-                        {e.title}
-                      </Text>
-                      <Text style={styles.eventTime}>
-                        {formatEventTime(e.startTime)}
+            <Pressable
+              onPress={() => router.push("/(tabs)/shopping")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Shopping list"
+              accessibilityHint="Tap to open and manage your shopping list"
+            >
+              <Note color={C.magnetMint} foldCorner hideStrip hideLines style={{ minHeight: 190 }}>
+                <Text style={styles.noteTitle}>Shopping List</Text>
+                {shoppingLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : allShopping.length === 0 ? (
+                  <Text style={styles.noteMeta}>All stocked up!</Text>
+                ) : (
+                  allShopping.slice(0, 5).map((item) => (
+                    <View key={item.id} style={styles.choreRow}>
+                      <View style={[styles.choreDot, { backgroundColor: item.isChecked ? C.progressBg : C.magnetMint }]} />
+                      <Text numberOfLines={1} style={[styles.choreText, item.isChecked && styles.choreTextDone]}>
+                        {item.name}
                       </Text>
                     </View>
-                  </View>
-                ))
-              )}
-            </Note>
-          </Pressable>
-        </View>
-
-        {/* ── Filler: scattered emoji magnets ─────────────────────────────
-            Small round decorative magnets drifting at the edge. */}
-        <View
-          style={[
-            styles.fillerRow,
-            { justifyContent: "flex-end", marginBottom: 4 },
-          ]}
-        >
-          <EmojiMagnet emoji="🏠" color="#FFD6A5" rotate="-6deg" size={32} />
-          <EmojiMagnet emoji="⭐" color="#FDCB6E" rotate="5deg" size={28} />
-          <EmojiMagnet emoji="📝" color="#A29BFE" rotate="-3deg" size={30} />
-        </View>
-
-        {/* ── Row 2: Expiring soon — coral strip, full width ───────────────── */}
-        <Note color={C.magnetCoral} style={styles.noteWide}>
-          <Text style={styles.noteLabel}>PANTRY ALERT</Text>
-          <Text style={styles.noteTitle}>Expiring Soon</Text>
-
-          {pantryLoading ? (
-            <Text style={styles.noteMeta}>Loading…</Text>
-          ) : expiring.length === 0 ? (
-            <Text style={styles.noteMeta}>Everything's fresh ✓</Text>
-          ) : (
-            <View style={styles.chipRow}>
-              {expiring.map((item) => {
-                const days = differenceInCalendarDays(
-                  item.expirationDate!.toDate(),
-                  now,
-                );
-                const urgent = days <= 1;
-                return (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.expiryChip,
-                      urgent && styles.expiryChipUrgent,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.expiryName,
-                        urgent && styles.expiryNameUrgent,
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.expiryDays,
-                        { color: urgent ? C.magnetCoral : C.magnetYellow },
-                      ]}
-                    >
-                      {days === 0 ? "today" : days === 1 ? "tmrw" : `${days}d`}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </Note>
-
-        {/* ── Row 3: Shopping + filler tiles ──────────────────────────────── */}
-        <View style={styles.row}>
-          <Pressable
-            onPress={() => router.push("/(tabs)/shopping")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 1 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Shopping list"
-            accessibilityHint="Tap to open and manage your shopping list"
-          >
-            <Note
-              color={C.magnetMint}
-              foldCorner
-              style={{ flex: 1 }}
-            >
-              <Text style={styles.noteLabel}>SHOPPING LIST</Text>
-              <Text style={styles.noteTitle}>
-                {shoppingLoading
-                  ? "…"
-                  : uncheckedCount === 0
-                    ? "All stocked up!"
-                    : `${uncheckedCount} to grab`}
-              </Text>
-              <TapBadge color={C.magnetMint} label="Tap to open" />
-              {!shoppingLoading && uncheckedCount > 0 && (
-                <Text style={styles.tapHint}>add checkmarks and clear items fast</Text>
-              )}
-            </Note>
-          </Pressable>
-
-          {/* Filler side: a small column of letter tiles */}
-          <View style={styles.sideFillerCol}>
-            <LetterTile char="2" color="#E17055" rotate="5deg" nudgeTop={0} />
-            <LetterTile char="B" color="#74B9FF" rotate="-4deg" nudgeTop={8} />
-            <LetterTile char="?" color="#A29BFE" rotate="2deg" nudgeTop={6} />
+                  ))
+                )}
+                {allShopping.length > 5 && (
+                  <Text style={styles.noteMeta}>+{allShopping.length - 5} more</Text>
+                )}
+              </Note>
+            </Pressable>
           </View>
+
+          {/* Right column: Picture */}
+          <View style={styles.column}>
+            <Note color={C.magnetYellow} hideStrip style={{ minHeight: 260 }}>
+              <View style={{ alignSelf: 'stretch', height: 200, backgroundColor: '#2E0800', borderRadius: 4, marginTop: 0 }} />
+              <Text style={styles.noteTitle}>Picture</Text>
+            </Note>
+            <View style={{ position: 'relative' }}>
+              <View style={{ position: 'absolute', top: 0, left: 12, right: -12, zIndex: 0, transform: [{ rotate: '10deg' }] }}>
+                <NotificationCard />
+              </View>
+              <View style={{ zIndex: 1 }}>
+                <NotificationCard />
+              </View>
+            </View>
+          </View>
+
         </View>
 
         <View style={{ height: 32 }} />
@@ -466,7 +360,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.fridgeBg },
   fridge: { flex: 1, backgroundColor: 'transparent' },
-  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 4 },
+  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 24 },
 
   // header
   fridgeHeader: {
@@ -518,9 +412,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     alignItems: "flex-start",
-    marginBottom: 14,
+    marginBottom: 20,
   },
-  noteWide: { marginBottom: 14 },
+  columnsContainer: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  column: { flex: 1 },
+  noteWide: { marginBottom: 28 },
+  noteHalf: { width: '50%', marginBottom: 20 },
   notePressable: {
     // Keep card movement subtle so it feels tactile, not jumpy.
     transform: [{ scale: 1 }],
@@ -534,6 +431,7 @@ const styles = StyleSheet.create({
   noteOuter: {
     borderRadius: 3,
     overflow: "hidden",
+    flexDirection: "column",
     shadowColor: "#000",
     shadowOpacity: 0.24,
     shadowRadius: 9,
@@ -554,6 +452,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   notePaper: {
+    flex: 1,
     padding: 14,
     paddingTop: 16,
     position: "relative",
@@ -620,6 +519,14 @@ const styles = StyleSheet.create({
     left: 6,
   },
 
+  stripLabelText: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: 'AlbertSans_800ExtraBold',
+    color: '#2E0800',
+    letterSpacing: 0.2,
+  },
+
   // ── Note typography ─────────────────────────────────────────────────────────
   noteLabel: {
     fontSize: 8,
@@ -632,6 +539,7 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 15,
     fontWeight: "800",
+    fontFamily: 'AlbertSans_800ExtraBold',
     color: C.noteText,
     marginBottom: 8,
     letterSpacing: -0.3,
@@ -662,21 +570,37 @@ const styles = StyleSheet.create({
 
   // ── Chores ──────────────────────────────────────────────────────────────────
   progressTrack: {
-    height: 4,
-    backgroundColor: C.progressBg,
-    borderRadius: 2,
+    height: 2,
+    backgroundColor: '#DEEDEE',
+    borderRadius: 1,
     marginBottom: 4,
     overflow: "hidden",
   },
-  progressFill: { height: 4, backgroundColor: C.magnetPurple, borderRadius: 2 },
+  progressFill: { height: 2, backgroundColor: C.magnetPurple, borderRadius: 1 },
   progressLabel: { fontSize: 10, color: C.noteMeta, marginBottom: 8 },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
     paddingVertical: 3,
+    marginLeft: -6,
   },
   choreDot: { width: 7, height: 7, borderRadius: 3.5 },
+  choreCheckbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    borderColor: C.magnetPurple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  choreCheckboxDone: {
+    backgroundColor: C.magnetPurple,
+    borderColor: C.magnetPurple,
+  },
+  choreCheckmark: { fontSize: 10, color: '#fff', fontWeight: '800' },
   choreText: { fontSize: 12, color: C.noteText, flex: 1 },
   choreTextDone: { textDecorationLine: "line-through", color: C.noteLabel },
 
@@ -690,8 +614,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#EDE8DC",
   },
   eventDot: { width: 7, height: 7, borderRadius: 3.5, marginTop: 4 },
-  eventTitle: { fontSize: 12, fontWeight: "700", color: C.noteText },
-  eventTime: { fontSize: 10, color: C.noteMeta, marginTop: 1 },
+  eventTitle: { fontSize: 14, fontWeight: "700", color: C.noteText },
+  eventTime: { fontSize: 12, color: C.noteMeta, marginTop: 1 },
 
   // ── Expiry chips ─────────────────────────────────────────────────────────────
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 },

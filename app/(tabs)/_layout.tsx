@@ -1,7 +1,7 @@
 import { HomeHeader } from '@/src/components/HomeHeader';
 import { Tabs } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import HomeIcon from '@/assets/images/HomeIcon.svg';
@@ -43,21 +43,27 @@ export default function TabLayout() {
             borderTopWidth: 0,
             elevation: 0,
             shadowOpacity: 0,
+            position: 'absolute',
             backgroundColor: 'transparent',
             paddingBottom: insets.bottom,
-            paddingTop: 0,
-            height: 80 + insets.bottom,
+            height: 90 + insets.bottom,
+            paddingHorizontal: 30,
           },
           tabBarShowLabel: false,
-          tabBarItemStyle: { justifyContent: 'center', alignItems: 'center', paddingBottom: 0, paddingTop: 0 },
           tabBarBackground: () => (
             <LinearGradient
-              colors={['#FBE4D2E6', '#FBC8BCE6']}
+              colors={['rgba(251, 228, 210, 0.93)', 'rgba(251, 200, 188, 0.93)', 'rgba(208, 210, 200, 0.93)']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={StyleSheet.absoluteFill}
             />
           ),
+          tabBarItemStyle: {
+            paddingTop: 21,
+            paddingBottom: 18,
+            alignItems: 'center',
+            margin: 0,
+          },
           headerStyle: { backgroundColor: theme.headerBg },
           headerTintColor: theme.headerTint,
           headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
@@ -71,7 +77,14 @@ export default function TabLayout() {
           name={name}
           options={{
             title,
-            tabBarIcon: ({ color }) => <Icon width={26} height={26} color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[
+                { alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 20 },
+                focused && { backgroundColor: '#FEF3ED' },
+              ]}>
+                <Icon width={24} height={24} color={color} />
+              </View>
+            ),
             ...(name === 'index' && { header: () => <HomeHeader /> }),
           }}
         />
