@@ -37,10 +37,16 @@ export function usePantry() {
 
   useEffect(() => {
     if (!houseId) return;
-    const unsub = onSnapshot(pantryCol(houseId), (snap) => {
-      const fetched = snap.docs.map((d) => d.data());
-      queryClient.setQueryData(['pantry', houseId], fetched);
-    });
+    const unsub = onSnapshot(
+      pantryCol(houseId),
+      (snap) => {
+        const fetched = snap.docs.map((d) => d.data());
+        queryClient.setQueryData(['pantry', houseId], fetched);
+      },
+      (err) => {
+        if (err.code !== 'permission-denied') console.error('[usePantry]', err);
+      }
+    );
     return unsub;
   }, [houseId, queryClient]);
 

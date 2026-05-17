@@ -60,11 +60,17 @@ export function useCalendarEvents() {
   useEffect(() => {
     if (!houseId) return;
 
-    const unsub = onSnapshot(eventsCol(houseId), (snap) => {
-      const evts = snap.docs.map((d) => d.data());
-      evts.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
-      queryClient.setQueryData(['events', houseId], evts);
-    });
+    const unsub = onSnapshot(
+      eventsCol(houseId),
+      (snap) => {
+        const evts = snap.docs.map((d) => d.data());
+        evts.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+        queryClient.setQueryData(['events', houseId], evts);
+      },
+      (err) => {
+        if (err.code !== 'permission-denied') console.error('[useCalendarEvents]', err);
+      }
+    );
 
     return unsub;
   }, [houseId, queryClient]);
