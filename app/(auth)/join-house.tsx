@@ -233,7 +233,7 @@ export default function JoinHouseScreen() {
       </View>
 
       {mode === 'join' ? (
-        <View style={styles.form}>
+        <View key="join" style={styles.form}>
           <Text style={styles.label}>Invite code</Text>
           <TextInput
             style={styles.input}
@@ -250,7 +250,7 @@ export default function JoinHouseScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.form}>
+        <View key="create" style={styles.form}>
           <Text style={styles.label}>House name</Text>
           <TextInput
             style={styles.input}
