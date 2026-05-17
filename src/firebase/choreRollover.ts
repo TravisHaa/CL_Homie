@@ -6,8 +6,8 @@ import {
     daysBetweenKeys,
     getDayKey,
     getWeekKey,
-    isoWeeksBetween,
     monthsBetween,
+    weeksBetween,
 } from '@/src/utils/weekKey';
 
 import { db } from './config';
@@ -42,7 +42,7 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
     case 'weekly': {
       let weeksElapsed: number;
       try {
-        weeksElapsed = isoWeeksBetween(chore.weekKey, currentWeekKey);
+        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
       } catch {
         // Malformed weekKey — recover by treating as a fresh roll.
         return { shift: 1, bumpWeekKey: true };
@@ -54,7 +54,7 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       // Legacy path until the migration runs. Behaves like the original engine.
       let weeksElapsed: number;
       try {
-        weeksElapsed = isoWeeksBetween(chore.weekKey, currentWeekKey);
+        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
       } catch {
         return { shift: 1, bumpWeekKey: true };
       }

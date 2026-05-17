@@ -6,7 +6,7 @@ import {
     clampDayOfMonth,
     daysBetweenKeys,
     getDayKey,
-    isoWeekIndex,
+    weekIndex,
 } from './weekKey';
 
 const DAY_NAMES_LONG = [
@@ -40,7 +40,7 @@ export function isChoreDueOn(chore: Chore, date: Date): boolean {
     case 'biweekly': {
       if (chore.dayOfWeek !== dow) return false;
       const anchor = chore.createdAt?.toDate?.() ?? date;
-      const cyclesSinceAnchor = isoWeekIndex(date) - isoWeekIndex(anchor);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
       return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
     }
     case 'monthly': {
@@ -58,7 +58,7 @@ export function isChoreDueOn(chore: Chore, date: Date): boolean {
       // weeks
       if (!cr.daysOfWeek?.includes(dow)) return false;
       const anchor = chore.createdAt?.toDate?.() ?? date;
-      const cyclesSinceAnchor = isoWeekIndex(date) - isoWeekIndex(anchor);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
       return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % cr.count === 0;
     }
     default:
