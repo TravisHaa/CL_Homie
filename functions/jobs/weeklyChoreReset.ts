@@ -430,11 +430,25 @@ export interface RunSummary {
   results: HouseResult[];
 }
 
-export async function runWeeklyChoreReset(now: Date = new Date()): Promise<RunSummary> {
+/**
+ * Run the rollover for every house.
+ *
+ * @param now    Wall-clock reference (only used for logging context today).
+ * @param target The date whose ISO-week / day-key becomes the new
+ *               `weekKey` / `lastTriggeredKey` stamped on rolled chores.
+ *               Defaults to `now`, which matches the client-side rollover
+ *               in `src/firebase/choreRollover.ts` and keeps manually
+ *               invoked runs visible in the current-week UI. The scheduled
+ *               handler overrides this with `nextMondayDate(now)` so the
+ *               Sunday-23:00 cron stamps the upcoming Monday's keys.
+ */
+export async function runWeeklyChoreReset(
+  now: Date = new Date(),
+  target: Date = now
+): Promise<RunSummary> {
   const db = getFirestore();
   const startedAt = Date.now();
 
-  const target = nextMondayDate(now);
   const targetWeekKey = getWeekKey(target);
   const targetDayKey = getDayKey(target);
 
@@ -518,6 +532,7 @@ export const weeklyChoreReset = onSchedule(
     retryCount: 0,
   },
   async (_event) => {
-    await runWeeklyChoreReset();
+    const now = new Date();
+    await runWeeklyChoreReset(now, nextMondayDate(now));
   }
 );
