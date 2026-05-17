@@ -92,7 +92,10 @@ function AuthGate() {
     if (!firebaseUser) {
       if (!inAuthGroup) router.replace('/(auth)/login');
     } else if (!userProfile?.houseId) {
-      if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
+      const onHouseSetupScreen =
+        segments[0] === '(auth)' &&
+        (segments[1] === 'join-house' || segments[1] === 'create-house');
+      if (!onHouseSetupScreen) {
         router.replace('/(auth)/join-house');
       }
     } else {
