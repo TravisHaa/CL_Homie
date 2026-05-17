@@ -6,14 +6,16 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ImageBackground,
+  SafeAreaView,
 } from 'react-native';
 import { useState } from 'react';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
-
+const bg = require('@/assets/images/background-gradient.jpg');
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -27,7 +29,10 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' },
+  });
 
   async function onSubmit({ email, password }: FormData) {
     setAuthError('');
@@ -42,103 +47,174 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.inner}>
-        <Text style={styles.logo}>Homie</Text>
-        <Text style={styles.tagline}>Your shared home, organized.</Text>
-
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="Email"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-        {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
-
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Password"
-              secureTextEntry
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-        {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
-
-        {authError ? <Text style={styles.authError}>{authError}</Text> : null}
-
-        <TouchableOpacity
-          style={[styles.button, isSubmitting && styles.buttonDisabled]}
-          onPress={handleSubmit(onSubmit)}
-          disabled={isSubmitting}
+    <ImageBackground source={bg} style={styles.container} resizeMode="contain">
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.keyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Text style={styles.buttonText}>{isSubmitting ? 'Signing in...' : 'Sign In'}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
 
-        <Link href="/(auth)/signup" style={styles.link}>
-          Don't have an account? Sign up
-        </Link>
-      </View>
-    </KeyboardAvoidingView>
+          <View style={styles.form}>
+            <Text style={styles.title}>Sign into your account</Text>
+
+            <Text style={styles.label}>Email</Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.email && styles.inputError]}
+                  placeholder="Write here"
+                  placeholderTextColor="#2b1b16"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+            {errors.email && (
+              <Text style={styles.errorText}>{errors.email.message}</Text>
+            )}
+
+            <Text style={styles.label}>Password</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.password && styles.inputError]}
+                  placeholder="Write here"
+                  placeholderTextColor="#2b1b16"
+                  secureTextEntry
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+            {errors.password && (
+              <Text style={styles.errorText}>{errors.password.message}</Text>
+            )}
+
+            <TouchableOpacity>
+              <Text style={styles.forgot}>Forgot password?</Text>
+            </TouchableOpacity>
+
+            {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, isSubmitting && styles.buttonDisabled]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.buttonText}>
+              {isSubmitting ? 'Signing in...' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF5' },
-  inner: {
+  container: {
     flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  keyboard: {
+    flex: 1,
+    paddingHorizontal: 22,
+  },
+  backButton: {
+    height: 44,
+    width: 44,
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
+    marginTop: 28,
   },
-  logo: {
-    fontSize: 48,
-    fontWeight: '800',
-    textAlign: 'center',
-    color: '#2D3436',
-    marginBottom: 4,
+  backIcon: {
+    color: '#2b1b16',
+    fontSize: 42,
+    lineHeight: 42,
+    fontWeight: '300',
   },
-  tagline: {
-    fontSize: 16,
+  form: {
+    marginTop: 128,
+  },
+  title: {
+    fontSize: 20,
     textAlign: 'center',
-    color: '#636e72',
-    marginBottom: 24,
+    marginBottom: 34,
+    color: '#2b1b16',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  label: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#2b1b16',
+    fontWeight: '400',
   },
   input: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff8f1',
+    paddingHorizontal: 16,
+    fontSize: 14,
+    marginBottom: 24,
+    color: '#2b1b16',
+    borderWidth: 0,
+  },
+  inputError: {
     borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#fff',
+    borderColor: '#FF6B6B',
   },
-  inputError: { borderColor: '#FF6B6B' },
-  errorText: { color: '#FF6B6B', fontSize: 12, marginTop: -6 },
-  authError: { color: '#FF6B6B', fontSize: 14, textAlign: 'center', marginTop: -4 },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: -18,
+    marginBottom: 12,
+    marginLeft: 16,
+  },
+  forgot: {
+    color: '#ef7f65',
+    fontSize: 14,
+    marginTop: -16,
+  },
+  authError: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 12,
+  },
   button: {
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    padding: 16,
+    position: 'absolute',
+    bottom: 66,
+    alignSelf: 'center',
+    backgroundColor: '#4d7580',
+    minWidth: 84,
+    minHeight: 38,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    paddingHorizontal: 18,
+    borderRadius: 19,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  link: { textAlign: 'center', color: '#636e72', marginTop: 8 },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '500',
+  },
 });
