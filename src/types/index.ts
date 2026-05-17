@@ -22,7 +22,7 @@ export interface House {
   // Acts as a master switch: when false, no chore auto-rotates regardless of
   // its per-chore `autoRotate` flag.
   weeklyScrambleEnabled?: boolean;
-  lastRolloverWeekKey?: string;    // last ISO week the rollover transaction succeeded
+  lastRolloverWeekKey?: string;    // last US week the rollover transaction succeeded
   lastRolloverDayKey?: string;     // last YYYY-MM-DD the rollover transaction ran (daily race guard)
   rotationOffset?: number;         // monotonic count of completed rollovers; also seeds new auto-rotate chores
   choreSchemaVersion?: number;     // bumped by one-shot migrations (see src/firebase/choreMigrations.ts)
@@ -60,7 +60,7 @@ export interface Chore {
   isCompleted: boolean;
   completedAt: Timestamp | null;
   completedBy: string | null;    // userId
-  weekKey: string;               // e.g. "2026-W15" — primary listing key
+  weekKey: string;               // "YYYY-WNN" — US-week (Sun–Sat) identifier; primary listing key
   lastTriggeredKey?: string | null; // YYYY-MM-DD of last rollover; needed for daily + custom multi-day
   createdBy: string;
   createdAt: Timestamp;

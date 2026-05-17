@@ -1,11 +1,13 @@
 /**
  * Weekly chore reset — authoritative server-side rollover.
  *
- * Runs every Sunday at 23:00 America/Los_Angeles, just before the Monday
- * ISO-week flip, and advances every recurring chore in every house to the
- * upcoming week. Mirrors the existing client-side rollover at
- * `src/firebase/choreRollover.ts` (the `evaluateRoll` decision matrix is
- * ported verbatim) until that fallback is retired in a follow-up issue.
+ * Runs every Sunday at 00:01 America/Los_Angeles, just inside the new US
+ * week (Sun–Sat), and advances every recurring chore in every house to the
+ * current week. Both server and client compute keys from the same
+ * `getWeekKey(now)` helper; no Monday pre-stamping is required. Mirrors the
+ * client-side rollover at `src/firebase/choreRollover.ts` (the `evaluateRoll`
+ * decision matrix is ported verbatim) until that fallback is retired in a
+ * follow-up issue.
  *
  * Why duplicate the logic instead of importing from `src/`:
  *  - The client modules import `firebase/firestore` (web SDK) and depend on
@@ -27,13 +29,12 @@ import {
   differenceInCalendarMonths,
   format,
   getDaysInMonth,
-  getISOWeek,
-  getISOWeekYear,
+  getWeek,
+  getWeekYear,
   isSameDay,
-  nextMonday,
-  setISOWeek,
-  setISOWeekYear,
-  startOfISOWeek,
+  setWeek,
+  setWeekYear,
+  startOfWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
@@ -95,42 +96,41 @@ interface House {
 
 // ---------------------------------------------------------------------------
 // Week / day key helpers — copied verbatim from `src/utils/weekKey.ts` so the
-// function has zero dependency on the React Native client codebase.
+// function has zero dependency on the React Native client codebase. Uses
+// US-week semantics (weeks start Sunday, week 1 contains Jan 1) so the
+// server and client compute identical keys.
 // ---------------------------------------------------------------------------
 
-/** Stable week identifier like "2026-W15". */
+const US_WEEK_OPTS = { weekStartsOn: 0, firstWeekContainsDate: 1 } as const;
+
+/** Stable US-week identifier like "2026-W15" (weeks run Sun–Sat). */
 function getWeekKey(date: Date): string {
-  const week = getISOWeek(date);
-  const year = getISOWeekYear(date);
+  const week = getWeek(date, US_WEEK_OPTS);
+  const year = getWeekYear(date, US_WEEK_OPTS);
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
-/** Parse "2026-W15" into the Monday (00:00 local) of that ISO week. */
+/** Parse "2026-W15" into the Sunday (00:00 local) of that US week. */
 function parseWeekKey(key: string): Date {
   const match = /^(\d{4})-W(\d{1,2})$/.exec(key);
   if (!match) throw new Error(`Invalid week key: ${key}`);
   const year = Number(match[1]);
   const week = Number(match[2]);
-  const anchor = setISOWeekYear(new Date(year, 5, 1), year);
-  const inWeek = setISOWeek(anchor, week);
-  return startOfISOWeek(inWeek);
+  const anchor = setWeekYear(new Date(year, 5, 1), year, US_WEEK_OPTS);
+  const inWeek = setWeek(anchor, week, US_WEEK_OPTS);
+  return startOfWeek(inWeek, US_WEEK_OPTS);
 }
 
-/** Signed ISO-week difference: b - a. Same week → 0. */
-function isoWeeksBetween(a: string, b: string): number {
-  const aMon = parseWeekKey(a);
-  const bMon = parseWeekKey(b);
-  return Math.round(differenceInCalendarDays(bMon, aMon) / 7);
+/** Signed US-week difference: b - a. Same week → 0. */
+function weeksBetween(a: string, b: string): number {
+  const aSun = parseWeekKey(a);
+  const bSun = parseWeekKey(b);
+  return Math.round(differenceInCalendarDays(bSun, aSun) / 7);
 }
 
-/** Signed calendar-month difference between the Mondays of two week keys: b - a. */
+/** Signed calendar-month difference between the Sundays of two week keys: b - a. */
 function monthsBetween(a: string, b: string): number {
   return differenceInCalendarMonths(parseWeekKey(b), parseWeekKey(a));
-}
-
-/** The next Monday strictly after `from`. */
-function nextMondayDate(from: Date): Date {
-  return nextMonday(from);
 }
 
 /** Stable day identifier like "2026-05-04". */
@@ -149,9 +149,9 @@ function daysBetweenKeys(a: string, b: string): number {
   return differenceInCalendarDays(parseDayKey(b), parseDayKey(a));
 }
 
-/** Monotonic ISO-week index, lets us compare two dates by ISO-week. */
-function isoWeekIndex(date: Date): number {
-  return getISOWeekYear(date) * 53 + getISOWeek(date);
+/** Monotonic US-week index, lets us compare two dates by US-week. */
+function weekIndex(date: Date): number {
+  return getWeekYear(date, US_WEEK_OPTS) * 54 + getWeek(date, US_WEEK_OPTS);
 }
 
 /** Clamp a target day-of-month to the actual length of the month containing `reference`. */
@@ -176,7 +176,7 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
     case 'biweekly': {
       if (chore.dayOfWeek !== dow) return false;
       const anchor = chore.createdAt?.toDate() ?? date;
-      const cyclesSinceAnchor = isoWeekIndex(date) - isoWeekIndex(anchor);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
       return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
     }
     case 'monthly': {
@@ -193,7 +193,7 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
       }
       if (!cr.daysOfWeek?.includes(dow)) return false;
       const anchor = chore.createdAt?.toDate() ?? date;
-      const cyclesSinceAnchor = isoWeekIndex(date) - isoWeekIndex(anchor);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
       return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % cr.count === 0;
     }
     default:
@@ -229,7 +229,7 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
     case 'weekly': {
       let weeksElapsed: number;
       try {
-        weeksElapsed = isoWeeksBetween(chore.weekKey, currentWeekKey);
+        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
       } catch {
         return { shift: 1, bumpWeekKey: true };
       }
@@ -239,7 +239,7 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
     case 'biweekly': {
       let weeksElapsed: number;
       try {
-        weeksElapsed = isoWeeksBetween(chore.weekKey, currentWeekKey);
+        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
       } catch {
         return { shift: 1, bumpWeekKey: true };
       }
@@ -309,7 +309,7 @@ interface HouseResult {
 async function rolloverHouse(
   db: Firestore,
   houseId: string,
-  target: Date,
+  now: Date,
   targetWeekKey: string,
   targetDayKey: string
 ): Promise<HouseResult> {
@@ -357,7 +357,7 @@ async function rolloverHouse(
     let maxWeeksAdvanced = 0;
 
     for (const { chore, ref } of candidates) {
-      const decision = evaluateRoll(chore, target);
+      const decision = evaluateRoll(chore, now);
       if (!decision) continue;
 
       const update: Record<string, unknown> = {
@@ -433,24 +433,19 @@ export interface RunSummary {
 /**
  * Run the rollover for every house.
  *
- * @param now    Wall-clock reference (only used for logging context today).
- * @param target The date whose ISO-week / day-key becomes the new
- *               `weekKey` / `lastTriggeredKey` stamped on rolled chores.
- *               Defaults to `now`, which matches the client-side rollover
- *               in `src/firebase/choreRollover.ts` and keeps manually
- *               invoked runs visible in the current-week UI. The scheduled
- *               handler overrides this with `nextMondayDate(now)` so the
- *               Sunday-23:00 cron stamps the upcoming Monday's keys.
+ * @param now Wall-clock reference. Its US-week / day-key are stamped onto
+ *            every rolled chore (matches `src/firebase/choreRollover.ts`,
+ *            which also computes both keys from `new Date()`). The Sunday
+ *            00:01 PT scheduled handler simply passes the default.
  */
 export async function runWeeklyChoreReset(
-  now: Date = new Date(),
-  target: Date = now
+  now: Date = new Date()
 ): Promise<RunSummary> {
   const db = getFirestore();
   const startedAt = Date.now();
 
-  const targetWeekKey = getWeekKey(target);
-  const targetDayKey = getDayKey(target);
+  const targetWeekKey = getWeekKey(now);
+  const targetDayKey = getDayKey(now);
 
   const housesSnap = await db.collection('houses').get();
   const houseIds = housesSnap.docs.map((d) => d.id);
@@ -463,7 +458,7 @@ export async function runWeeklyChoreReset(
 
   const settled = await Promise.allSettled(
     houseIds.map((id) =>
-      rolloverHouse(db, id, target, targetWeekKey, targetDayKey)
+      rolloverHouse(db, id, now, targetWeekKey, targetDayKey)
     )
   );
 
@@ -517,22 +512,21 @@ export async function runWeeklyChoreReset(
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled function. `0 23 * * 0` = Sunday 23:00 in `America/Los_Angeles`,
-// which lands just before the Monday ISO-week flip in the West Coast TZ.
-// The handler computes its target weekKey from `nextMondayDate(now)`, so a
-// minor schedule drift (e.g. function fires at 22:59 or 23:01) does not
-// change the resulting weekKey.
+// Scheduled function. `1 0 * * 0` = Sunday 00:01 in `America/Los_Angeles`,
+// which lands just inside the new US week. Both server and client compute
+// keys from `getWeekKey(now)`, so no Monday pre-stamping is needed and minor
+// schedule drift around the boundary is safe. 00:01 PT is also well clear of
+// the 02:00 spring-forward / fall-back DST boundaries.
 // ---------------------------------------------------------------------------
 
 export const weeklyChoreReset = onSchedule(
   {
-    schedule: '0 23 * * 0',
+    schedule: '1 0 * * 0',
     timeZone: 'America/Los_Angeles',
     region: 'us-central1',
     retryCount: 0,
   },
   async (_event) => {
-    const now = new Date();
-    await runWeeklyChoreReset(now, nextMondayDate(now));
+    await runWeeklyChoreReset();
   }
 );

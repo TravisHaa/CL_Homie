@@ -4,23 +4,23 @@ import { useCalendarEvents } from "@/src/hooks/useCalendarEvents";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import {
-  addDays,
-  addMonths,
-  endOfMonth,
-  format,
-  isToday,
-  isTomorrow,
-  startOfMonth,
-  startOfWeek,
+    addDays,
+    addMonths,
+    endOfMonth,
+    format,
+    isToday,
+    isTomorrow,
+    startOfMonth,
+    startOfWeek,
 } from "date-fns";
 import { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -49,7 +49,7 @@ export default function CalendarScreen() {
 
   const monthEnd = endOfMonth(monthStart);
   const monthLabel = format(monthStart, "MMMM yyyy");
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 
   const monthEvents = events.filter((e) => {
@@ -103,7 +103,7 @@ export default function CalendarScreen() {
 
             {/* Day-of-week headers */}
             <View style={styles.dowRow}>
-              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                 <Text key={i} style={styles.dowLabel}>
                   {d}
                 </Text>

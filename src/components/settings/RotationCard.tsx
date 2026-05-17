@@ -22,7 +22,7 @@ import { setWeeklyScrambleEnabled } from '@/src/firebase/house';
 import { useChores } from '@/src/hooks/useChores';
 import { useHouseStore } from '@/src/store/houseStore';
 import { recurrenceLabel } from '@/src/utils/choreSchedule';
-import { nextMondayDate } from '@/src/utils/weekKey';
+import { nextSundayDate } from '@/src/utils/weekKey';
 
 const S = {
   cardBg: '#E8E2FF',
@@ -99,7 +99,7 @@ export function RotationCard() {
 
   if (!house) return null;
 
-  const pillLabel = enabled ? `Next Rotation: ${format(nextMondayDate(), 'MMM d')}` : 'Auto-rotate off';
+  const pillLabel = enabled ? `Next Rotation: ${format(nextSundayDate(), 'MMM d')}` : 'Auto-rotate off';
 
   return (
     <View style={styles.card}>
