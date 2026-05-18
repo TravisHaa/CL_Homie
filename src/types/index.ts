@@ -18,9 +18,9 @@ export interface House {
   memberNames?: Record<string, string>; // denormalized userId -> displayName for quick reads
   createdBy: string; // userId
   createdAt: Timestamp;
-  // Weekly chore rollover (client-driven; see src/firebase/choreRollover.ts).
-  // Acts as a master switch: when false, no chore auto-rotates regardless of
-  // its per-chore `autoRotate` flag.
+  // Weekly chore rollover (owned by the scheduled Cloud Function at
+  // functions/jobs/weeklyChoreReset.ts). Acts as a master switch: when false,
+  // no chore auto-rotates regardless of its per-chore `autoRotate` flag.
   weeklyScrambleEnabled?: boolean;
   lastRolloverWeekKey?: string;    // last US week the rollover transaction succeeded
   lastRolloverDayKey?: string;     // last YYYY-MM-DD the rollover transaction ran (daily race guard)
