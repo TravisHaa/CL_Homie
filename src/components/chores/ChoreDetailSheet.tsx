@@ -1,6 +1,7 @@
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
+import { confirm } from '@/src/utils/confirm';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
@@ -248,30 +249,25 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
       if (!chore) return;
-      Alert.alert(
-        'Delete chore?',
-        `"${chore.title}" will be removed. This cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              setSubmitting(true);
-              try {
-                await onDelete(chore.id);
-                (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
-              } catch (err: any) {
-                Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
-              } finally {
-                setSubmitting(false);
-              }
-            },
-          },
-        ]
-      );
+      const ok = await confirm({
+        title: 'Delete chore?',
+        message: `"${chore.title}" will be removed. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        destructive: true,
+      });
+      if (!ok) return;
+      setSubmitting(true);
+      try {
+        await onDelete(chore.id);
+        (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+      } catch (err: any) {
+        Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     const handleAddToCalendar = () => {
