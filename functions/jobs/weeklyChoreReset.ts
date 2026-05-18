@@ -21,7 +21,7 @@
  *    - weeklyChoreReset.start  { targetWeekKey, targetDayKey, houseCount }
  *    - weeklyChoreReset.house  { houseId, status, rolled, weeksAdvanced, errorMessage? }
  *    - weeklyChoreReset.end    { durationMs, totals }
- *  status ∈ { 'rolled' | 'noop' | 'race_guard_hit' | 'empty' | 'error' }.
+ *  status ∈ { 'rolled' | 'noop' | 'empty' | 'error' }.
  */
 
 import {
@@ -84,6 +84,9 @@ interface Chore {
   weekKey: string;
   lastTriggeredKey?: string | null;
   createdAt?: Timestamp;
+  isCompleted?: boolean;
+  completedAt?: Timestamp | null;
+  completedBy?: string | null;
 }
 
 interface House {
@@ -296,7 +299,7 @@ function nextAssignee(
 // Per-house rollover.
 // ---------------------------------------------------------------------------
 
-type HouseStatus = 'rolled' | 'noop' | 'race_guard_hit' | 'empty' | 'error';
+type HouseStatus = 'rolled' | 'noop' | 'empty' | 'error';
 
 interface HouseResult {
   houseId: string;
@@ -320,9 +323,10 @@ async function rolloverHouse(
   // perform queries, but the client cannot — keeping the shape identical
   // makes diffing the two implementations easier).
   const snap = await choresCol.get();
-  const candidates = snap.docs
-    .map((d) => ({ chore: { id: d.id, ...(d.data() as Omit<Chore, 'id'>) }, ref: d.ref }))
-    .filter((entry) => entry.chore.recurrence !== 'once');
+  const candidates = snap.docs.map((d) => ({
+    chore: { id: d.id, ...(d.data() as Omit<Chore, 'id'>) },
+    ref: d.ref,
+  }));
 
   if (candidates.length === 0) {
     return { houseId, status: 'empty', rolled: 0, weeksAdvanced: 0 };
@@ -340,66 +344,94 @@ async function rolloverHouse(
     }
     const house = houseSnap.data() as House;
 
-    if (house.lastRolloverDayKey === targetDayKey) {
-      return {
-        houseId,
-        status: 'race_guard_hit' as HouseStatus,
-        rolled: 0,
-        weeksAdvanced: 0,
-      };
-    }
+    // No same-day guard: the function is idempotent within a day because
+    //   - evaluateRoll returns null once a chore's weekKey is at the target,
+    //   - rotationOffset only bumps when cadenceAdvanced > 0,
+    //   - completed once-chores are deleted on the first run and absent on
+    //     subsequent runs,
+    //   - the scheduled trigger is configured with retryCount: 0.
+    // Removing the guard makes manual re-invocation from `functions:shell`
+    // safe and lets repeated tests actually do work.
 
     const memberIds = house.memberIds ?? [];
     const sortedMembers = [...memberIds].sort();
     const masterSwitchOn = house.weeklyScrambleEnabled !== false;
 
     let rolled = 0;
+    let cadenceAdvanced = 0;
     let maxWeeksAdvanced = 0;
 
     for (const { chore, ref } of candidates) {
-      const decision = evaluateRoll(chore, now);
-      if (!decision) continue;
-
-      const update: Record<string, unknown> = {
-        isCompleted: false,
-        completedAt: null,
-        completedBy: null,
-        lastTriggeredKey: targetDayKey,
-      };
-      if (decision.bumpWeekKey) update.weekKey = targetWeekKey;
-
-      const shouldRotate =
-        chore.autoRotate === true &&
-        masterSwitchOn &&
-        sortedMembers.length > 1;
-
-      if (shouldRotate) {
-        update.assignedTo = nextAssignee(
-          chore.assignedTo,
-          sortedMembers,
-          decision.shift
-        );
-      } else if (
-        sortedMembers.length > 0 &&
-        !sortedMembers.includes(chore.assignedTo)
-      ) {
-        update.assignedTo = sortedMembers[0];
+      // One-time chores aren't on a cadence: delete them once completed so
+      // they disappear from the user's view, and leave overdue/incomplete
+      // ones in place so the user doesn't silently lose unfinished tasks.
+      if (chore.recurrence === 'once') {
+        if (chore.isCompleted) {
+          tx.delete(ref);
+          rolled += 1;
+        }
+        continue;
       }
+
+      const decision = evaluateRoll(chore, now);
+      const update: Record<string, unknown> = {};
+
+      // Force-uncross: every recurring chore gets its completion state cleared
+      // when the reset runs, even if its cadence math says "no advance yet"
+      // (e.g. a manual mid-week invocation). Only emit the writes when there's
+      // actually something to clear to avoid no-op document churn.
+      if (
+        chore.isCompleted === true ||
+        chore.completedAt != null ||
+        chore.completedBy != null
+      ) {
+        update.isCompleted = false;
+        update.completedAt = null;
+        update.completedBy = null;
+      }
+
+      // Cadence-driven changes (weekKey bump, rotation, lastTriggeredKey) only
+      // apply when the chore's schedule has actually advanced.
+      if (decision) {
+        update.lastTriggeredKey = targetDayKey;
+        if (decision.bumpWeekKey) update.weekKey = targetWeekKey;
+
+        const shouldRotate =
+          chore.autoRotate === true &&
+          masterSwitchOn &&
+          sortedMembers.length > 1;
+
+        if (shouldRotate) {
+          update.assignedTo = nextAssignee(
+            chore.assignedTo,
+            sortedMembers,
+            decision.shift
+          );
+        } else if (
+          sortedMembers.length > 0 &&
+          !sortedMembers.includes(chore.assignedTo)
+        ) {
+          update.assignedTo = sortedMembers[0];
+        }
+
+        cadenceAdvanced += 1;
+        if (decision.shift > maxWeeksAdvanced) maxWeeksAdvanced = decision.shift;
+      }
+
+      if (Object.keys(update).length === 0) continue;
 
       tx.update(ref, update);
       rolled += 1;
-      if (decision.shift > maxWeeksAdvanced) maxWeeksAdvanced = decision.shift;
     }
 
     const houseUpdate: Record<string, unknown> = {
       lastRolloverDayKey: targetDayKey,
       lastRolloverWeekKey: targetWeekKey,
     };
-    if (rolled > 0) {
-      // Use explicit read-modify-write to match src/firebase/choreRollover.ts.
-      // FieldValue.increment is atomic on its own, but mixing it here with the
-      // client's direct-write would make the two implementations diverge in a
-      // way that's easy to misread when comparing them.
+    if (cadenceAdvanced > 0) {
+      // Only bump the rotation seed when at least one chore's cadence actually
+      // advanced — a pure "force uncross" pass mustn't perturb future
+      // auto-rotate seeding for newly-created chores.
       houseUpdate.rotationOffset = (house.rotationOffset ?? 0) + 1;
     }
     tx.update(houseRef, houseUpdate);
@@ -423,7 +455,6 @@ export interface RunSummary {
   totals: {
     rolled: number;
     noop: number;
-    raceGuardHit: number;
     empty: number;
     errors: number;
   };
@@ -492,7 +523,6 @@ export async function runWeeklyChoreReset(
   const totals = {
     rolled: results.filter((r) => r.status === 'rolled').length,
     noop: results.filter((r) => r.status === 'noop').length,
-    raceGuardHit: results.filter((r) => r.status === 'race_guard_hit').length,
     empty: results.filter((r) => r.status === 'empty').length,
     errors: results.filter((r) => r.status === 'error').length,
   };

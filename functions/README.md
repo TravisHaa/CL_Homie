@@ -59,8 +59,8 @@ The function emits structured events with severities `info` and `error`:
 
 - `weeklyChoreReset.start` — `{ targetWeekKey, targetDayKey, houseCount }`
 - `weeklyChoreReset.house` — `{ houseId, status, rolled, weeksAdvanced, errorMessage? }`
-  where `status` is one of `rolled | noop | race_guard_hit | empty | error`.
-- `weeklyChoreReset.end` — `{ durationMs, totals: { rolled, noop, raceGuardHit, empty, errors } }`
+  where `status` is one of `rolled | noop | empty | error`.
+- `weeklyChoreReset.end` — `{ durationMs, totals: { rolled, noop, empty, errors } }`
 
 No PII is logged; only `houseId` and counts.
 
