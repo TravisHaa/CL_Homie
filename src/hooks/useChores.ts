@@ -1,4 +1,3 @@
-import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { db } from '@/src/firebase/config';
 import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
@@ -25,12 +24,6 @@ export function useChores() {
 
   useEffect(() => {
     if (!houseId) return;
-
-    // Backup weekly-rollover trigger. The transaction's lastRolloverWeekKey
-    // race-guard makes this idempotent if AuthGate already ran it.
-    maybeRolloverChores(houseId).catch((e) =>
-      console.warn('[Rollover] failed', e)
-    );
 
     const col = choresCol(houseId);
 

@@ -18,7 +18,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { migrateChoreSchema } from '@/src/firebase/choreMigrations';
-import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { useAuthListener } from '@/src/hooks/useAuth';
 import { useNotificationsRegistration } from '@/src/hooks/useNotifications';
 import { useAuthStore } from '@/src/store/authStore';
@@ -76,25 +75,19 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Primary weekly chore-rollover trigger. Runs once per house per session.
-  // The transaction inside maybeRolloverChores has its own race-guard, so the
-  // backup trigger in useChores is harmless if this already ran.
+  // Run one-shot chore schema migration once per house per session. Weekly
+  // rollover itself is owned by the scheduled Cloud Function
+  // `functions/jobs/weeklyChoreReset.ts`; the client no longer triggers it.
   const houseId = useHouseStore((s) => s.house?.id) ?? null;
-  const rolledForRef = useRef<string | null>(null);
+  const migratedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!houseId || rolledForRef.current === houseId) return;
-    rolledForRef.current = houseId;
-    // Run schema migration before rollover so the engine sees the new shape.
+    if (!houseId || migratedForRef.current === houseId) return;
+    migratedForRef.current = houseId;
     (async () => {
       try {
         await migrateChoreSchema(houseId);
       } catch (e) {
         console.warn('[Migration] failed', e);
-      }
-      try {
-        await maybeRolloverChores(houseId);
-      } catch (e) {
-        console.warn('[Rollover] failed', e);
       }
     })();
   }, [houseId]);
