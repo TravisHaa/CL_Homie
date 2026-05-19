@@ -8,6 +8,7 @@ import {
   Platform,
   ImageBackground,
   SafeAreaView,
+  useWindowDimensions,
 } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
@@ -15,7 +16,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
-const bg = require('@/assets/images/background-gradient.jpg');
+const bg = require('@/assets/images/phoneBG.png');
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -25,6 +26,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const [authError, setAuthError] = useState('');
+  const { width, height } = useWindowDimensions();
   const {
     control,
     handleSubmit,
@@ -47,7 +49,12 @@ export default function LoginScreen() {
   }
 
   return (
-    <ImageBackground source={bg} style={styles.container} resizeMode="contain">
+    <ImageBackground
+      source={bg}
+      style={[styles.container, { width, height }]}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           style={styles.keyboard}
@@ -128,15 +135,23 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    height: '100%',
+    width: '100%',
   },
   safeArea: {
     flex: 1,
   },
   keyboard: {
     flex: 1,
+    alignItems: 'center',
     paddingHorizontal: 22,
+    width: '100%',
   },
   backButton: {
+    alignSelf: 'flex-start',
     height: 44,
     width: 44,
     justifyContent: 'center',
@@ -149,7 +164,10 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
   form: {
+    alignSelf: 'center',
     marginTop: 128,
+    maxWidth: 326,
+    width: '100%',
   },
   title: {
     fontSize: 20,
@@ -166,7 +184,9 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   input: {
+    alignSelf: 'center',
     height: 48,
+    width: '100%',
     borderRadius: 24,
     backgroundColor: '#fff8f1',
     paddingHorizontal: 16,

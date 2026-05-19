@@ -27,7 +27,7 @@ import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { nanoid } from '@/src/utils/nanoid';
 
-const bg = require('@/assets/images/background-gradient.jpg');
+const bg = require('@/assets/images/phoneBG.png');
 
 const createSchema = z.object({
   displayName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -126,7 +126,7 @@ export default function CreateHouseScreen() {
   }
 
   return (
-    <ImageBackground source={bg} style={styles.background} resizeMode="contain">
+    <ImageBackground source={bg} style={styles.background} resizeMode="cover">
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
           <TouchableOpacity
