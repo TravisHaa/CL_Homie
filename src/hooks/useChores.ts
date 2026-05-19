@@ -82,10 +82,10 @@ export function useChores() {
       ? getWeekKey(input.dueAt.toDate())
       : weekKey;
 
-    // Auto-rotate is only meaningful for recurring (non-once, non-daily) chores.
-    const autoRotate = !!input.autoRotate &&
-      input.recurrence !== 'once' &&
-      input.recurrence !== 'daily';
+    // Auto-rotate is only meaningful for recurring chores (anything but 'once').
+    // Daily is supported: see the lastTriggeredKey pre-stamp below for how the
+    // seeded assignee keeps today and rotation kicks in on the next reset.
+    const autoRotate = !!input.autoRotate && input.recurrence !== 'once';
 
     // Seed assignee for new auto-rotate chores using house.rotationOffset so
     // successive creations stagger across members.
@@ -122,7 +122,10 @@ export function useChores() {
     // so the seeded assignee still owns the chore's first natural occurrence.
     const dow = now.getDay();
     let lastTriggeredKey: string | null = null;
-    if (input.recurrence === 'weekly' && (input.dayOfWeek ?? null) === dow) {
+    if (input.recurrence === 'daily') {
+      // Daily fires every day, so creation day is always a fire day.
+      lastTriggeredKey = todayDayKey;
+    } else if (input.recurrence === 'weekly' && (input.dayOfWeek ?? null) === dow) {
       lastTriggeredKey = todayDayKey;
     } else if (
       input.recurrence === 'monthly' &&
@@ -219,11 +222,10 @@ export function useChores() {
       };
       if (r === 'once') {
         shapeReset.autoRotate = false;
-      } else if (r === 'daily') {
-        update.dueAt = null;
-        update.weekKey = weekKey;
-        shapeReset.autoRotate = false;
       } else {
+        // daily / weekly / monthly / custom — all recurring shapes share the
+        // same dueAt/weekKey reset; autoRotate is preserved (or overridden by
+        // an explicit value in `patch`).
         update.dueAt = null;
         update.weekKey = weekKey;
         if (r === 'weekly' && patch.dayOfWeek == null) shapeReset.dayOfWeek = 0;

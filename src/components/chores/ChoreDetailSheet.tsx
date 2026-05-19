@@ -144,8 +144,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const showWeeklyDayPicker = recurrence === 'weekly';
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
