@@ -35,7 +35,11 @@ firebase emulators:start --only functions,firestore
 
 # Or use the Functions shell to invoke handlers manually:
 npm run shell
-> weeklyChoreReset()    # invokes the scheduled function once
+> weeklyChoreReset()    # invokes the scheduled function once (cadence-respecting; mid-week calls only uncross)
+
+# Force-rotate every recurring chore by one step regardless of cadence
+# (useful for testing rotation mid-week). Production cron never sets force=true.
+> require('./lib/jobs/weeklyChoreReset').runWeeklyChoreReset(new Date(), { force: true })
 ```
 
 The emulators do **not** require the Blaze plan.

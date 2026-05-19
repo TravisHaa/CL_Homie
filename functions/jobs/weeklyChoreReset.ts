@@ -314,7 +314,8 @@ async function rolloverHouse(
   houseId: string,
   now: Date,
   targetWeekKey: string,
-  targetDayKey: string
+  targetDayKey: string,
+  force: boolean
 ): Promise<HouseResult> {
   const choresCol = db.collection('houses').doc(houseId).collection('chores');
   const houseRef = db.collection('houses').doc(houseId);
@@ -373,7 +374,17 @@ async function rolloverHouse(
         continue;
       }
 
-      const decision = evaluateRoll(chore, now);
+      let decision = evaluateRoll(chore, now);
+      // Force mode (manual testing only): when cadence math says "no advance
+      // yet", synthesize a single-step rotation so the call exercises the
+      // rotation path. We still respect `bumpWeekKey` semantics — if the
+      // chore is already at the target week, don't redundantly re-stamp it.
+      if (!decision && force) {
+        decision = {
+          shift: 1,
+          bumpWeekKey: chore.weekKey !== targetWeekKey,
+        };
+      }
       const update: Record<string, unknown> = {};
 
       // Force-uncross: every recurring chore gets its completion state cleared
@@ -461,6 +472,17 @@ export interface RunSummary {
   results: HouseResult[];
 }
 
+export interface RunOptions {
+  /**
+   * When true, every recurring chore is rotated by one step even if its
+   * cadence math says "no advance yet". Intended for manual invocations from
+   * `firebase functions:shell` (see functions/README.md); the scheduled
+   * Sunday trigger never sets this so production keeps strict cadence
+   * semantics for monthly / biweekly / custom chores.
+   */
+  force?: boolean;
+}
+
 /**
  * Run the rollover for every house.
  *
@@ -470,10 +492,12 @@ export interface RunSummary {
  *            00:01 PT scheduled handler simply passes the default.
  */
 export async function runWeeklyChoreReset(
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: RunOptions = {}
 ): Promise<RunSummary> {
   const db = getFirestore();
   const startedAt = Date.now();
+  const force = options.force === true;
 
   const targetWeekKey = getWeekKey(now);
   const targetDayKey = getDayKey(now);
@@ -485,11 +509,12 @@ export async function runWeeklyChoreReset(
     targetWeekKey,
     targetDayKey,
     houseCount: houseIds.length,
+    force,
   });
 
   const settled = await Promise.allSettled(
     houseIds.map((id) =>
-      rolloverHouse(db, id, now, targetWeekKey, targetDayKey)
+      rolloverHouse(db, id, now, targetWeekKey, targetDayKey, force)
     )
   );
 
