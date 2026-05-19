@@ -6,7 +6,7 @@ import type { Chore } from '@/src/types';
 import { getDayKey, getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useChores() {
   const queryClient = useQueryClient();
@@ -15,15 +15,27 @@ export function useChores() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const weekKey = getWeekKey();
 
-  const { data: chores = [], isLoading } = useQuery<Chore[]>({
+  const { data: chores = [] } = useQuery<Chore[]>({
     queryKey: ['chores', houseId, weekKey],
     queryFn: () => Promise.resolve([] as Chore[]),
     staleTime: Infinity,
     enabled: !!houseId,
   });
 
+  // Track first-snapshot arrival for each onSnapshot listener so the UI can
+  // show a real loading state during the Firestore warmup. The previous
+  // `useQuery.isLoading` flipped to false instantly because the dummy queryFn
+  // resolves with `[]` synchronously, which caused a flash of the empty state
+  // on first mount and on every week rollover.
+  const [snapshotsReady, setSnapshotsReady] = useState({ week: false, once: false });
+
   useEffect(() => {
     if (!houseId) return;
+
+    // Reset readiness whenever the subscription key changes (house switch or
+    // ISO-week rollover) so we re-enter the loading state until the new
+    // listeners deliver their first snapshots.
+    setSnapshotsReady({ week: false, once: false });
 
     const col = choresCol(houseId);
 
@@ -50,11 +62,13 @@ export function useChores() {
     const unsub1 = onSnapshot(q1, (snap) => {
       weekData = snap.docs.map((d) => d.data());
       merge();
+      setSnapshotsReady((s) => (s.week ? s : { ...s, week: true }));
     });
 
     const unsub2 = onSnapshot(q2, (snap) => {
       onceData = snap.docs.map((d) => d.data());
       merge();
+      setSnapshotsReady((s) => (s.once ? s : { ...s, once: true }));
     });
 
     return () => {
@@ -62,6 +76,10 @@ export function useChores() {
       unsub2();
     };
   }, [houseId, weekKey, queryClient]);
+
+  // Loading = we have a house but at least one snapshot listener has not yet
+  // delivered. With no house there is nothing to load, so don't spin forever.
+  const isLoading = !!houseId && !(snapshotsReady.week && snapshotsReady.once);
 
   const addChore = async (
     input: Pick<Chore, 'title' | 'recurrence'> & {
