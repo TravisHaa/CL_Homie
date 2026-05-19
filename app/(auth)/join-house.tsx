@@ -1,12 +1,14 @@
 import {
   Alert,
+  ImageBackground,
   Platform,
-  Pressable,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -27,11 +29,14 @@ import { db } from '@/src/firebase/config';
 import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 
+const bg = require('@/assets/images/phoneBG.png');
+
 const joinSchema = z.object({
   inviteCode: z.string().length(6, 'Invite code must be 6 characters').toUpperCase(),
 });
 
 export default function JoinHouseScreen() {
+  const { width, height } = useWindowDimensions();
   const { firebaseUser, userProfile } = useAuthStore();
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -87,6 +92,10 @@ export default function JoinHouseScreen() {
       }
 
       const houseRef = snap.docs[0].ref;
+      const houseData = snap.docs[0].data();
+      const nextMemberCount = houseData.memberIds?.includes(firebaseUser.uid)
+        ? houseData.memberIds.length
+        : (houseData.memberIds?.length ?? 0) + 1;
       const batch = writeBatch(db);
 
       const prevHouseId = userProfile?.houseId;
@@ -116,6 +125,18 @@ export default function JoinHouseScreen() {
       batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
       await batch.commit();
       console.log('[JoinHouse] join success', houseRef.id);
+      router.replace({
+        pathname: '/(auth)/home-status',
+        params: {
+          mode: 'joined',
+          houseName: houseData.name,
+          creatorName:
+            houseData.memberNames?.[houseData.createdBy] ??
+            userProfile?.displayName ??
+            displayName,
+          memberCount: String(nextMemberCount),
+        },
+      });
     } catch (err) {
       showError(err, 'Could not join the house. Please try again.');
     } finally {
@@ -124,76 +145,132 @@ export default function JoinHouseScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Join a home</Text>
-      <Text style={styles.subtitle}>Enter your house invite code.</Text>
+    <ImageBackground
+      source={bg}
+      style={[styles.container, { width, height }]}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+            onPress={() => router.replace('/(auth)/home-choice')}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Invite code</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="ABC123"
-          autoCapitalize="characters"
-          maxLength={6}
-          onChangeText={setInviteCodeInput}
-          value={inviteCodeInput}
-        />
-        {validationError && <Text style={styles.errorText}>{validationError}</Text>}
-        {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+          <View style={styles.form}>
+            <Text style={styles.title}>Enter your home's code</Text>
+            <Text style={styles.subtitle}>
+              Contact your home admin to receive{'\n'}your join code
+            </Text>
 
-        <TouchableOpacity
-          style={[styles.button, isJoining && styles.buttonDisabled]}
-          onPress={submitJoin}
-          disabled={isJoining}
-        >
-          <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Join House'}</Text>
-        </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="xxxxxx"
+              placeholderTextColor="#2b1b16"
+              autoCapitalize="characters"
+              maxLength={6}
+              onChangeText={setInviteCodeInput}
+              value={inviteCodeInput}
+            />
+            {validationError && <Text style={styles.errorText}>{validationError}</Text>}
+            {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+          </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Create a home"
-          onPress={() => router.push('/(auth)/create-house')}
-        >
-          <Text style={styles.createLink}>Create a home instead</Text>
-        </Pressable>
-      </View>
-    </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.button, isJoining && styles.buttonDisabled]}
+            onPress={submitJoin}
+            disabled={isJoining}
+          >
+            <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Continue'}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFBF5',
-    justifyContent: 'center',
-    padding: 32,
+    overflow: 'hidden',
   },
-  title: { fontSize: 32, fontWeight: '800', color: '#2D3436', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#636e72', marginBottom: 32 },
-  form: { gap: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#2D3436' },
-  input: {
-    backgroundColor: '#fff',
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    fontSize: 16,
-    padding: 14,
+  backgroundImage: {
+    height: '100%',
+    width: '100%',
   },
-  errorText: { color: '#FF6B6B', fontSize: 12 },
-  button: {
+  safeArea: {
+    flex: 1,
+  },
+  content: {
     alignItems: 'center',
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    marginTop: 8,
-    padding: 16,
+    flex: 1,
+    paddingHorizontal: 27,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  createLink: {
-    color: '#636e72',
-    fontSize: 14,
-    marginTop: 6,
+  backButton: {
+    alignSelf: 'flex-start',
+    height: 44,
+    justifyContent: 'center',
+    marginTop: 28,
+    width: 44,
+  },
+  backIcon: {
+    color: '#2b1b16',
+    fontSize: 42,
+    fontWeight: '300',
+    lineHeight: 42,
+  },
+  form: {
+    alignItems: 'center',
+    marginTop: 146,
+    width: '100%',
+  },
+  title: {
+    color: '#2b1b16',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontSize: 15,
+    marginBottom: 8,
     textAlign: 'center',
   },
+  subtitle: {
+    color: '#5c4942',
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 28,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#fff8f1',
+    borderRadius: 21,
+    borderWidth: 0,
+    color: '#2b1b16',
+    fontSize: 12,
+    height: 42,
+    maxWidth: 356,
+    paddingHorizontal: 15,
+    width: '100%',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  button: {
+    alignItems: 'center',
+    backgroundColor: '#4d7580',
+    borderRadius: 19,
+    bottom: 61,
+    justifyContent: 'center',
+    minHeight: 38,
+    minWidth: 83,
+    paddingHorizontal: 18,
+    position: 'absolute',
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#fff', fontSize: 12, fontWeight: '500' },
 });

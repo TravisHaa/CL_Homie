@@ -69,7 +69,7 @@ export default function SetupAccountScreen() {
           <TouchableOpacity
             accessibilityLabel="Go back"
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(auth)/signup')}
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>

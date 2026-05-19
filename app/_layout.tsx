@@ -96,12 +96,13 @@ function AuthGate() {
         segments[0] === '(auth)' &&
         (segments[1] === 'home-choice' ||
           segments[1] === 'join-house' ||
-          segments[1] === 'create-house');
+          segments[1] === 'create-house' ||
+          segments[1] === 'home-status');
       if (!onHouseSetupScreen) {
         router.replace('/(auth)/home-choice');
       }
     } else {
-      if (inAuthGroup) router.replace('/(tabs)');
+      if (inAuthGroup && segments[1] !== 'home-status') router.replace('/(tabs)');
     }
   }, [firebaseUser, userProfile, isLoading, segments]);
 

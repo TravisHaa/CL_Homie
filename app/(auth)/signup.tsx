@@ -72,7 +72,9 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    marginTop: '48%',
+    flex: 1,
+    justifyContent: 'center',
+    transform: [{ translateY: -40 }],
   },
   title: {
     color: '#2b1b16',

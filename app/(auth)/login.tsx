@@ -116,7 +116,7 @@ export default function LoginScreen() {
 
             <Text style={styles.signupText}>
               New to Homie?{' '}
-              <Link href="/(auth)/signup" style={styles.signupLink}>
+              <Link href="/(auth)/setup-account" style={styles.signupLink}>
                 Get started.
               </Link>
             </Text>

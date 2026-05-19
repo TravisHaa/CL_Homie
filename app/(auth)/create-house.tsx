@@ -142,6 +142,15 @@ export default function CreateHouseScreen() {
       );
       await batch.commit();
       console.log('[CreateHouse] create success', houseRef.id, inviteCode);
+      router.replace({
+        pathname: '/(auth)/home-status',
+        params: {
+          mode: 'created',
+          houseName,
+          creatorName: displayName,
+          memberCount: '1',
+        },
+      });
     } catch (err) {
       showError(err, 'Could not create the house. Please try again.');
     } finally {
@@ -161,7 +170,7 @@ export default function CreateHouseScreen() {
           <TouchableOpacity
             accessibilityLabel="Go back"
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(auth)/home-choice')}
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
