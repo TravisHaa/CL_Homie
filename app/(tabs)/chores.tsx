@@ -2,6 +2,7 @@ import { GridBackground } from '@/src/components/GridBackground';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
+import { ChoresEmptyState } from '@/src/components/chores/ChoresEmptyState';
 import { useChores } from '@/src/hooks/useChores';
 import type { Chore } from '@/src/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,9 +79,7 @@ export default function ChoresScreen() {
             <ChoreCard chore={item} onToggle={toggleChore} onPress={openChoreDetail} />
           )}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No chores this week. Tap + to add one!</Text>
-          }
+          ListEmptyComponent={<ChoresEmptyState />}
         />
       )}
 
@@ -153,13 +152,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 40,
   },
-  empty: {
-    color: CH.textSoft,
-    textAlign: 'center',
-    marginTop: 60,
-    fontSize: 15,
-  },
   loader: {
     flex: 1,
+    justifyContent: 'center',
   },
 });
