@@ -11,7 +11,7 @@ import { choresCol, houseDoc } from './firestore';
  * future schema changes. The transaction is idempotent — if the house is
  * already at or beyond `LATEST`, this is a no-op.
  */
-export const LATEST_CHORE_SCHEMA_VERSION = 2;
+export const LATEST_CHORE_SCHEMA_VERSION = 3;
 
 /**
  * One-shot, idempotent migration of a house's chores to the new rotation
@@ -25,12 +25,20 @@ export const LATEST_CHORE_SCHEMA_VERSION = 2;
  *  - Backfills missing `dayOfMonth`, `customRecurrence`, `lastTriggeredKey` to null.
  *
  * v2 changes (Sun–Sat US weeks):
- *  - Re-stamps every chore's `weekKey` under the new US-week formula
- *    (`getWeekKey` now uses weekStartsOn:0, firstWeekContainsDate:1).
+ *  - Re-stamps every chore's `weekKey` under the (then-new) US-week formula
+ *    (`getWeekKey` used weekStartsOn:0, firstWeekContainsDate:1).
  *    `once` chores re-derive from `dueAt`; everything else uses `getWeekKey(now)`.
  *  - Resets `lastTriggeredKey` to null on non-`once` chores so the next
  *    rollover doesn't trip on a stale ISO-anchored day key for a Sunday-due
  *    chore whose key was already ≥ today.
+ *
+ * v3 changes (Mon–Sun ISO weeks):
+ *  - Reverts week semantics back to ISO (Monday-start). Re-stamps every
+ *    chore's `weekKey` under the ISO-week formula so existing Sunday-anchored
+ *    keys produced by v2 don't misfire the rollover decision matrix.
+ *    `once` chores re-derive from `dueAt`; everything else uses `getWeekKey(now)`.
+ *  - Resets `lastTriggeredKey` to null on non-`once` chores for the same
+ *    belt-and-suspenders reasoning as v2.
  */
 export async function migrateChoreSchema(houseId: string): Promise<void> {
   // Read all chores up front (Firestore JS SDK transactions can't query).
@@ -88,6 +96,23 @@ export async function migrateChoreSchema(houseId: string): Promise<void> {
           // Belt-and-suspenders: clear lastTriggeredKey on recurring chores so
           // the next rollover doesn't short-circuit on a stale day key (e.g.
           // a Sunday-due chore whose old ISO key was already ≥ today).
+          if (chore.recurrence !== 'once') {
+            update.lastTriggeredKey = null;
+          }
+        }
+      }
+
+      // ---- v3 block: re-stamp weekKey under the ISO-week formula. ---------
+      // `getWeekKey` now returns ISO-week keys, so simply re-running the same
+      // logic as v2 normalises any Sunday-anchored leftovers from the prior
+      // schema. Runs unconditionally on houses still on v2 (or skipped v2
+      // entirely if they were created post-v3 — in which case the values are
+      // already correct and the writes are inert).
+      if (current < 3) {
+        if (chore.recurrence === 'once' && chore.dueAt) {
+          update.weekKey = getWeekKey(chore.dueAt.toDate());
+        } else {
+          update.weekKey = nowWeekKey;
           if (chore.recurrence !== 'once') {
             update.lastTriggeredKey = null;
           }
