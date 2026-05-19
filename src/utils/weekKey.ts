@@ -85,11 +85,19 @@ export function parseDayKey(key: string): Date {
 }
 
 /**
- * Monotonic ISO-week index (ISO-year * 53 + week). Lets us compare two dates
- * by ISO-week regardless of year boundaries.
+ * Monotonic ISO-week index (true week count). Lets us compare two dates by
+ * ISO-week regardless of year boundaries. Defined as the number of full ISO
+ * weeks (Mon-start) between `date` and a fixed epoch Monday. The previous
+ * `isoYear * 53 + isoWeek` formula was not monotonic across ISO years that
+ * end at week 52 (e.g. 2022-W52 → 2023-W01 produced a diff of 2 instead of
+ * 1), which corrupted the biweekly / custom-weeks cadence modulus in
+ * `isChoreDueOn`.
  */
+const WEEK_INDEX_EPOCH = new Date(1970, 0, 5); // 1970-01-05 was a Monday (local).
 export function weekIndex(date: Date): number {
-  return getISOWeekYear(date) * 53 + getISOWeek(date);
+  return Math.round(
+    differenceInCalendarDays(startOfISOWeek(date), WEEK_INDEX_EPOCH) / 7
+  );
 }
 
 /**

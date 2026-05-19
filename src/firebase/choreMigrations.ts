@@ -1,7 +1,7 @@
 import { getDocs, runTransaction } from 'firebase/firestore';
 
 import type { Chore, House } from '@/src/types';
-import { getWeekKey } from '@/src/utils/weekKey';
+import { getDayKey, getWeekKey } from '@/src/utils/weekKey';
 
 import { db } from './config';
 import { choresCol, houseDoc } from './firestore';
@@ -11,7 +11,7 @@ import { choresCol, houseDoc } from './firestore';
  * future schema changes. The transaction is idempotent — if the house is
  * already at or beyond `LATEST`, this is a no-op.
  */
-export const LATEST_CHORE_SCHEMA_VERSION = 3;
+export const LATEST_CHORE_SCHEMA_VERSION = 4;
 
 /**
  * One-shot, idempotent migration of a house's chores to the new rotation
@@ -39,6 +39,17 @@ export const LATEST_CHORE_SCHEMA_VERSION = 3;
  *    `once` chores re-derive from `dueAt`; everything else uses `getWeekKey(now)`.
  *  - Resets `lastTriggeredKey` to null on non-`once` chores for the same
  *    belt-and-suspenders reasoning as v2.
+ *
+ * v4 changes (stable cadence anchor):
+ *  - Backfills `recurrenceAnchorKey` on every recurring chore. Computed as
+ *    `getDayKey(chore.createdAt.toDate())` so the value matches what
+ *    `useChores.addChore` would have written at creation time (device-local
+ *    midnight). This decouples the cadence modulus in `isChoreDueOn` /
+ *    `evaluateRoll` from `createdAt.toDate()`, which is interpreted in
+ *    process-local time and produced different ISO weeks on the Cloud
+ *    Function (UTC) vs the device near week boundaries.
+ *  - `once` chores get `recurrenceAnchorKey: null` (the field is unused for
+ *    them but keeping the property present simplifies type discrimination).
  */
 export async function migrateChoreSchema(houseId: string): Promise<void> {
   // Read all chores up front (Firestore JS SDK transactions can't query).
@@ -118,6 +129,22 @@ export async function migrateChoreSchema(houseId: string): Promise<void> {
           if (chore.recurrence !== 'once') {
             update.lastTriggeredKey = null;
           }
+        }
+      }
+
+      // ---- v4 block: backfill recurrenceAnchorKey. ------------------------
+      // Stable per-chore day key so cadence modulus is timezone-independent.
+      // For recurring chores we use the createdAt instant rendered in
+      // device-local time, which matches what `useChores.addChore` writes for
+      // new chores. For 'once' chores the field is irrelevant.
+      if (current < 4) {
+        if (chore.recurrence === 'once') {
+          if (chore.recurrenceAnchorKey !== null) {
+            update.recurrenceAnchorKey = null;
+          }
+        } else if (chore.recurrenceAnchorKey == null) {
+          const anchorSource = chore.createdAt?.toDate?.() ?? now;
+          update.recurrenceAnchorKey = getDayKey(anchorSource);
         }
       }
 
