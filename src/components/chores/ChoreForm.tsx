@@ -60,7 +60,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const house = useHouseStore((s) => s.house);
     const memberIds = Object.keys(memberMap);
 
-    // Auto-rotate is only available for recurring (non-once, non-daily) chores.
+    // Auto-rotate is available for every recurring shape (anything but 'once').
     // It defaults ON when the house-wide master switch is enabled.
     const masterAutoRotate = house?.weeklyScrambleEnabled !== false;
 
@@ -93,8 +93,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
     const showDueDatePicker = recurrence === 'once';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
