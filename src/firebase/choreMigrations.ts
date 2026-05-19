@@ -63,7 +63,9 @@ export async function migrateChoreSchema(houseId: string): Promise<void> {
 
       // ---- v1 block (only runs if the house hasn't been migrated at all). --
       if (current < 1) {
-        if (chore.recurrence === 'biweekly') {
+        // 'biweekly' was removed from `ChoreRecurrence`; the cast lets us
+        // still detect any persisted legacy value and rewrite it.
+        if ((chore.recurrence as string) === 'biweekly') {
           update.recurrence = 'custom';
           update.customRecurrence = {
             count: 2,

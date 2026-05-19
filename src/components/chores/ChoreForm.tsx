@@ -40,11 +40,9 @@ interface ChoreFormProps {
   onSubmit: (input: ChoreFormPayload) => Promise<void>;
 }
 
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-// User-facing recurrence options. Order matches the spec; 'biweekly' is
-// intentionally absent — it now lives under 'Custom' (every 2 weeks).
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+// User-facing recurrence options. Order matches the spec; every-N-weeks
+// cadences (including the legacy biweekly) live under 'Custom'.
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -68,7 +66,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(masterAutoRotate);
     const [dayOfWeek, setDayOfWeek] = useState(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);

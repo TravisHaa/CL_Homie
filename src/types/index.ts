@@ -30,14 +30,10 @@ export interface House {
   choreSchemaVersion?: number;     // bumped by one-shot migrations (see src/firebase/choreMigrations.ts)
 }
 
-// 'biweekly' is preserved in the type union for backwards-compat reads of
-// un-migrated chores, but no new chore is created with it; the migration
-// rewrites biweekly → custom { count: 2, unit: 'weeks' }.
 export type ChoreRecurrence =
   | 'once'
   | 'daily'
   | 'weekly'
-  | 'biweekly'
   | 'monthly'
   | 'custom';
 
@@ -55,7 +51,7 @@ export interface Chore {
   assignedTo: string;            // userId; current holder (always set, even when auto-rotating)
   recurrence: ChoreRecurrence;
   autoRotate?: boolean;          // false for 'once' & 'daily'; user-chosen for weekly/monthly/custom
-  dayOfWeek: number | null;      // 0–6, used for weekly only (legacy biweekly until migrated)
+  dayOfWeek: number | null;      // 0–6, used for weekly only
   dayOfMonth?: number | null;    // 1–31, used for monthly (clamped to last day of short months at runtime)
   customRecurrence?: CustomRecurrence | null; // used for 'custom'
   dueAt: Timestamp | null;       // used only when recurrence === 'once'
