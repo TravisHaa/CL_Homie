@@ -70,6 +70,9 @@ export const userDoc = (userId: string) =>
 export const houseDoc = (houseId: string) =>
   doc(db, 'houses', houseId).withConverter(houseConverter);
 
+export const eventDoc = (houseId: string, eventId: string) =>
+  doc(db, 'houses', houseId, 'events', eventId).withConverter(calendarEventConverter);
+
 export const devicesCol = (userId: string) =>
   collection(db, 'users', userId, 'devices').withConverter(deviceConverter);
 

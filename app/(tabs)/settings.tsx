@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RotationCard } from '@/src/components/settings/RotationCard';
 import { signOut } from '@/src/firebase/auth';
 import { leaveHouse } from '@/src/firebase/house';
 import { useGoogleCalendar } from '@/src/hooks/useGoogleCalendar';
@@ -170,6 +171,8 @@ export default function SettingsScreen() {
                   </View>
                 ))}
               </View>
+
+              <RotationCard />
 
               <View style={styles.houseActionRow}>
                 <Pressable

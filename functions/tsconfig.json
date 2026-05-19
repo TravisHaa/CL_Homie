@@ -1,16 +1,22 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
     "module": "commonjs",
-    "target": "es2020",
-    "lib": ["es2020"],
     "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "lib",
+    "rootDir": ".",
+    "strict": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",
-    "sourceMap": true,
-    "strict": true,
+    "noUnusedParameters": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "declaration": false
   },
-  "include": ["src"]
+  "include": ["src/**/*", "jobs/**/*"],
+  "exclude": ["node_modules", "lib"]
 }

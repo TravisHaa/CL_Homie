@@ -8,6 +8,7 @@ import {
   getOrCreateHomieCalendar,
   addEventToDeviceCalendar,
 } from '@/src/utils/calendarSync';
+import { sendEventAssignedPush } from '@/src/utils/pushNotifications';
 import type { CalendarEvent } from '@/src/types';
 
 export interface NewEventInput {
@@ -123,7 +124,30 @@ export function useCalendarEvents() {
         endDate: input.endTime,
       });
     }
+
+    // Notify any other assigned roommates so their reconciliation effect fires
+    const otherAssignees = input.assignedTo.filter((uid) => uid !== userProfile.id);
+    if (otherAssignees.length > 0) {
+      sendEventAssignedPush({
+        assigneeUserIds: otherAssignees,
+        eventTitle: input.title,
+        assignerName: userProfile.displayName,
+      }).catch(() => {
+        // Non-critical — roommate will still sync next time they open the app
+      });
+    }
   };
 
-  return { events, isLoading, addEvent };
+  const updateEvent = async (id: string, updates: NewEventInput) => {
+    if (!houseId) throw new Error('No house connected.');
+    await updateDoc(eventDoc(houseId, id), {
+      title: updates.title,
+      description: updates.description,
+      startTime: Timestamp.fromDate(updates.startTime),
+      endTime: Timestamp.fromDate(updates.endTime),
+      assignedTo: updates.assignedTo,
+    });
+  };
+
+  return { events, isLoading, addEvent, updateEvent };
 }

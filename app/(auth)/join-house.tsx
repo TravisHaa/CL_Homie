@@ -14,6 +14,7 @@ import {
   collection,
   query,
   where,
+  getDoc,
   getDocs,
   doc,
   serverTimestamp,
@@ -99,13 +100,22 @@ export default function JoinHouseScreen() {
       const batch = writeBatch(db);
 
       // If the user is already in a house, remove them from it first so we
-      // don't leave behind a ghost member on the old house doc.
+      // don't leave behind a ghost member on the old house doc. Skip this if
+      // the prev-house membership has already drifted — Firestore rules deny
+      // updates on a house where the caller is not in memberIds, which would
+      // otherwise fail the whole batch with permission-denied.
       const prevHouseId = userProfile?.houseId;
       if (prevHouseId && prevHouseId !== houseRef.id) {
-        batch.update(houseDoc(prevHouseId), {
-          memberIds: arrayRemove(firebaseUser.uid),
-          [`memberNames.${firebaseUser.uid}`]: deleteField(),
-        });
+        const prevHouseSnap = await getDoc(houseDoc(prevHouseId));
+        const prevMemberIds: string[] = prevHouseSnap.exists()
+          ? (prevHouseSnap.data()?.memberIds ?? [])
+          : [];
+        if (prevMemberIds.includes(firebaseUser.uid)) {
+          batch.update(houseDoc(prevHouseId), {
+            memberIds: arrayRemove(firebaseUser.uid),
+            [`memberNames.${firebaseUser.uid}`]: deleteField(),
+          });
+        }
       }
 
       // Keep a denormalized member name map for quick household rendering.
@@ -136,13 +146,20 @@ export default function JoinHouseScreen() {
       // Keep house creation + profile houseId update in one commit.
       const batch = writeBatch(db);
 
-      // Remove the user from their current house if they're switching.
+      // Remove the user from their current house if they're switching. Skip
+      // when membership has drifted (see handleJoin for the rules rationale).
       const prevHouseId = userProfile?.houseId;
       if (prevHouseId) {
-        batch.update(houseDoc(prevHouseId), {
-          memberIds: arrayRemove(firebaseUser.uid),
-          [`memberNames.${firebaseUser.uid}`]: deleteField(),
-        });
+        const prevHouseSnap = await getDoc(houseDoc(prevHouseId));
+        const prevMemberIds: string[] = prevHouseSnap.exists()
+          ? (prevHouseSnap.data()?.memberIds ?? [])
+          : [];
+        if (prevMemberIds.includes(firebaseUser.uid)) {
+          batch.update(houseDoc(prevHouseId), {
+            memberIds: arrayRemove(firebaseUser.uid),
+            [`memberNames.${firebaseUser.uid}`]: deleteField(),
+          });
+        }
       }
 
       batch.set(houseRef, {

@@ -6,6 +6,11 @@ const HOMIE_CALENDAR_NAME = 'Homie';
 let cachedCalendarId: string | null | undefined = undefined;
 
 export async function getOrCreateHomieCalendar(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    cachedCalendarId = null;
+    return null;
+  }
+
   if (cachedCalendarId !== undefined) return cachedCalendarId;
 
   const { status } = await Calendar.requestCalendarPermissionsAsync();
@@ -30,19 +35,26 @@ export async function getOrCreateHomieCalendar(): Promise<string | null> {
       ? await getDefaultIOSSource(calendars)
       : { isLocalAccount: true, name: 'Homie', type: Calendar.SourceType.LOCAL };
 
-  const newId = await Calendar.createCalendarAsync({
-    title: HOMIE_CALENDAR_NAME,
-    color: '#6C5CE7',
-    entityType: Calendar.EntityTypes.EVENT,
-    sourceId: Platform.OS === 'ios' ? (defaultSource as Calendar.Source).id : undefined,
-    source: Platform.OS === 'android' ? (defaultSource as Calendar.Source) : undefined,
-    name: HOMIE_CALENDAR_NAME,
-    ownerAccount: 'personal',
-    accessLevel: Calendar.CalendarAccessLevel.OWNER,
-  });
-
-  cachedCalendarId = newId;
-  return newId;
+  try {
+    const newId = await Calendar.createCalendarAsync({
+      title: HOMIE_CALENDAR_NAME,
+      color: '#6C5CE7',
+      entityType: Calendar.EntityTypes.EVENT,
+      sourceId: Platform.OS === 'ios' ? (defaultSource as Calendar.Source).id : undefined,
+      source: Platform.OS === 'android' ? (defaultSource as Calendar.Source) : undefined,
+      name: HOMIE_CALENDAR_NAME,
+      ownerAccount: 'personal',
+      accessLevel: Calendar.CalendarAccessLevel.OWNER,
+    });
+    cachedCalendarId = newId;
+    return newId;
+  } catch {
+    // Account doesn't allow creating calendars (e.g. Google CalDAV, Exchange).
+    // Fall back to the first writable calendar on the device.
+    const fallback = calendars.find((c) => c.allowsModifications);
+    cachedCalendarId = fallback?.id ?? null;
+    return cachedCalendarId;
+  }
 }
 
 async function getDefaultIOSSource(

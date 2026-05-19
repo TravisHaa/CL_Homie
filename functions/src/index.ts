@@ -1,5 +1,9 @@
-import * as admin from 'firebase-admin';
+/**
+ * Firebase Cloud Functions entry point for Homie.
+ *
+ * Each scheduled / triggered function is implemented in its own module under
+ * `functions/jobs/` and re-exported here so Firebase can discover it.
+ */
 
-admin.initializeApp();
-
+export { weeklyChoreReset } from '../jobs/weeklyChoreReset';
 export { exchangeGoogleAuthCode, unlinkGoogleCalendar } from './google-oauth';
