@@ -62,7 +62,6 @@ type ChoreRecurrence =
   | 'once'
   | 'daily'
   | 'weekly'
-  | 'biweekly'
   | 'monthly'
   | 'custom';
 
@@ -174,12 +173,6 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
       return true;
     case 'weekly':
       return chore.dayOfWeek === dow;
-    case 'biweekly': {
-      if (chore.dayOfWeek !== dow) return false;
-      const anchor = chore.createdAt?.toDate() ?? date;
-      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
-      return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
-    }
     case 'monthly': {
       if (chore.dayOfMonth == null) return false;
       const target = clampDayOfMonth(date, chore.dayOfMonth);
@@ -236,16 +229,6 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       }
       if (weeksElapsed <= 0) return null;
       return { shift: weeksElapsed, bumpWeekKey: true };
-    }
-    case 'biweekly': {
-      let weeksElapsed: number;
-      try {
-        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
-      } catch {
-        return { shift: 1, bumpWeekKey: true };
-      }
-      if (weeksElapsed < 2) return null;
-      return { shift: Math.floor(weeksElapsed / 2), bumpWeekKey: true };
     }
     case 'monthly': {
       let monthsElapsed: number;
@@ -476,7 +459,7 @@ export interface RunOptions {
    * cadence math says "no advance yet". Intended for manual invocations from
    * `firebase functions:shell` (see functions/README.md); the scheduled
    * Monday trigger never sets this so production keeps strict cadence
-   * semantics for monthly / biweekly / custom chores.
+   * semantics for monthly / custom chores.
    */
   force?: boolean;
 }

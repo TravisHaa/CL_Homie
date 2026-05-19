@@ -37,12 +37,6 @@ export function isChoreDueOn(chore: Chore, date: Date): boolean {
       return true;
     case 'weekly':
       return chore.dayOfWeek === dow;
-    case 'biweekly': {
-      if (chore.dayOfWeek !== dow) return false;
-      const anchor = chore.createdAt?.toDate?.() ?? date;
-      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
-      return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
-    }
     case 'monthly': {
       if (chore.dayOfMonth == null) return false;
       const target = clampDayOfMonth(date, chore.dayOfMonth);
@@ -79,10 +73,6 @@ export function recurrenceLabel(chore: Chore): string {
       return chore.dayOfWeek != null
         ? `Every ${DAY_NAMES_LONG[chore.dayOfWeek]}`
         : 'Weekly';
-    case 'biweekly':
-      return chore.dayOfWeek != null
-        ? `Every other ${DAY_NAMES_LONG[chore.dayOfWeek]}`
-        : 'Every 2 weeks';
     case 'monthly':
       return chore.dayOfMonth != null
         ? `Monthly on day ${chore.dayOfMonth}`

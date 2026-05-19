@@ -32,9 +32,7 @@ const CH = {
   dangerBg: '#FBE9E7',
 };
 
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -43,11 +41,6 @@ const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// Coerces the (possibly legacy 'biweekly') stored value to an editable form.
-function toEditable(r: Chore['recurrence']): EditableRecurrence {
-  return r === 'biweekly' ? 'custom' : r;
-}
 
 type ChoreUpdatePatch = Partial<
   Pick<
@@ -83,7 +76,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(false);
     const [dayOfWeek, setDayOfWeek] = useState<number>(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -109,17 +102,16 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     // Reset form whenever a different chore is opened.
     useEffect(() => {
       if (!chore) return;
-      const editable = toEditable(chore.recurrence);
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
-      setRecurrence(editable);
+      setRecurrence(chore.recurrence);
       setAutoRotate(!!chore.autoRotate);
       setDayOfWeek(chore.dayOfWeek ?? 0);
       setDayOfMonth(chore.dayOfMonth ?? 1);
       // Seed custom controls from the stored shape, or sensible defaults when
       // switching INTO custom from a different recurrence in the editor.
       const cr = chore.customRecurrence ?? null;
-      setCustomCount(cr?.count ?? (chore.recurrence === 'biweekly' ? 2 : 1));
+      setCustomCount(cr?.count ?? 1);
       setCustomUnit(cr?.unit ?? 'weeks');
       setCustomDays(
         cr?.daysOfWeek ??
@@ -174,7 +166,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const isDirty =
       title.trim() !== chore.title ||
       (requiresMemberPick && assignedTo !== chore.assignedTo) ||
-      recurrence !== toEditable(chore.recurrence) ||
+      recurrence !== chore.recurrence ||
       (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
       (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
       (showMonthlyDayPicker && dayOfMonth !== (chore.dayOfMonth ?? 1)) ||
@@ -206,7 +198,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
         patch.assignedTo = assignedTo;
       }
-      if (recurrence !== toEditable(chore.recurrence)) {
+      if (recurrence !== chore.recurrence) {
         patch.recurrence = recurrence;
       }
       if (supportsAutoRotate && autoRotate !== !!chore.autoRotate) {
