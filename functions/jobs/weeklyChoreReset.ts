@@ -1,10 +1,10 @@
 /**
  * Weekly chore reset — authoritative server-side rollover.
  *
- * Runs every Sunday at 00:01 America/Los_Angeles, just inside the new US
- * week (Sun–Sat), and advances every recurring chore in every house to the
+ * Runs every Monday at 00:01 America/Los_Angeles, just inside the new ISO
+ * week (Mon–Sun), and advances every recurring chore in every house to the
  * current week. Both server and client compute keys from the same
- * `getWeekKey(now)` helper; no Monday pre-stamping is required. Mirrors the
+ * `getWeekKey(now)` helper; no pre-stamping is required. Mirrors the
  * client-side rollover at `src/firebase/choreRollover.ts` (the `evaluateRoll`
  * decision matrix is ported verbatim) until that fallback is retired in a
  * follow-up issue.
@@ -29,12 +29,12 @@ import {
   differenceInCalendarMonths,
   format,
   getDaysInMonth,
-  getWeek,
-  getWeekYear,
+  getISOWeek,
+  getISOWeekYear,
   isSameDay,
-  setWeek,
-  setWeekYear,
-  startOfWeek,
+  setISOWeek,
+  setISOWeekYear,
+  startOfISOWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
@@ -100,38 +100,36 @@ interface House {
 // ---------------------------------------------------------------------------
 // Week / day key helpers — copied verbatim from `src/utils/weekKey.ts` so the
 // function has zero dependency on the React Native client codebase. Uses
-// US-week semantics (weeks start Sunday, week 1 contains Jan 1) so the
-// server and client compute identical keys.
+// ISO-week semantics (weeks start Monday) so the server and client compute
+// identical keys.
 // ---------------------------------------------------------------------------
 
-const US_WEEK_OPTS = { weekStartsOn: 0, firstWeekContainsDate: 1 } as const;
-
-/** Stable US-week identifier like "2026-W15" (weeks run Sun–Sat). */
+/** Stable ISO-week identifier like "2026-W15" (weeks run Mon–Sun). */
 function getWeekKey(date: Date): string {
-  const week = getWeek(date, US_WEEK_OPTS);
-  const year = getWeekYear(date, US_WEEK_OPTS);
+  const week = getISOWeek(date);
+  const year = getISOWeekYear(date);
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
-/** Parse "2026-W15" into the Sunday (00:00 local) of that US week. */
+/** Parse "2026-W15" into the Monday (00:00 local) of that ISO week. */
 function parseWeekKey(key: string): Date {
   const match = /^(\d{4})-W(\d{1,2})$/.exec(key);
   if (!match) throw new Error(`Invalid week key: ${key}`);
   const year = Number(match[1]);
   const week = Number(match[2]);
-  const anchor = setWeekYear(new Date(year, 5, 1), year, US_WEEK_OPTS);
-  const inWeek = setWeek(anchor, week, US_WEEK_OPTS);
-  return startOfWeek(inWeek, US_WEEK_OPTS);
+  const anchor = setISOWeekYear(new Date(year, 5, 1), year);
+  const inWeek = setISOWeek(anchor, week);
+  return startOfISOWeek(inWeek);
 }
 
-/** Signed US-week difference: b - a. Same week → 0. */
+/** Signed ISO-week difference: b - a. Same week → 0. */
 function weeksBetween(a: string, b: string): number {
-  const aSun = parseWeekKey(a);
-  const bSun = parseWeekKey(b);
-  return Math.round(differenceInCalendarDays(bSun, aSun) / 7);
+  const aMon = parseWeekKey(a);
+  const bMon = parseWeekKey(b);
+  return Math.round(differenceInCalendarDays(bMon, aMon) / 7);
 }
 
-/** Signed calendar-month difference between the Sundays of two week keys: b - a. */
+/** Signed calendar-month difference between the Mondays of two week keys: b - a. */
 function monthsBetween(a: string, b: string): number {
   return differenceInCalendarMonths(parseWeekKey(b), parseWeekKey(a));
 }
@@ -152,9 +150,9 @@ function daysBetweenKeys(a: string, b: string): number {
   return differenceInCalendarDays(parseDayKey(b), parseDayKey(a));
 }
 
-/** Monotonic US-week index, lets us compare two dates by US-week. */
+/** Monotonic ISO-week index, lets us compare two dates by ISO-week. */
 function weekIndex(date: Date): number {
-  return getWeekYear(date, US_WEEK_OPTS) * 54 + getWeek(date, US_WEEK_OPTS);
+  return getISOWeekYear(date) * 53 + getISOWeek(date);
 }
 
 /** Clamp a target day-of-month to the actual length of the month containing `reference`. */
@@ -477,7 +475,7 @@ export interface RunOptions {
    * When true, every recurring chore is rotated by one step even if its
    * cadence math says "no advance yet". Intended for manual invocations from
    * `firebase functions:shell` (see functions/README.md); the scheduled
-   * Sunday trigger never sets this so production keeps strict cadence
+   * Monday trigger never sets this so production keeps strict cadence
    * semantics for monthly / biweekly / custom chores.
    */
   force?: boolean;
@@ -486,9 +484,9 @@ export interface RunOptions {
 /**
  * Run the rollover for every house.
  *
- * @param now Wall-clock reference. Its US-week / day-key are stamped onto
+ * @param now Wall-clock reference. Its ISO-week / day-key are stamped onto
  *            every rolled chore (matches `src/firebase/choreRollover.ts`,
- *            which also computes both keys from `new Date()`). The Sunday
+ *            which also computes both keys from `new Date()`). The Monday
  *            00:01 PT scheduled handler simply passes the default.
  */
 export async function runWeeklyChoreReset(
@@ -567,16 +565,16 @@ export async function runWeeklyChoreReset(
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled function. `1 0 * * 0` = Sunday 00:01 in `America/Los_Angeles`,
-// which lands just inside the new US week. Both server and client compute
-// keys from `getWeekKey(now)`, so no Monday pre-stamping is needed and minor
-// schedule drift around the boundary is safe. 00:01 PT is also well clear of
-// the 02:00 spring-forward / fall-back DST boundaries.
+// Scheduled function. `1 0 * * 1` = Monday 00:01 in `America/Los_Angeles`,
+// the first minute of the new ISO week. Both server and client compute keys
+// from `getWeekKey(now)`, so no pre-stamping is needed and minor schedule
+// drift around the boundary is safe. 00:01 PT is also well clear of the
+// 02:00 spring-forward / fall-back DST boundaries.
 // ---------------------------------------------------------------------------
 
 export const weeklyChoreReset = onSchedule(
   {
-    schedule: '1 0 * * 0',
+    schedule: '1 0 * * 1',
     timeZone: 'America/Los_Angeles',
     region: 'us-central1',
     retryCount: 0,
