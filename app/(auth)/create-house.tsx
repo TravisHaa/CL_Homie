@@ -8,9 +8,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import {
   arrayRemove,
@@ -22,7 +23,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
-import { db } from '@/src/firebase/config';
+import { auth, db } from '@/src/firebase/config';
 import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { nanoid } from '@/src/utils/nanoid';
@@ -35,17 +36,33 @@ const createSchema = z.object({
 });
 
 export default function CreateHouseScreen() {
+  const { width, height } = useWindowDimensions();
   const { firebaseUser, userProfile } = useAuthStore();
+  const currentUser = firebaseUser ?? auth.currentUser;
   const [displayNameInput, setDisplayNameInput] = useState(
     userProfile?.displayName ??
-      firebaseUser?.displayName ??
-      firebaseUser?.email?.split('@')[0] ??
+      currentUser?.displayName ??
+      currentUser?.email?.split('@')[0] ??
       ''
   );
   const [houseNameInput, setHouseNameInput] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    if (displayNameInput) return;
+
+    const displayName =
+      userProfile?.displayName ??
+      currentUser?.displayName ??
+      currentUser?.email?.split('@')[0] ??
+      '';
+
+    if (displayName) {
+      setDisplayNameInput(displayName);
+    }
+  }, [currentUser, displayNameInput, userProfile]);
 
   function showError(error: unknown, fallbackMessage: string) {
     const err = error as { code?: string; message?: string };
@@ -64,6 +81,7 @@ export default function CreateHouseScreen() {
   async function submitCreate() {
     setValidationError(null);
     setCreateError(null);
+    const activeUser = firebaseUser ?? auth.currentUser;
 
     const parsed = createSchema.safeParse({
       displayName: displayNameInput,
@@ -74,7 +92,7 @@ export default function CreateHouseScreen() {
       return;
     }
 
-    if (!firebaseUser) {
+    if (!activeUser) {
       setCreateError('You must be logged in to create a house.');
       return;
     }
@@ -94,10 +112,10 @@ export default function CreateHouseScreen() {
         const prevMemberIds: string[] = prevHouseSnap.exists()
           ? (prevHouseSnap.data()?.memberIds ?? [])
           : [];
-        if (prevMemberIds.includes(firebaseUser.uid)) {
+        if (prevMemberIds.includes(activeUser.uid)) {
           batch.update(houseDoc(prevHouseId), {
-            memberIds: arrayRemove(firebaseUser.uid),
-            [`memberNames.${firebaseUser.uid}`]: deleteField(),
+            memberIds: arrayRemove(activeUser.uid),
+            [`memberNames.${activeUser.uid}`]: deleteField(),
           });
         }
       }
@@ -105,17 +123,23 @@ export default function CreateHouseScreen() {
       batch.set(houseRef, {
         name: houseName,
         inviteCode,
-        memberIds: [firebaseUser.uid],
+        memberIds: [activeUser.uid],
         memberNames: {
-          [firebaseUser.uid]: displayName,
+          [activeUser.uid]: displayName,
         },
-        createdBy: firebaseUser.uid,
+        createdBy: activeUser.uid,
         createdAt: serverTimestamp(),
       });
-      batch.update(userDoc(firebaseUser.uid), {
-        displayName,
-        houseId: houseRef.id,
-      });
+      batch.set(
+        userDoc(activeUser.uid),
+        {
+          id: activeUser.uid,
+          email: activeUser.email ?? '',
+          displayName,
+          houseId: houseRef.id,
+        },
+        { merge: true }
+      );
       await batch.commit();
       console.log('[CreateHouse] create success', houseRef.id, inviteCode);
     } catch (err) {
@@ -126,7 +150,12 @@ export default function CreateHouseScreen() {
   }
 
   return (
-    <ImageBackground source={bg} style={styles.background} resizeMode="cover">
+    <ImageBackground
+      source={bg}
+      style={[styles.background, { width, height }]}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
           <TouchableOpacity
@@ -181,6 +210,11 @@ export default function CreateHouseScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    height: '100%',
+    width: '100%',
   },
   safeArea: {
     flex: 1,
@@ -202,7 +236,10 @@ const styles = StyleSheet.create({
     lineHeight: 42,
   },
   form: {
+    alignSelf: 'center',
     marginTop: 170,
+    maxWidth: 326,
+    width: '100%',
   },
   title: {
     color: '#2b1b16',

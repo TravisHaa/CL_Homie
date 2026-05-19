@@ -1,22 +1,26 @@
 import {
-  View,
+  Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ImageBackground,
-  SafeAreaView,
+  View,
   useWindowDimensions,
 } from 'react-native';
-import { useState } from 'react';
-import { Link, router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
+import { router } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signIn } from '@/src/firebase/auth';
+
+import { auth } from '@/src/firebase/config';
+import { signUp } from '@/src/firebase/auth';
+
 const bg = require('@/assets/images/phoneBG.png');
+
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -24,8 +28,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export default function LoginScreen() {
-  const [authError, setAuthError] = useState('');
+export default function SetupAccountScreen() {
   const { width, height } = useWindowDimensions();
   const {
     control,
@@ -37,14 +40,17 @@ export default function LoginScreen() {
   });
 
   async function onSubmit({ email, password }: FormData) {
-    setAuthError('');
     try {
-      console.log('[Login] attempting signIn for', email);
-      await signIn(email, password);
-      console.log('[Login] signIn succeeded — waiting for AuthGate redirect');
+      const displayName = email.split('@')[0] || 'Homie';
+      await signUp(email, password, displayName);
+      router.replace('/(auth)/home-choice');
     } catch (err: any) {
-      console.error('[Login] signIn error:', err.code, err.message);
-      setAuthError(err.message ?? 'Login failed');
+      if (auth.currentUser) {
+        router.replace('/(auth)/home-choice');
+        return;
+      }
+
+      Alert.alert('Sign up failed', err.message);
     }
   }
 
@@ -69,9 +75,9 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.form}>
-            <Text style={styles.title}>Sign into your account</Text>
+            <Text style={styles.title}>Set up your account</Text>
 
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Enter your email</Text>
             <Controller
               control={control}
               name="email"
@@ -91,7 +97,7 @@ export default function LoginScreen() {
               <Text style={styles.errorText}>{errors.email.message}</Text>
             )}
 
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>Enter a password</Text>
             <Controller
               control={control}
               name="password"
@@ -109,19 +115,6 @@ export default function LoginScreen() {
             {errors.password && (
               <Text style={styles.errorText}>{errors.password.message}</Text>
             )}
-
-            <TouchableOpacity>
-              <Text style={styles.forgot}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.signupText}>
-              New to Homie?{' '}
-              <Link href="/(auth)/signup" style={styles.signupLink}>
-                Get started.
-              </Link>
-            </Text>
-
-            {authError ? <Text style={styles.authError}>{authError}</Text> : null}
           </View>
 
           <TouchableOpacity
@@ -130,7 +123,7 @@ export default function LoginScreen() {
             disabled={isSubmitting}
           >
             <Text style={styles.buttonText}>
-              {isSubmitting ? 'Signing in...' : 'Continue'}
+              {isSubmitting ? 'Creating...' : 'Continue'}
             </Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
@@ -152,23 +145,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   keyboard: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
     paddingHorizontal: 22,
     width: '100%',
   },
   backButton: {
     alignSelf: 'flex-start',
     height: 44,
-    width: 44,
     justifyContent: 'center',
     marginTop: 28,
+    width: 44,
   },
   backIcon: {
     color: '#2b1b16',
     fontSize: 42,
-    lineHeight: 42,
     fontWeight: '300',
+    lineHeight: 42,
   },
   form: {
     alignSelf: 'center',
@@ -177,75 +170,52 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    fontSize: 20,
-    textAlign: 'center',
-    marginBottom: 34,
     color: '#2b1b16',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontSize: 20,
+    marginBottom: 34,
+    textAlign: 'center',
   },
   label: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
     color: '#2b1b16',
-    fontWeight: '400',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
   },
   input: {
     alignSelf: 'center',
-    height: 48,
-    width: '100%',
-    borderRadius: 24,
     backgroundColor: '#fff8f1',
-    paddingHorizontal: 16,
-    fontSize: 14,
-    marginBottom: 24,
-    color: '#2b1b16',
+    borderRadius: 24,
     borderWidth: 0,
+    color: '#2b1b16',
+    fontSize: 14,
+    height: 48,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    width: '100%',
   },
   inputError: {
-    borderWidth: 1.5,
     borderColor: '#FF6B6B',
+    borderWidth: 1.5,
   },
   errorText: {
     color: '#FF6B6B',
     fontSize: 12,
+    marginLeft: 16,
     marginTop: -18,
     marginBottom: 12,
-    marginLeft: 16,
-  },
-  forgot: {
-    color: '#ef7f65',
-    fontSize: 14,
-    marginTop: -16,
-  },
-  signupText: {
-    color: '#2b1b16',
-    fontSize: 12,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  signupLink: {
-    color: '#ef7f65',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  authError: {
-    color: '#FF6B6B',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 12,
   },
   button: {
-    position: 'absolute',
-    bottom: 66,
+    alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: '#4d7580',
-    minWidth: 84,
-    minHeight: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 18,
     borderRadius: 19,
+    bottom: 66,
+    justifyContent: 'center',
+    minHeight: 38,
+    minWidth: 84,
+    paddingHorizontal: 18,
+    position: 'absolute',
   },
   buttonDisabled: {
     opacity: 0.6,

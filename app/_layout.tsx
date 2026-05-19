@@ -90,13 +90,15 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!firebaseUser) {
-      if (!inAuthGroup) router.replace('/(auth)/login');
+      if (!inAuthGroup) router.replace('/(auth)/signup');
     } else if (!userProfile?.houseId) {
       const onHouseSetupScreen =
         segments[0] === '(auth)' &&
-        (segments[1] === 'join-house' || segments[1] === 'create-house');
+        (segments[1] === 'home-choice' ||
+          segments[1] === 'join-house' ||
+          segments[1] === 'create-house');
       if (!onHouseSetupScreen) {
-        router.replace('/(auth)/join-house');
+        router.replace('/(auth)/home-choice');
       }
     } else {
       if (inAuthGroup) router.replace('/(tabs)');

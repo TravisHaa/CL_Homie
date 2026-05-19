@@ -22,7 +22,7 @@ export async function signUp(
   // Pick a random color from the palette for this user
   const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
 
-  await setDoc(userDoc(credential.user.uid), {
+  setDoc(userDoc(credential.user.uid), {
     id: credential.user.uid,
     email,
     displayName,
@@ -30,7 +30,9 @@ export async function signUp(
     houseId: null,
     color,
     createdAt: serverTimestamp(),
-  } as any);
+  } as any).catch((err) => {
+    console.warn('[Auth] profile write after signUp failed:', err);
+  });
 
   return credential.user;
 }
