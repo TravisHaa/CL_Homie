@@ -3,7 +3,7 @@ import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
-import { getWeekKey } from '@/src/utils/weekKey';
+import { getDayKey, getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { useEffect } from 'react';
@@ -97,6 +97,44 @@ export function useChores() {
       throw new Error('A chore must be assigned to someone, or use auto-rotate with members in the house.');
     }
 
+    // Stable, timezone-independent cadence anchor (see Chore.recurrenceAnchorKey).
+    // For recurring chores this is the device-local day-of-creation; for one-time
+    // chores the field is irrelevant and stored as null.
+    const now = new Date();
+    const todayDayKey = getDayKey(now);
+    const recurrenceAnchorKey = input.recurrence === 'once' ? null : todayDayKey;
+
+    // Pre-stamp `lastTriggeredKey` when the chore is being created ON one of
+    // its own fire days. The seeded assignee (`assignedTo` above) is treated
+    // as having already taken that fire, so the very next cadence rollover
+    // rotates to the following member instead of awarding the seeded user a
+    // second consecutive turn. Combined with the `isFirstAdvance` guard in
+    // `rolloverHouse`, this gives the correct rotation timing for:
+    //   - Mon-created Mon-weekly chore  → Alice gets Mon X, Bob gets Mon X+1.
+    //   - 15-created day-15 monthly      → Alice gets Mar 15, Bob Apr 15.
+    //   - custom-weeks fired-today chore → Alice gets today, rotation next cycle.
+    // Chores created on a non-fire day keep `lastTriggeredKey = null`, which
+    // the rollover treats as "first cadence advance" and skips rotation for,
+    // so the seeded assignee still owns the chore's first natural occurrence.
+    const dow = now.getDay();
+    let lastTriggeredKey: string | null = null;
+    if (input.recurrence === 'weekly' && (input.dayOfWeek ?? null) === dow) {
+      lastTriggeredKey = todayDayKey;
+    } else if (
+      input.recurrence === 'monthly' &&
+      (input.dayOfMonth ?? null) === now.getDate()
+    ) {
+      lastTriggeredKey = todayDayKey;
+    } else if (input.recurrence === 'custom' && input.customRecurrence) {
+      const cr = input.customRecurrence;
+      if (cr.unit === 'days') {
+        // Custom-days fires on creation by definition (anchor = today).
+        lastTriggeredKey = todayDayKey;
+      } else if (cr.daysOfWeek?.includes(dow)) {
+        lastTriggeredKey = todayDayKey;
+      }
+    }
+
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
@@ -108,7 +146,8 @@ export function useChores() {
         dayOfMonth: input.dayOfMonth ?? null,
         customRecurrence: input.customRecurrence ?? null,
         dueAt: input.dueAt ?? null,
-        lastTriggeredKey: null,
+        lastTriggeredKey,
+        recurrenceAnchorKey,
         isCompleted: false,
         completedAt: null,
         completedBy: null,

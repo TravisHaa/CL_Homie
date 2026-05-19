@@ -1,13 +1,17 @@
 /**
- * Weekly chore reset — authoritative server-side rollover.
+ * Daily chore reset — authoritative server-side rollover.
  *
- * Runs every Monday at 00:01 America/Los_Angeles, just inside the new ISO
- * week (Mon–Sun), and advances every recurring chore in every house to the
- * current week. Both server and client compute keys from the same
- * `getWeekKey(now)` helper; no pre-stamping is required. Mirrors the
- * client-side rollover at `src/firebase/choreRollover.ts` (the `evaluateRoll`
- * decision matrix is ported verbatim) until that fallback is retired in a
- * follow-up issue.
+ * Runs every day at 00:01 America/Los_Angeles and advances every recurring
+ * chore in every house to the current day / week / month as appropriate.
+ * Daily firing is required for correctness: cadences whose due-day isn't
+ * Monday (e.g. a "Wednesday only" custom-weeks chore or a "day 15" monthly
+ * chore) need their `weekKey` re-stamped on the day they actually fire,
+ * otherwise the `useChores` listener (which filters by `weekKey ==
+ * currentWeek`) silently hides them from the Chores tab. The cron expression
+ * `1 0 * * *` runs at 00:01 PT, well clear of the 02:00 DST jumps.
+ *
+ * Both server and client compute keys from the same `getWeekKey(now)`
+ * helper; no pre-stamping is required.
  *
  * Why duplicate the logic instead of importing from `src/`:
  *  - The client modules import `firebase/firestore` (web SDK) and depend on
@@ -18,29 +22,29 @@
  *
  * Observability:
  *  Each invocation emits structured events for Cloud Logging:
- *    - weeklyChoreReset.start  { targetWeekKey, targetDayKey, houseCount }
- *    - weeklyChoreReset.house  { houseId, status, rolled, weeksAdvanced, errorMessage? }
- *    - weeklyChoreReset.end    { durationMs, totals }
+ *    - dailyChoreReset.start  { targetWeekKey, targetDayKey, houseCount }
+ *    - dailyChoreReset.house  { houseId, status, rolled, weeksAdvanced, errorMessage? }
+ *    - dailyChoreReset.end    { durationMs, totals }
  *  status ∈ { 'rolled' | 'noop' | 'empty' | 'error' }.
  */
 
 import {
-  differenceInCalendarDays,
-  differenceInCalendarMonths,
-  format,
-  getDaysInMonth,
-  getISOWeek,
-  getISOWeekYear,
-  isSameDay,
-  setISOWeek,
-  setISOWeekYear,
-  startOfISOWeek,
+    differenceInCalendarDays,
+    differenceInCalendarMonths,
+    format,
+    getDaysInMonth,
+    getISOWeek,
+    getISOWeekYear,
+    isSameDay,
+    setISOWeek,
+    setISOWeekYear,
+    startOfISOWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
-  Firestore,
-  Timestamp,
-  getFirestore,
+    Firestore,
+    Timestamp,
+    getFirestore,
 } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -62,6 +66,13 @@ type ChoreRecurrence =
   | 'once'
   | 'daily'
   | 'weekly'
+  // 'biweekly' is the legacy schema-v0 value. Migration v1 rewrites every
+  // such chore to `custom { count: 2, unit: 'weeks' }`, but the migration
+  // only runs when the React Native client opens — un-migrated houses will
+  // still carry the original value. Keeping the case live in `isChoreDueOn`
+  // means the rollover stays correct for those houses until they open the
+  // app once.
+  | 'biweekly'
   | 'monthly'
   | 'custom';
 
@@ -82,6 +93,11 @@ interface Chore {
   dueAt: Timestamp | null;
   weekKey: string;
   lastTriggeredKey?: string | null;
+  // Stable, timezone-independent cadence anchor (YYYY-MM-DD in the device's
+  // local time at creation). Mirrors `Chore.recurrenceAnchorKey` in
+  // `src/types/index.ts`. Populated by `useChores.addChore` and back-filled
+  // by client migration v4 for legacy chores; treated as missing if absent.
+  recurrenceAnchorKey?: string | null;
   createdAt?: Timestamp;
   isCompleted?: boolean;
   completedAt?: Timestamp | null;
@@ -144,14 +160,39 @@ function parseDayKey(key: string): Date {
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
+/**
+ * Resolve a chore's cadence anchor as a local-midnight Date. Mirrors
+ * `src/utils/choreSchedule.ts#resolveAnchorDate`; the duplication exists
+ * because Cloud Functions can't import the React Native client modules.
+ */
+function resolveAnchorDate(chore: Chore, fallback: Date): Date {
+  if (chore.recurrenceAnchorKey) {
+    try {
+      return parseDayKey(chore.recurrenceAnchorKey);
+    } catch {
+      // fall through
+    }
+  }
+  return chore.createdAt?.toDate?.() ?? fallback;
+}
+
 /** Signed day difference: b - a. */
 function daysBetweenKeys(a: string, b: string): number {
   return differenceInCalendarDays(parseDayKey(b), parseDayKey(a));
 }
 
-/** Monotonic ISO-week index, lets us compare two dates by ISO-week. */
+/**
+ * Monotonic ISO-week index (true week count). Mirrors `src/utils/weekKey.ts`.
+ * The naive `isoYear * 53 + isoWeek` formula is not monotonic across ISO
+ * years that end at week 52 (e.g. 2022-W52 → 2023-W01 produced a diff of 2
+ * instead of 1), which silently corrupts the biweekly / custom-weeks cadence
+ * modulus.
+ */
+const WEEK_INDEX_EPOCH = new Date(1970, 0, 5); // 1970-01-05 was a Monday.
 function weekIndex(date: Date): number {
-  return getISOWeekYear(date) * 53 + getISOWeek(date);
+  return Math.round(
+    differenceInCalendarDays(startOfISOWeek(date), WEEK_INDEX_EPOCH) / 7
+  );
 }
 
 /** Clamp a target day-of-month to the actual length of the month containing `reference`. */
@@ -173,6 +214,12 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
       return true;
     case 'weekly':
       return chore.dayOfWeek === dow;
+    case 'biweekly': {
+      if (chore.dayOfWeek !== dow) return false;
+      const anchor = resolveAnchorDate(chore, date);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
+      return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
+    }
     case 'monthly': {
       if (chore.dayOfMonth == null) return false;
       const target = clampDayOfMonth(date, chore.dayOfMonth);
@@ -180,13 +227,22 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
     }
     case 'custom': {
       const cr = chore.customRecurrence;
-      if (!cr) return false;
+      if (!cr || cr.count < 1) return false;
       if (cr.unit === 'days') {
-        if (!chore.lastTriggeredKey) return true;
-        return daysBetweenKeys(chore.lastTriggeredKey, getDayKey(date)) >= cr.count;
+        // Match the client: strict modulus from the chore's anchor
+        // (`recurrenceAnchorKey` → fallback to createdAt → fallback to date).
+        // The old `!lastTriggeredKey ? true` branch fired every day for new
+        // chores; using the anchor pins the cadence to the user's chosen
+        // start day instead.
+        const todayKey = getDayKey(date);
+        const anchorKey =
+          chore.lastTriggeredKey ?? chore.recurrenceAnchorKey ?? getDayKey(resolveAnchorDate(chore, date));
+        const elapsed = daysBetweenKeys(anchorKey, todayKey);
+        if (elapsed < 0) return false;
+        return elapsed % cr.count === 0;
       }
       if (!cr.daysOfWeek?.includes(dow)) return false;
-      const anchor = chore.createdAt?.toDate() ?? date;
+      const anchor = resolveAnchorDate(chore, date);
       const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
       return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % cr.count === 0;
     }
@@ -229,6 +285,21 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       }
       if (weeksElapsed <= 0) return null;
       return { shift: weeksElapsed, bumpWeekKey: true };
+    }
+    case 'biweekly': {
+      // Legacy schema-v0 path. Migration v1 rewrites every biweekly chore to
+      // `custom { count: 2, unit: 'weeks' }`, but we keep the case live for
+      // un-migrated houses (the Cloud Function may run before any client
+      // opens the app). `bumpWeekKey` is left true so the next call sees a
+      // shorter elapsed delta and skips the redundant write.
+      let weeksElapsed: number;
+      try {
+        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
+      } catch {
+        return { shift: 1, bumpWeekKey: true };
+      }
+      if (weeksElapsed < 2) return null;
+      return { shift: Math.floor(weeksElapsed / 2), bumpWeekKey: true };
     }
     case 'monthly': {
       let monthsElapsed: number;
@@ -368,14 +439,37 @@ async function rolloverHouse(
       }
       const update: Record<string, unknown> = {};
 
+      // Daily uncross — true "fires every day" cadences (recurrence === 'daily'
+      // or custom-days with count === 1) must clear their completion state
+      // whenever the calendar day advances, otherwise a chore marked done
+      // Tuesday would still render as done Wed–Sun. Multi-day customs (e.g.
+      // every 5 days) are intentionally excluded: their completion should
+      // persist between fire days, and the cadence-driven uncross below picks
+      // them up on the actual advance day. Weekly / monthly / custom-weeks
+      // cadences also fall through to that branch.
+      const isDaily = chore.recurrence === 'daily';
+      const isEveryDayCustom =
+        chore.recurrence === 'custom' &&
+        chore.customRecurrence?.unit === 'days' &&
+        (chore.customRecurrence?.count ?? 1) === 1;
+      const isSingleDayCadence = isDaily || isEveryDayCustom;
+      const dayHasAdvanced =
+        isSingleDayCadence && chore.lastTriggeredKey !== targetDayKey;
+
       // Force-uncross: every recurring chore gets its completion state cleared
-      // when the reset runs, even if its cadence math says "no advance yet"
-      // (e.g. a manual mid-week invocation). Only emit the writes when there's
-      // actually something to clear to avoid no-op document churn.
+      // when the reset advances cadence, on day boundaries for single-day
+      // cadences, or when invoked manually (e.g. from the Functions shell).
+      // Only emit the writes when there's actually something to clear to
+      // avoid no-op document churn.
+      const shouldUncross =
+        decision !== null ||
+        dayHasAdvanced ||
+        force;
       if (
-        chore.isCompleted === true ||
-        chore.completedAt != null ||
-        chore.completedBy != null
+        shouldUncross &&
+        (chore.isCompleted === true ||
+          chore.completedAt != null ||
+          chore.completedBy != null)
       ) {
         update.isCompleted = false;
         update.completedAt = null;
@@ -388,10 +482,21 @@ async function rolloverHouse(
         update.lastTriggeredKey = targetDayKey;
         if (decision.bumpWeekKey) update.weekKey = targetWeekKey;
 
+        // First-cycle protection — a brand-new chore's seeded assignee
+        // (`useChores.addChore` uses `house.rotationOffset` to stagger
+        // creations) must own the first occurrence. Without this guard,
+        // creating a chore mid-week and letting the next daily/weekly
+        // tick run would silently rotate the assignee away before the
+        // user ever saw it on the schedule. We treat `lastTriggeredKey
+        // == null` as "this is the chore's very first advance" and keep
+        // the current assignee for that pass only; subsequent ticks
+        // rotate normally.
+        const isFirstAdvance = chore.lastTriggeredKey == null;
         const shouldRotate =
           chore.autoRotate === true &&
           masterSwitchOn &&
-          sortedMembers.length > 1;
+          sortedMembers.length > 1 &&
+          !isFirstAdvance;
 
         if (shouldRotate) {
           update.assignedTo = nextAssignee(
@@ -458,7 +563,7 @@ export interface RunOptions {
    * When true, every recurring chore is rotated by one step even if its
    * cadence math says "no advance yet". Intended for manual invocations from
    * `firebase functions:shell` (see functions/README.md); the scheduled
-   * Monday trigger never sets this so production keeps strict cadence
+   * nightly trigger never sets this so production keeps strict cadence
    * semantics for monthly / custom chores.
    */
   force?: boolean;
@@ -469,10 +574,10 @@ export interface RunOptions {
  *
  * @param now Wall-clock reference. Its ISO-week / day-key are stamped onto
  *            every rolled chore (matches `src/firebase/choreRollover.ts`,
- *            which also computes both keys from `new Date()`). The Monday
+ *            which also computes both keys from `new Date()`). The nightly
  *            00:01 PT scheduled handler simply passes the default.
  */
-export async function runWeeklyChoreReset(
+export async function runDailyChoreReset(
   now: Date = new Date(),
   options: RunOptions = {}
 ): Promise<RunSummary> {
@@ -486,7 +591,7 @@ export async function runWeeklyChoreReset(
   const housesSnap = await db.collection('houses').get();
   const houseIds = housesSnap.docs.map((d) => d.id);
 
-  logger.info('weeklyChoreReset.start', {
+  logger.info('dailyChoreReset.start', {
     targetWeekKey,
     targetDayKey,
     houseCount: houseIds.length,
@@ -520,9 +625,9 @@ export async function runWeeklyChoreReset(
       ...(r.errorMessage ? { errorMessage: r.errorMessage } : {}),
     };
     if (r.status === 'error') {
-      logger.error('weeklyChoreReset.house', payload);
+      logger.error('dailyChoreReset.house', payload);
     } else {
-      logger.info('weeklyChoreReset.house', payload);
+      logger.info('dailyChoreReset.house', payload);
     }
   }
 
@@ -539,7 +644,7 @@ export async function runWeeklyChoreReset(
     results,
   };
 
-  logger.info('weeklyChoreReset.end', {
+  logger.info('dailyChoreReset.end', {
     durationMs: summary.durationMs,
     totals,
   });
@@ -548,21 +653,33 @@ export async function runWeeklyChoreReset(
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled function. `1 0 * * 1` = Monday 00:01 in `America/Los_Angeles`,
-// the first minute of the new ISO week. Both server and client compute keys
-// from `getWeekKey(now)`, so no pre-stamping is needed and minor schedule
-// drift around the boundary is safe. 00:01 PT is also well clear of the
-// 02:00 spring-forward / fall-back DST boundaries.
+// Scheduled function. `1 0 * * *` = every day at 00:01 in
+// `America/Los_Angeles`, the first minute of the new calendar day. Daily
+// firing is what makes the rollover correct for chores whose due-day isn't
+// a Monday — a custom-weeks "Wednesday only" chore or a monthly "day 15"
+// chore now gets its `weekKey` re-stamped on the day it actually fires,
+// instead of disappearing from the Chores tab after one week / one month.
+//
+// Per-recurrence safety:
+//   - daily / custom-days: idempotent via `lastTriggeredKey >= todayDayKey`
+//     check inside `evaluateRoll`.
+//   - weekly / biweekly / monthly / custom-weeks: gated by
+//     `weeksElapsed <= 0`, `weeksElapsed < 2`, `monthsElapsed < 1`, or
+//     `isChoreDueOn(now)` respectively, so they advance at most once per
+//     period regardless of how many times this function runs.
+//
+// 00:01 PT is also well clear of the 02:00 spring-forward / fall-back DST
+// boundaries.
 // ---------------------------------------------------------------------------
 
-export const weeklyChoreReset = onSchedule(
+export const dailyChoreReset = onSchedule(
   {
-    schedule: '1 0 * * 1',
+    schedule: '1 0 * * *',
     timeZone: 'America/Los_Angeles',
     region: 'us-central1',
     retryCount: 0,
   },
   async (_event) => {
-    await runWeeklyChoreReset();
+    await runDailyChoreReset();
   }
 );

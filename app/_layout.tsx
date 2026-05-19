@@ -60,9 +60,9 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Run one-shot chore schema migration once per house per session. Weekly
+  // Run one-shot chore schema migration once per house per session. Chore
   // rollover itself is owned by the scheduled Cloud Function
-  // `functions/jobs/weeklyChoreReset.ts`; the client no longer triggers it.
+  // `functions/jobs/dailyChoreReset.ts`; the client no longer triggers it.
   const houseId = useHouseStore((s) => s.house?.id) ?? null;
   const migratedForRef = useRef<string | null>(null);
   useEffect(() => {

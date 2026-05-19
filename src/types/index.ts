@@ -18,8 +18,8 @@ export interface House {
   memberNames?: Record<string, string>; // denormalized userId -> displayName for quick reads
   createdBy: string; // userId
   createdAt: Timestamp;
-  // Weekly chore rollover (owned by the scheduled Cloud Function at
-  // functions/jobs/weeklyChoreReset.ts). Acts as a master switch: when false,
+  // Chore auto-rotation (owned by the scheduled Cloud Function at
+  // functions/jobs/dailyChoreReset.ts). Acts as a master switch: when false,
   // no chore auto-rotates regardless of its per-chore `autoRotate` flag.
   weeklyScrambleEnabled?: boolean;
   lastRolloverWeekKey?: string;    // last US week the rollover transaction succeeded
@@ -56,8 +56,14 @@ export interface Chore {
   isCompleted: boolean;
   completedAt: Timestamp | null;
   completedBy: string | null;    // userId
-  weekKey: string;               // "YYYY-WNN" — US-week (Sun–Sat) identifier; primary listing key
+  weekKey: string;               // "YYYY-WNN" — ISO week identifier; primary listing key
   lastTriggeredKey?: string | null; // YYYY-MM-DD of last rollover; needed for daily + custom multi-day
+  // YYYY-MM-DD captured at creation in device-local time. Stable, timezone-
+  // independent anchor for cadence modulus on biweekly / custom (weeks or
+  // days) chores; replaces `createdAt.toDate()` reads which produced different
+  // ISO weeks on the Cloud Function (UTC) vs the device. Backfilled by
+  // migration v4 for pre-existing chores.
+  recurrenceAnchorKey?: string | null;
   createdBy: string;
   createdAt: Timestamp;
 }
