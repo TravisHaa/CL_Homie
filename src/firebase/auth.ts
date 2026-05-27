@@ -22,7 +22,11 @@ export async function signUp(
   // Pick a random color from the palette for this user
   const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
 
-  setDoc(userDoc(credential.user.uid), {
+  // Must be awaited: this is a full-document write with houseId: null. If left
+  // fire-and-forget it can resolve *after* a subsequent create/join-house merge
+  // write, overwriting the profile back to houseId: null and dropping the
+  // just-joined house. Awaiting guarantees this lands before navigation.
+  await setDoc(userDoc(credential.user.uid), {
     id: credential.user.uid,
     email,
     displayName,
@@ -30,9 +34,7 @@ export async function signUp(
     houseId: null,
     color,
     createdAt: serverTimestamp(),
-  } as any).catch((err) => {
-    console.warn('[Auth] profile write after signUp failed:', err);
-  });
+  } as any);
 
   return credential.user;
 }
