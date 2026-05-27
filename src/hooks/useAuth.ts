@@ -46,18 +46,39 @@ export function useAuthListener() {
               if (profile.houseId) {
                 // Subscribe to house doc
                 unsubHouse?.();
-                unsubHouse = onSnapshot(houseDoc(profile.houseId), (houseSnap) => {
-                  console.log('[Auth] house snapshot, exists=', houseSnap.exists());
-                  if (houseSnap.exists()) setHouse(houseSnap.data());
-                });
+                unsubHouse = onSnapshot(
+                  houseDoc(profile.houseId),
+                  (houseSnap) => {
+                    console.log('[Auth] house snapshot, exists=', houseSnap.exists());
+                    if (houseSnap.exists()) setHouse(houseSnap.data());
+                  },
+                  (err) => {
+                    // permission-denied is expected during leave/switch before profile snapshot cleans up
+                    if (err.code !== 'permission-denied') {
+                      console.error('[Auth] house snapshot error:', err.code, err.message);
+                    }
+                    unsubHouse = undefined;
+                    setHouse(null);
+                  }
+                );
 
                 // Subscribe to all members in this house
                 unsubMembers?.();
                 const membersQ = query(usersCol(), where('houseId', '==', profile.houseId));
-                unsubMembers = onSnapshot(membersQ, (membersSnap) => {
-                  console.log('[Auth] members snapshot, count=', membersSnap.size);
-                  setMemberMap(membersSnap.docs.map((d) => d.data()));
-                });
+                unsubMembers = onSnapshot(
+                  membersQ,
+                  (membersSnap) => {
+                    console.log('[Auth] members snapshot, count=', membersSnap.size);
+                    setMemberMap(membersSnap.docs.map((d) => d.data()));
+                  },
+                  (err) => {
+                    if (err.code !== 'permission-denied') {
+                      console.error('[Auth] members snapshot error:', err.code, err.message);
+                    }
+                    unsubMembers = undefined;
+                    setMemberMap([]);
+                  }
+                );
               } else {
                 // houseId was cleared (leave / switch) — stop old listeners and wipe store
                 // so stale house data can't leak back in via a delayed snapshot fire.

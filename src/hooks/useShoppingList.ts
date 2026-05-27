@@ -35,10 +35,16 @@ export function useShoppingList() {
 
   useEffect(() => {
     if (!houseId) return;
-    const unsub = onSnapshot(shoppingCol(houseId), (snap) => {
-      const snapshotItems = snap.docs.map((d) => d.data());
-      queryClient.setQueryData(['shopping', houseId], snapshotItems);
-    });
+    const unsub = onSnapshot(
+      shoppingCol(houseId),
+      (snap) => {
+        const snapshotItems = snap.docs.map((d) => d.data());
+        queryClient.setQueryData(['shopping', houseId], snapshotItems);
+      },
+      (err) => {
+        if (err.code !== 'permission-denied') console.error('[useShoppingList]', err);
+      }
+    );
     return unsub;
   }, [houseId, queryClient]);
 
