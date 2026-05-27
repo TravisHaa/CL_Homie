@@ -27,6 +27,7 @@ import { auth, db } from '@/src/firebase/config';
 import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { nanoid } from '@/src/utils/nanoid';
+import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 
@@ -182,7 +183,7 @@ export default function CreateHouseScreen() {
             <TextInput
               style={styles.input}
               placeholder="Write here"
-              placeholderTextColor="#2b1b16"
+              placeholderTextColor={PALETTE.ink}
               autoCapitalize="words"
               onChangeText={setDisplayNameInput}
               value={displayNameInput}
@@ -192,7 +193,7 @@ export default function CreateHouseScreen() {
             <TextInput
               style={styles.input}
               placeholder="Write here"
-              placeholderTextColor="#2b1b16"
+              placeholderTextColor={PALETTE.ink}
               onChangeText={setHouseNameInput}
               value={houseNameInput}
             />
@@ -233,47 +234,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   backButton: {
+    position: 'absolute',
+    top: 12,
+    left: 22,
     height: 44,
     justifyContent: 'center',
-    marginTop: 28,
     width: 44,
+    zIndex: 1,
   },
   backIcon: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 42,
     fontWeight: '300',
     lineHeight: 42,
   },
   form: {
     alignSelf: 'center',
-    marginTop: 170,
-    maxWidth: 326,
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 354,
     width: '100%',
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 20,
     marginBottom: 34,
     textAlign: 'center',
   },
   label: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#fff8f1',
+    backgroundColor: PALETTE.field,
     borderRadius: 24,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 14,
     height: 48,
     marginBottom: 24,
     paddingHorizontal: 16,
   },
   errorText: {
-    color: '#FF6B6B',
+    color: PALETTE.error,
     fontSize: 12,
     marginTop: -12,
     textAlign: 'center',
@@ -281,7 +286,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     borderRadius: 19,
     bottom: 66,
     justifyContent: 'center',
@@ -294,7 +299,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: PALETTE.onAction,
     fontSize: 13,
     fontWeight: '500',
   },

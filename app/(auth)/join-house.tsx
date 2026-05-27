@@ -28,6 +28,7 @@ import {
 import { db } from '@/src/firebase/config';
 import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
+import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 
@@ -170,7 +171,7 @@ export default function JoinHouseScreen() {
             <TextInput
               style={styles.input}
               placeholder="xxxxxx"
-              placeholderTextColor="#2b1b16"
+              placeholderTextColor={PALETTE.ink}
               autoCapitalize="characters"
               maxLength={6}
               onChangeText={setInviteCodeInput}
@@ -212,42 +213,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 27,
   },
   backButton: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 12,
+    left: 22,
     height: 44,
     justifyContent: 'center',
-    marginTop: 28,
     width: 44,
+    zIndex: 1,
   },
   backIcon: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 42,
     fontWeight: '300',
     lineHeight: 42,
   },
   form: {
     alignItems: 'center',
-    marginTop: 146,
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 354,
     width: '100%',
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 15,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#5c4942',
+    color: PALETTE.inkMuted,
     fontSize: 12,
     lineHeight: 16,
     marginBottom: 28,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#fff8f1',
+    backgroundColor: PALETTE.field,
     borderRadius: 21,
     borderWidth: 0,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
     height: 42,
     maxWidth: 356,
@@ -255,14 +260,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   errorText: {
-    color: '#FF6B6B',
+    color: PALETTE.error,
     fontSize: 12,
     marginTop: 10,
     textAlign: 'center',
   },
   button: {
     alignItems: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     borderRadius: 19,
     bottom: 61,
     justifyContent: 'center',
@@ -272,5 +277,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  buttonText: { color: PALETTE.onAction, fontSize: 12, fontWeight: '500' },
 });

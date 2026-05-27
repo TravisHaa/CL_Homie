@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { auth } from '@/src/firebase/config';
 import { signUp } from '@/src/firebase/auth';
+import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 
@@ -85,7 +86,7 @@ export default function SetupAccountScreen() {
                 <TextInput
                   style={[styles.input, errors.email && styles.inputError]}
                   placeholder="Write here"
-                  placeholderTextColor="#2b1b16"
+                  placeholderTextColor={PALETTE.ink}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   onChangeText={onChange}
@@ -105,7 +106,7 @@ export default function SetupAccountScreen() {
                 <TextInput
                   style={[styles.input, errors.password && styles.inputError]}
                   placeholder="Write here"
-                  placeholderTextColor="#2b1b16"
+                  placeholderTextColor={PALETTE.ink}
                   secureTextEntry
                   onChangeText={onChange}
                   value={value}
@@ -151,43 +152,46 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backButton: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 12,
+    left: 22,
     height: 44,
     justifyContent: 'center',
-    marginTop: 28,
     width: 44,
+    zIndex: 1,
   },
   backIcon: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 42,
     fontWeight: '300',
     lineHeight: 42,
   },
   form: {
     alignSelf: 'center',
-    marginTop: 128,
-    maxWidth: 326,
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 354,
     width: '100%',
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 20,
     marginBottom: 34,
     textAlign: 'center',
   },
   label: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 14,
     marginBottom: 16,
     textAlign: 'center',
   },
   input: {
     alignSelf: 'center',
-    backgroundColor: '#fff8f1',
+    backgroundColor: PALETTE.field,
     borderRadius: 24,
     borderWidth: 0,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 14,
     height: 48,
     marginBottom: 24,
@@ -195,11 +199,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputError: {
-    borderColor: '#FF6B6B',
+    borderColor: PALETTE.error,
     borderWidth: 1.5,
   },
   errorText: {
-    color: '#FF6B6B',
+    color: PALETTE.error,
     fontSize: 12,
     marginLeft: 16,
     marginTop: -18,
@@ -208,7 +212,7 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     borderRadius: 19,
     bottom: 66,
     justifyContent: 'center',
@@ -221,7 +225,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: PALETTE.onAction,
     fontSize: 13,
     fontWeight: '500',
   },

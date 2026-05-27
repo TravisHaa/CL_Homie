@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 
 import { signOut } from '@/src/firebase/auth';
+import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 
@@ -56,7 +57,7 @@ export default function HomeChoiceScreen() {
                 ]}
                 onPress={() => router.push('/(auth)/join-house')}
               >
-                <FontAwesome name="home" size={18} color="#6e655f" />
+                <FontAwesome name="home" size={18} color={PALETTE.inkFaint} />
                 <Text style={styles.optionTextMuted}>Join a Home</Text>
               </Pressable>
 
@@ -70,7 +71,7 @@ export default function HomeChoiceScreen() {
                 ]}
                 onPress={() => router.push('/(auth)/create-house')}
               >
-                <FontAwesome name="pencil-square-o" size={18} color="#3c160f" />
+                <FontAwesome name="pencil-square-o" size={18} color={PALETTE.ink} />
                 <Text style={styles.optionText}>Create a Home</Text>
               </Pressable>
             </View>
@@ -105,14 +106,14 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   backIcon: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 38,
     fontWeight: '300',
     lineHeight: 38,
     marginRight: 6,
   },
   backLabel: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
   },
   main: {
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
     marginTop: 105,
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 18,
     lineHeight: 24,
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
   },
   optionCardActive: {
     backgroundColor: 'rgba(255, 248, 241, 0.86)',
-    borderColor: '#3c160f',
+    borderColor: PALETTE.ink,
     borderWidth: 1.3,
   },
   optionPressed: {
@@ -155,13 +156,13 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   optionText: {
-    color: '#3c160f',
+    color: PALETTE.ink,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 14,
   },
   optionTextMuted: {
-    color: '#6e655f',
+    color: PALETTE.inkFaint,
     fontSize: 12,
     marginTop: 14,
   },
