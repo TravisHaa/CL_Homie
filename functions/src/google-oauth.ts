@@ -1,7 +1,16 @@
 import * as admin from 'firebase-admin';
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions/v2';
+
+// Initialize the Admin SDK here too. Do not rely on another module (e.g.
+// weeklyChoreReset) being imported first — if export order changes or these
+// functions load in isolation, admin.firestore() would throw "default app
+// does not exist". getApps() guard keeps it idempotent.
+if (getApps().length === 0) {
+  initializeApp();
+}
 
 const GOOGLE_OAUTH_CLIENT_ID = defineSecret('GOOGLE_OAUTH_CLIENT_ID');
 const GOOGLE_OAUTH_CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
