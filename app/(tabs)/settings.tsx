@@ -5,6 +5,7 @@ import {
     Alert,
     Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -132,7 +133,11 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Settings gets its own themed intro panel to match tab identity. */}
         <View style={styles.hero}>
           <Text style={styles.title}>Settings</Text>
@@ -303,14 +308,15 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: S.lavenderBg },
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
+  content: { padding: 20, paddingBottom: 120 },
   hero: {
     marginTop: 8,
     borderRadius: 14,

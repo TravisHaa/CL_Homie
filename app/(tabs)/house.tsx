@@ -167,7 +167,7 @@ export default function HouseScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Create a new house"
-            onPress={() => router.push('/(auth)/join-house?mode=create')}
+            onPress={() => router.push('/(auth)/create-house')}
             style={({ pressed }) => [styles.secondaryCard, pressed && styles.secondaryCardPressed]}
           >
             <View style={styles.secondaryCardInner}>
