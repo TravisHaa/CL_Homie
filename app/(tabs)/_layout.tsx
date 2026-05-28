@@ -1,61 +1,53 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-type TabTheme = {
-  headerBg: string;
-  headerTint: string;
-  tabActive: string;
-};
+import { PALETTE, RADIUS, SHADOWS } from '@/src/theme/palette';
 
-const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
-  { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
-  { name: 'pantry', title: 'Pantry', icon: 'nutrition-outline', activeIcon: 'nutrition' },
-  { name: 'shopping', title: 'Shopping', icon: 'cart-outline', activeIcon: 'cart' },
-  { name: 'settings', title: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },
+type MCIName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+// V3 nav: Home · Calendar · Chores · Shopping.
+// Pantry is reached from Shopping; Settings from the home header — both stay
+// routable (href: null keeps the screen but hides the tab).
+const TABS: { name: string; title: string; icon: MCIName }[] = [
+  { name: 'index', title: 'Home', icon: 'home-variant-outline' },
+  { name: 'calendar', title: 'Calendar', icon: 'calendar-blank-outline' },
+  { name: 'chores', title: 'Chores', icon: 'broom' },
+  { name: 'shopping', title: 'Shopping', icon: 'cart-outline' },
 ];
 
-const HIDDEN = ['chores', 'calendar', 'two', 'house'];
-const TAB_THEME: Record<string, TabTheme> = {
-  index: { headerBg: '#FFE3B8', headerTint: '#4A2C1A', tabActive: '#A7572D' },
-  pantry: { headerBg: '#DDF4E7', headerTint: '#154D37', tabActive: '#1B8F63' },
-  shopping: { headerBg: '#FFE9DA', headerTint: '#5A2D18', tabActive: '#C15B2A' },
-  settings: { headerBg: '#EDE9FF', headerTint: '#32246C', tabActive: '#6557C8' },
-};
+const HIDDEN = ['pantry', 'settings', 'two', 'house'];
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
-      // Route-aware nav theming keeps each screen distinct but still cohesive.
-      screenOptions={({ route }) => {
-        const theme = TAB_THEME[route.name] ?? TAB_THEME.index;
-        return {
-          tabBarActiveTintColor: theme.tabActive,
-          tabBarInactiveTintColor: '#B38D71',
-          tabBarStyle: {
-            borderTopWidth: 0,
-            elevation: 0,
-            shadowOpacity: 0,
-            backgroundColor: '#FFEFD2',
-            paddingBottom: 8,
-            height: 60,
-          },
-          // Blend top route headers with each tab's visual language.
-          headerStyle: { backgroundColor: theme.headerBg },
-          headerTintColor: theme.headerTint,
-          headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
-          headerShadowVisible: false,
-        };
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: PALETTE.inkHairline,
+          backgroundColor: PALETTE.cream,
+          height: 64 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: insets.bottom,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
       }}
     >
-      {TABS.map(({ name, title, icon, activeIcon }) => (
+      {TABS.map(({ name, title, icon }) => (
         <Tabs.Screen
           key={name}
           name={name}
           options={{
             title,
-            tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? activeIcon : icon} size={24} color={color} />
+            tabBarIcon: ({ focused }) => (
+              <View style={[styles.icon, focused && styles.iconActive]}>
+                <MaterialCommunityIcons name={icon} size={24} color={PALETTE.ink} />
+              </View>
             ),
           }}
         />
@@ -66,3 +58,8 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  icon: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: RADIUS.pill },
+  iconActive: { backgroundColor: PALETTE.white, ...SHADOWS.magnet },
+});
