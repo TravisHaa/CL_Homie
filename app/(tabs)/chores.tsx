@@ -108,7 +108,7 @@ export default function ChoresScreen() {
     const m = memberMap[c.assignedTo];
     return (
       <Pressable key={c.id} style={[styles.card, completed && styles.cardDone]} onPress={() => openDetail(c)}>
-        <Pressable hitSlop={8} onPress={() => toggleChore(c.id)} style={styles.cardIcon}>
+        <Pressable hitSlop={8} onPress={() => toggleChore(c.id, c.isCompleted)} style={styles.cardIcon}>
           <MaterialCommunityIcons name={choreIcon(c.title)} size={20} color={completed ? PALETTE.inkFaint : PALETTE.ink} />
         </Pressable>
         <View style={{ flex: 1 }}>

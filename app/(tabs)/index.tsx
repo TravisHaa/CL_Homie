@@ -110,7 +110,7 @@ export default function HomeScreen() {
                 <View key={c.id} style={styles.choreRow}>
                   <Pressable
                     hitSlop={8}
-                    onPress={() => toggleChore(c.id)}
+                    onPress={() => toggleChore(c.id, c.isCompleted)}
                     style={styles.choreBox}
                   />
                   <Text style={styles.choreText} numberOfLines={1}>{c.title}</Text>

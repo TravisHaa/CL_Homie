@@ -68,7 +68,7 @@ export default function ShoppingScreen() {
             const m = memberMap[item.addedBy];
             return (
               <View key={item.id} style={styles.card}>
-                <Pressable hitSlop={8} onPress={() => toggleShoppingItem(item.id)} style={styles.foodIcon}>
+                <Pressable hitSlop={8} onPress={() => toggleShoppingItem(item.id, item.isChecked)} style={styles.foodIcon}>
                   <MaterialCommunityIcons name="food-apple-outline" size={18} color={PALETTE.ink} />
                 </Pressable>
                 <View style={{ flex: 1 }}>
@@ -94,7 +94,7 @@ export default function ShoppingScreen() {
               const m = memberMap[item.checkedBy ?? item.addedBy];
               return (
                 <View key={item.id} style={[styles.card, styles.cardDone]}>
-                  <Pressable hitSlop={8} onPress={() => toggleShoppingItem(item.id)} style={styles.checkDone}>
+                  <Pressable hitSlop={8} onPress={() => toggleShoppingItem(item.id, item.isChecked)} style={styles.checkDone}>
                     <Ionicons name="checkmark" size={16} color={PALETTE.onAction} />
                   </Pressable>
                   <Text style={[styles.itemName, styles.itemDone]}>{item.name}</Text>
