@@ -2,20 +2,13 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { setDoc, serverTimestamp } from 'firebase/firestore';
 import { deviceDoc } from '../firebase/firestore';
 import { useAuthStore } from '../store/authStore';
 import { useHouseStore } from '../store/houseStore';
 import { getOrCreateDeviceId } from '../utils/deviceId';
+import { resolveProjectId } from '../utils/pushToken';
 import type { DevicePlatform } from '../types';
-
-function resolveProjectId(): string | undefined {
-  return (
-    Constants.expoConfig?.extra?.eas?.projectId ??
-    (Constants as any).easConfig?.projectId
-  );
-}
 
 export function useNotificationsRegistration() {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
