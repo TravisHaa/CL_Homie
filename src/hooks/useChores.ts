@@ -1,13 +1,12 @@
-import { maybeRolloverChores } from '@/src/firebase/choreRollover';
 import { db } from '@/src/firebase/config';
 import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
-import { getWeekKey } from '@/src/utils/weekKey';
+import { getDayKey, getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useChores() {
   const queryClient = useQueryClient();
@@ -16,21 +15,27 @@ export function useChores() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const weekKey = getWeekKey();
 
-  const { data: chores = [], isLoading } = useQuery<Chore[]>({
+  const { data: chores = [] } = useQuery<Chore[]>({
     queryKey: ['chores', houseId, weekKey],
     queryFn: () => Promise.resolve([] as Chore[]),
     staleTime: Infinity,
     enabled: !!houseId,
   });
 
+  // Track first-snapshot arrival for each onSnapshot listener so the UI can
+  // show a real loading state during the Firestore warmup. The previous
+  // `useQuery.isLoading` flipped to false instantly because the dummy queryFn
+  // resolves with `[]` synchronously, which caused a flash of the empty state
+  // on first mount and on every week rollover.
+  const [snapshotsReady, setSnapshotsReady] = useState({ week: false, once: false });
+
   useEffect(() => {
     if (!houseId) return;
 
-    // Backup weekly-rollover trigger. The transaction's lastRolloverWeekKey
-    // race-guard makes this idempotent if AuthGate already ran it.
-    maybeRolloverChores(houseId).catch((e) =>
-      console.warn('[Rollover] failed', e)
-    );
+    // Reset readiness whenever the subscription key changes (house switch or
+    // ISO-week rollover) so we re-enter the loading state until the new
+    // listeners deliver their first snapshots.
+    setSnapshotsReady({ week: false, once: false });
 
     const col = choresCol(houseId);
 
@@ -61,11 +66,13 @@ export function useChores() {
     const unsub1 = onSnapshot(q1, (snap) => {
       weekData = snap.docs.map((d) => d.data());
       merge();
+      setSnapshotsReady((s) => (s.week ? s : { ...s, week: true }));
     }, onErr);
 
     const unsub2 = onSnapshot(q2, (snap) => {
       onceData = snap.docs.map((d) => d.data());
       merge();
+      setSnapshotsReady((s) => (s.once ? s : { ...s, once: true }));
     }, onErr);
 
     return () => {
@@ -73,6 +80,10 @@ export function useChores() {
       unsub2();
     };
   }, [houseId, weekKey, queryClient]);
+
+  // Loading = we have a house but at least one snapshot listener has not yet
+  // delivered. With no house there is nothing to load, so don't spin forever.
+  const isLoading = !!houseId && !(snapshotsReady.week && snapshotsReady.once);
 
   const addChore = async (
     input: Pick<Chore, 'title' | 'recurrence'> & {
@@ -89,10 +100,10 @@ export function useChores() {
       ? getWeekKey(input.dueAt.toDate())
       : weekKey;
 
-    // Auto-rotate is only meaningful for recurring (non-once, non-daily) chores.
-    const autoRotate = !!input.autoRotate &&
-      input.recurrence !== 'once' &&
-      input.recurrence !== 'daily';
+    // Auto-rotate is only meaningful for recurring chores (anything but 'once').
+    // Daily is supported: see the lastTriggeredKey pre-stamp below for how the
+    // seeded assignee keeps today and rotation kicks in on the next reset.
+    const autoRotate = !!input.autoRotate && input.recurrence !== 'once';
 
     // Seed assignee for new auto-rotate chores using house.rotationOffset so
     // successive creations stagger across members.
@@ -108,6 +119,47 @@ export function useChores() {
       throw new Error('A chore must be assigned to someone, or use auto-rotate with members in the house.');
     }
 
+    // Stable, timezone-independent cadence anchor (see Chore.recurrenceAnchorKey).
+    // For recurring chores this is the device-local day-of-creation; for one-time
+    // chores the field is irrelevant and stored as null.
+    const now = new Date();
+    const todayDayKey = getDayKey(now);
+    const recurrenceAnchorKey = input.recurrence === 'once' ? null : todayDayKey;
+
+    // Pre-stamp `lastTriggeredKey` when the chore is being created ON one of
+    // its own fire days. The seeded assignee (`assignedTo` above) is treated
+    // as having already taken that fire, so the very next cadence rollover
+    // rotates to the following member instead of awarding the seeded user a
+    // second consecutive turn. Combined with the `isFirstAdvance` guard in
+    // `rolloverHouse`, this gives the correct rotation timing for:
+    //   - Mon-created Mon-weekly chore  → Alice gets Mon X, Bob gets Mon X+1.
+    //   - 15-created day-15 monthly      → Alice gets Mar 15, Bob Apr 15.
+    //   - custom-weeks fired-today chore → Alice gets today, rotation next cycle.
+    // Chores created on a non-fire day keep `lastTriggeredKey = null`, which
+    // the rollover treats as "first cadence advance" and skips rotation for,
+    // so the seeded assignee still owns the chore's first natural occurrence.
+    const dow = now.getDay();
+    let lastTriggeredKey: string | null = null;
+    if (input.recurrence === 'daily') {
+      // Daily fires every day, so creation day is always a fire day.
+      lastTriggeredKey = todayDayKey;
+    } else if (input.recurrence === 'weekly' && (input.dayOfWeek ?? null) === dow) {
+      lastTriggeredKey = todayDayKey;
+    } else if (
+      input.recurrence === 'monthly' &&
+      (input.dayOfMonth ?? null) === now.getDate()
+    ) {
+      lastTriggeredKey = todayDayKey;
+    } else if (input.recurrence === 'custom' && input.customRecurrence) {
+      const cr = input.customRecurrence;
+      if (cr.unit === 'days') {
+        // Custom-days fires on creation by definition (anchor = today).
+        lastTriggeredKey = todayDayKey;
+      } else if (cr.daysOfWeek?.includes(dow)) {
+        lastTriggeredKey = todayDayKey;
+      }
+    }
+
     try {
       await addDoc(choresCol(houseId), {
         id: '', // stripped by converter on write
@@ -119,7 +171,8 @@ export function useChores() {
         dayOfMonth: input.dayOfMonth ?? null,
         customRecurrence: input.customRecurrence ?? null,
         dueAt: input.dueAt ?? null,
-        lastTriggeredKey: null,
+        lastTriggeredKey,
+        recurrenceAnchorKey,
         isCompleted: false,
         completedAt: null,
         completedBy: null,
@@ -187,11 +240,10 @@ export function useChores() {
       };
       if (r === 'once') {
         shapeReset.autoRotate = false;
-      } else if (r === 'daily') {
-        update.dueAt = null;
-        update.weekKey = weekKey;
-        shapeReset.autoRotate = false;
       } else {
+        // daily / weekly / monthly / custom — all recurring shapes share the
+        // same dueAt/weekKey reset; autoRotate is preserved (or overridden by
+        // an explicit value in `patch`).
         update.dueAt = null;
         update.weekKey = weekKey;
         if (r === 'weekly' && patch.dayOfWeek == null) shapeReset.dayOfWeek = 0;

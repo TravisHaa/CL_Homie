@@ -1,6 +1,7 @@
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
+import { confirm } from '@/src/utils/confirm';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
@@ -31,9 +32,7 @@ const CH = {
   dangerBg: '#FBE9E7',
 };
 
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -42,11 +41,6 @@ const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// Coerces the (possibly legacy 'biweekly') stored value to an editable form.
-function toEditable(r: Chore['recurrence']): EditableRecurrence {
-  return r === 'biweekly' ? 'custom' : r;
-}
 
 type ChoreUpdatePatch = Partial<
   Pick<
@@ -82,7 +76,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(false);
     const [dayOfWeek, setDayOfWeek] = useState<number>(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -108,17 +102,16 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     // Reset form whenever a different chore is opened.
     useEffect(() => {
       if (!chore) return;
-      const editable = toEditable(chore.recurrence);
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
-      setRecurrence(editable);
+      setRecurrence(chore.recurrence);
       setAutoRotate(!!chore.autoRotate);
       setDayOfWeek(chore.dayOfWeek ?? 0);
       setDayOfMonth(chore.dayOfMonth ?? 1);
       // Seed custom controls from the stored shape, or sensible defaults when
       // switching INTO custom from a different recurrence in the editor.
       const cr = chore.customRecurrence ?? null;
-      setCustomCount(cr?.count ?? (chore.recurrence === 'biweekly' ? 2 : 1));
+      setCustomCount(cr?.count ?? 1);
       setCustomUnit(cr?.unit ?? 'weeks');
       setCustomDays(
         cr?.daysOfWeek ??
@@ -151,8 +144,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const showWeeklyDayPicker = recurrence === 'weekly';
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
@@ -173,7 +165,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const isDirty =
       title.trim() !== chore.title ||
       (requiresMemberPick && assignedTo !== chore.assignedTo) ||
-      recurrence !== toEditable(chore.recurrence) ||
+      recurrence !== chore.recurrence ||
       (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
       (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
       (showMonthlyDayPicker && dayOfMonth !== (chore.dayOfMonth ?? 1)) ||
@@ -205,7 +197,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
         patch.assignedTo = assignedTo;
       }
-      if (recurrence !== toEditable(chore.recurrence)) {
+      if (recurrence !== chore.recurrence) {
         patch.recurrence = recurrence;
       }
       if (supportsAutoRotate && autoRotate !== !!chore.autoRotate) {
@@ -248,30 +240,25 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
       if (!chore) return;
-      Alert.alert(
-        'Delete chore?',
-        `"${chore.title}" will be removed. This cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              setSubmitting(true);
-              try {
-                await onDelete(chore.id);
-                (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
-              } catch (err: any) {
-                Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
-              } finally {
-                setSubmitting(false);
-              }
-            },
-          },
-        ]
-      );
+      const ok = await confirm({
+        title: 'Delete chore?',
+        message: `"${chore.title}" will be removed. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        destructive: true,
+      });
+      if (!ok) return;
+      setSubmitting(true);
+      try {
+        await onDelete(chore.id);
+        (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+      } catch (err: any) {
+        Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     const handleAddToCalendar = () => {

@@ -40,11 +40,9 @@ interface ChoreFormProps {
   onSubmit: (input: ChoreFormPayload) => Promise<void>;
 }
 
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-// User-facing recurrence options. Order matches the spec; 'biweekly' is
-// intentionally absent — it now lives under 'Custom' (every 2 weeks).
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+// User-facing recurrence options. Order matches the spec; every-N-weeks
+// cadences (including the legacy biweekly) live under 'Custom'.
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -62,13 +60,13 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const house = useHouseStore((s) => s.house);
     const memberIds = Object.keys(memberMap);
 
-    // Auto-rotate is only available for recurring (non-once, non-daily) chores.
+    // Auto-rotate is available for every recurring shape (anything but 'once').
     // It defaults ON when the house-wide master switch is enabled.
     const masterAutoRotate = house?.weeklyScrambleEnabled !== false;
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(masterAutoRotate);
     const [dayOfWeek, setDayOfWeek] = useState(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -95,8 +93,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
     const showDueDatePicker = recurrence === 'once';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
