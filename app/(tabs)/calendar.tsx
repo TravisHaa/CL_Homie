@@ -1,308 +1,198 @@
-import { EventCard } from "@/src/components/calendar/EventCard";
-import { EventForm } from "@/src/components/calendar/EventForm";
-import { useCalendarEvents } from "@/src/hooks/useCalendarEvents";
-import { Ionicons } from "@expo/vector-icons";
-import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import {
-  addDays,
-  addMonths,
-  endOfMonth,
-  format,
-  isToday,
-  isTomorrow,
-  startOfMonth,
-  startOfWeek,
-} from "date-fns";
-import { useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { EventForm } from '@/src/components/calendar/EventForm';
+import { Avatar } from '@/src/components/ui';
+import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
+import { useChores } from '@/src/hooks/useChores';
+import { useHouseStore } from '@/src/store/houseStore';
+import { isChoreDueOn } from '@/src/utils/choreSchedule';
+import { FONTS, PALETTE, RADIUS, SPACING, TYPE } from '@/src/theme/palette';
+import type { CalendarEvent } from '@/src/types';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { addDays, addMonths, endOfMonth, format, isSameDay, startOfMonth, startOfWeek } from 'date-fns';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const CAL = {
-  skyBg: "#EEF4FF",
-  plateBg: "#DFE9FF",
-  plateBorder: "#B6CBFA",
-  textStrong: "#2D3D72",
-  textSoft: "#6678A8",
-  addBtn: "#5E7CE2",
-};
-
-function getDateLabel(date: Date): string {
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
-  return format(date, "MMM d");
-}
+const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function CalendarScreen() {
-  const { events, isLoading, addEvent, updateEvent } = useCalendarEvents();
+  const { events, addEvent, updateEvent } = useCalendarEvents();
+  const { chores } = useChores();
+  const memberMap = useHouseStore((s) => s.memberMap);
   const formRef = useRef<BottomSheetModal>(null);
-  const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
-  const [selectedEvent, setSelectedEvent] = useState<
-    import("@/src/types").CalendarEvent | null
-  >(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [mode, setMode] = useState<'week' | 'month'>('week');
+  const [cursor, setCursor] = useState(new Date());
+  const [selected, setSelected] = useState(new Date());
 
-  const monthEnd = endOfMonth(monthStart);
-  const monthLabel = format(monthStart, "MMMM yyyy");
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const monthStart = startOfMonth(cursor);
+  const monthEnd = endOfMonth(cursor);
+  const gridStart = startOfWeek(mode === 'week' ? selected : monthStart, { weekStartsOn: 0 });
+  const weeks = mode === 'week' ? 1 : 6;
+  const gridDays = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i));
 
-  const monthEvents = events.filter((e) => {
-    const d = e.startTime.toDate();
-    return d >= monthStart && d <= monthEnd;
-  });
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    events.forEach((e) => {
+      const k = format(e.startTime.toDate(), 'yyyy-MM-dd');
+      (map.get(k) ?? map.set(k, []).get(k)!).push(e);
+    });
+    return map;
+  }, [events]);
+
+  const dayEvents = events
+    .filter((e) => isSameDay(e.startTime.toDate(), selected))
+    .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+  const dayChores = chores.filter((c) => !c.isCompleted && isChoreDueOn(c, selected));
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.screenContainer}>
-        <ScrollView
-          style={styles.container}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Header ─────────────────────────────────────────────── */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Calendar</Text>
-              <Text style={styles.subtitle}>
-                {format(new Date(), "MMMM yyyy")}
-              </Text>
-            </View>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Text style={styles.title}>Your Calendar</Text>
+        <Text style={styles.subtitle}>Check out your plans for the week</Text>
+
+        {/* Month nav + Week/Month toggle */}
+        <View style={styles.navRow}>
+          <View style={styles.monthNav}>
+            <Pressable hitSlop={8} onPress={() => setCursor((d) => addMonths(d, -1))}>
+              <Ionicons name="chevron-back" size={20} color={PALETTE.ink} />
+            </Pressable>
+            <Text style={styles.monthLabel}>{format(cursor, 'MMMM')}</Text>
+            <Pressable hitSlop={8} onPress={() => setCursor((d) => addMonths(d, 1))}>
+              <Ionicons name="chevron-forward" size={20} color={PALETTE.ink} />
+            </Pressable>
           </View>
-
-          {/* ── Weekly Grid ─────────────────────────────────────────── */}
-          <View style={styles.gridCard}>
-            {/* Week navigation row */}
-            <View style={styles.weekNav}>
-              <TouchableOpacity
-                onPress={() => setMonthStart((d) => addMonths(d, -1))}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={20}
-                  color={CAL.textStrong}
-                />
-              </TouchableOpacity>
-              <Text style={styles.weekLabel}>{monthLabel}</Text>
-              <TouchableOpacity
-                onPress={() => setMonthStart((d) => addMonths(d, 1))}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={CAL.textStrong}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Day-of-week headers */}
-            <View style={styles.dowRow}>
-              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                <Text key={i} style={styles.dowLabel}>
-                  {d}
+          <View style={styles.toggle}>
+            {(['week', 'month'] as const).map((m) => (
+              <Pressable key={m} onPress={() => setMode(m)} style={[styles.toggleBtn, mode === m && styles.toggleBtnActive]}>
+                <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
+                  {m === 'week' ? 'Week' : 'Month'}
                 </Text>
-              ))}
-            </View>
-
-            {/* 6-row × 7-col monthly grid */}
-            {isLoading ? (
-              <ActivityIndicator style={styles.loader} color={CAL.addBtn} />
-            ) : (
-              Array.from({ length: 6 }).map((_, week) => (
-                <View key={week} style={styles.dayRow}>
-                  {gridDays.slice(week * 7, week * 7 + 7).map((day) => {
-                    const dayKey = format(day, "yyyy-MM-dd");
-                    const inMonth = day >= monthStart && day <= monthEnd;
-                    const today = isToday(day);
-                    const dayEvents = inMonth
-                      ? monthEvents.filter(
-                          (e) =>
-                            format(e.startTime.toDate(), "yyyy-MM-dd") ===
-                            dayKey,
-                        )
-                      : [];
-                    return (
-                      <View key={dayKey} style={styles.dayCell}>
-                        <View
-                          style={[
-                            styles.dayNumCircle,
-                            today && styles.dayNumCircleToday,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.dayNum,
-                              !inMonth && styles.dayNumMuted,
-                              today && styles.dayNumToday,
-                            ]}
-                          >
-                            {format(day, "d")}
-                          </Text>
-                        </View>
-                        <View style={styles.dotsRow}>
-                          {dayEvents.slice(0, 3).map((e) => (
-                            <View
-                              key={e.id}
-                              style={[styles.dot, { backgroundColor: e.color }]}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              ))
-            )}
+              </Pressable>
+            ))}
           </View>
+        </View>
 
-          {/* ── All Events List ──────────────────────────────────────── */}
-          {isLoading ? (
-            <ActivityIndicator style={styles.listLoader} color="#2D3436" />
-          ) : events.length === 0 ? (
-            <Text style={styles.empty}>No upcoming events</Text>
-          ) : (
-            events.map((event) => (
-              <View key={event.id} style={styles.row}>
-                <View style={styles.datePill}>
-                  <Text style={styles.dateText}>
-                    {getDateLabel(event.startTime.toDate())}
-                  </Text>
-                </View>
-                <EventCard
-                  event={event}
-                  onPress={() => {
-                    setSelectedEvent(event);
-                    formRef.current?.present();
-                  }}
-                />
+        <Text style={styles.selectedLabel}>{format(selected, 'MMMM d, yyyy')}</Text>
+
+        {/* Grid */}
+        <View style={styles.dowRow}>
+          {DOW.map((d, i) => <Text key={i} style={styles.dow}>{d}</Text>)}
+        </View>
+        {Array.from({ length: weeks }).map((_, w) => (
+          <View key={w} style={styles.weekRow}>
+            {gridDays.slice(w * 7, w * 7 + 7).map((day) => {
+              const inMonth = mode === 'week' || (day >= monthStart && day <= monthEnd);
+              const isSel = isSameDay(day, selected);
+              const evs = eventsByDay.get(format(day, 'yyyy-MM-dd')) ?? [];
+              return (
+                <Pressable key={day.toISOString()} style={styles.cell} onPress={() => setSelected(day)}>
+                  <View style={[styles.dayCircle, isSel && styles.dayCircleSel]}>
+                    <Text style={[styles.dayNum, !inMonth && styles.dayMuted, isSel && styles.daySel]}>
+                      {format(day, 'd')}
+                    </Text>
+                  </View>
+                  <View style={styles.dots}>
+                    {evs.slice(0, 3).map((e) => <View key={e.id} style={[styles.dot, { backgroundColor: e.color || PALETTE.teal }]} />)}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+
+        {/* Events + chores for selected day */}
+        <Text style={styles.section}>
+          {isSameDay(selected, new Date()) ? "Today's Events" : `Events · ${format(selected, 'MMM d')}`}
+        </Text>
+        {dayEvents.length === 0 && dayChores.length === 0 ? (
+          <Text style={styles.empty}>Nothing scheduled</Text>
+        ) : null}
+        {dayEvents.map((e) => {
+          const m = memberMap[e.createdBy];
+          return (
+            <Pressable key={e.id} style={styles.card} onPress={() => { setSelectedEvent(e); formRef.current?.present(); }}>
+              <View style={styles.cardIcon}><Ionicons name="calendar" size={18} color={PALETTE.ink} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{e.title}</Text>
+                <Text style={styles.cardMeta}>{format(e.startTime.toDate(), 'h:mm a')}</Text>
               </View>
-            ))
-          )}
+              <Avatar name={m?.displayName} uri={m?.avatarUrl} color={e.color || m?.color} size={20} />
+            </Pressable>
+          );
+        })}
+        {dayChores.map((c) => {
+          const m = memberMap[c.assignedTo];
+          return (
+            <Pressable key={c.id} style={[styles.card, styles.choreCard]} onPress={() => formRef.current && undefined}>
+              <View style={styles.cardIcon}><MaterialCommunityIcons name="broom" size={18} color={PALETTE.ink} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+                <Text style={styles.cardMeta}>Chore · {m?.displayName ?? '—'}</Text>
+              </View>
+              <View style={styles.chorePill}><Text style={styles.chorePillText}>Chore</Text></View>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
-          <View style={styles.bottomPad} />
-        </ScrollView>
+      <Pressable accessibilityLabel="Add event" style={styles.fab} onPress={() => { setSelectedEvent(null); formRef.current?.present(); }}>
+        <Ionicons name="add" size={28} color={PALETTE.ink} />
+      </Pressable>
 
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => {
-            setSelectedEvent(null);
-            formRef.current?.present();
-          }}
-          activeOpacity={0.8}
-          accessibilityLabel="Add event"
-          accessibilityRole="button"
-        >
-          <Ionicons name="add" size={30} color="#fff" />
-        </TouchableOpacity>
-
-        <EventForm
-          ref={formRef}
-          onSubmit={addEvent}
-          onUpdate={updateEvent}
-          event={selectedEvent}
-        />
-      </View>
+      <EventForm ref={formRef} onSubmit={addEvent} onUpdate={updateEvent} event={selectedEvent} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: CAL.skyBg },
-  screenContainer: { flex: 1 },
-  container: { flex: 1, padding: 20 },
-
-  // Header
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: CAL.plateBg,
-    borderWidth: 1,
-    borderColor: CAL.plateBorder,
-  },
-  title: { fontSize: 28, fontWeight: "800", color: CAL.textStrong },
-  subtitle: { color: CAL.textSoft, marginTop: 4 },
-
-  // Weekly grid card
-  gridCard: {
-    backgroundColor: CAL.plateBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: CAL.plateBorder,
-    padding: 12,
-    marginBottom: 16,
-  },
-  weekNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  weekLabel: { fontSize: 13, fontWeight: "700", color: CAL.textStrong },
-  dowRow: { flexDirection: "row", marginBottom: 4 },
-  dowLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 10,
-    fontWeight: "700",
-    color: CAL.textSoft,
-    letterSpacing: 0.5,
-  },
-  dayRow: { flexDirection: "row" },
-  dayCell: { flex: 1, alignItems: "center", paddingVertical: 3 },
-  dayNumCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dayNumCircleToday: { backgroundColor: CAL.addBtn },
-  dayNum: { fontSize: 11, fontWeight: "600", color: CAL.textStrong },
-  dayNumMuted: { color: CAL.textSoft, opacity: 0.4 },
-  dayNumToday: { color: "#fff" },
-  dotsRow: { flexDirection: "row", gap: 2, marginTop: 2, height: 6 },
+  safe: { flex: 1, backgroundColor: PALETTE.cream },
+  scroll: { padding: SPACING.base, paddingBottom: 96 },
+  title: { ...TYPE.header, color: PALETTE.ink },
+  subtitle: { ...TYPE.small, color: PALETTE.inkMuted, marginBottom: SPACING.base },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  monthNav: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  monthLabel: { ...TYPE.heading, color: PALETTE.ink },
+  toggle: { flexDirection: 'row', backgroundColor: PALETTE.white, borderRadius: RADIUS.pill, padding: 3 },
+  toggleBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: RADIUS.pill },
+  toggleBtnActive: { backgroundColor: PALETTE.ink },
+  toggleText: { ...TYPE.label, color: PALETTE.ink },
+  toggleTextActive: { color: PALETTE.onAction },
+  selectedLabel: { ...TYPE.bodyMedium, color: PALETTE.ink, textAlign: 'center', marginVertical: SPACING.md },
+  dowRow: { flexDirection: 'row' },
+  dow: { flex: 1, textAlign: 'center', ...TYPE.small, color: PALETTE.inkMuted },
+  weekRow: { flexDirection: 'row' },
+  cell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  dayCircle: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  dayCircleSel: { backgroundColor: PALETTE.teal },
+  dayNum: { ...TYPE.body, color: PALETTE.ink },
+  dayMuted: { color: PALETTE.inkFaint },
+  daySel: { color: PALETTE.onAction },
+  dots: { flexDirection: 'row', gap: 2, height: 6, marginTop: 2 },
   dot: { width: 5, height: 5, borderRadius: 3 },
-
-  // Floating action button
+  section: { ...TYPE.heading, color: PALETTE.ink, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  empty: { ...TYPE.small, color: PALETTE.inkMuted },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: PALETTE.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  choreCard: { backgroundColor: PALETTE.sand },
+  cardIcon: { width: 36, height: 36, borderRadius: RADIUS.pill, backgroundColor: PALETTE.cream, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { ...TYPE.bodyMedium, color: PALETTE.ink },
+  cardMeta: { ...TYPE.small, color: PALETTE.inkMuted, marginTop: 2 },
+  chorePill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 4, paddingHorizontal: 10 },
+  chorePillText: { ...TYPE.label, color: PALETTE.teal },
   fab: {
-    position: "absolute",
-    bottom: 50,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: CAL.addBtn,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    position: 'absolute', right: SPACING.lg, bottom: SPACING.lg,
+    width: 56, height: 56, borderRadius: RADIUS.pill, backgroundColor: PALETTE.white,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#403021', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
-
-  // All events list
-  loader: { marginTop: 24 },
-  listLoader: { marginTop: 48 },
-  empty: { color: CAL.textSoft, marginTop: 48, textAlign: "center" },
-  row: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-    alignItems: "flex-start",
-  },
-  datePill: { width: 72, paddingTop: 14 },
-  dateText: { fontSize: 12, fontWeight: "700", color: CAL.textSoft },
-  bottomPad: { height: 32 },
 });
