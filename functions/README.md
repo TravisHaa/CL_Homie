@@ -2,10 +2,9 @@
 
 Server-side scheduled jobs for Homie. The current deliverable is the
 **daily chore reset** (`dailyChoreReset`), which is the authoritative
-source for advancing each house's recurring chores to the current day /
-week / month. The client-side rollover in `src/firebase/choreRollover.ts`
-is a temporary same-session fallback and will be retired in a follow-up
-issue once this function is observed running cleanly in production.
+(and only) source for advancing each house's recurring chores to the
+current day / week / month. The client has no rollover code path of its
+own — it just observes Firestore state mutated by this function.
 
 ## Prerequisites (one-time)
 

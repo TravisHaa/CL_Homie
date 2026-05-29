@@ -13,12 +13,17 @@
  * Both server and client compute keys from the same `getWeekKey(now)`
  * helper; no pre-stamping is required.
  *
- * Why duplicate the logic instead of importing from `src/`:
- *  - The client modules import `firebase/firestore` (web SDK) and depend on
- *    the React Native runtime; they cannot be loaded inside a Node.js
- *    Cloud Function. Admin SDK is used here.
- *  - The duplication is intentional and short-lived — once the client copy
- *    is removed, this file becomes the single source of truth.
+ * This file is the single source of truth for the rollover decision. There
+ * is no client-side `evaluateRoll` / `rolloverHouse` anymore; the React
+ * Native client only renders state and writes user actions. A small amount
+ * of code is still duplicated between here and `src/utils/`:
+ *  - `isChoreDueOn` is mirrored in `src/utils/choreSchedule.ts` because the
+ *    client needs it for the "Today" filter and display. The two copies
+ *    MUST stay in lockstep — see the comment on `isChoreDueOn` below.
+ *  - Week / day key helpers are mirrored from `src/utils/weekKey.ts` for
+ *    the same reason (and because client modules pull in `firebase/
+ *    firestore` web SDK + the React Native runtime, which can't be loaded
+ *    inside a Node.js Cloud Function).
  *
  * Observability:
  *  Each invocation emits structured events for Cloud Logging:
@@ -252,9 +257,8 @@ function isChoreDueOn(chore: Chore, date: Date): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Roll decision matrix — ported verbatim from `src/firebase/choreRollover.ts`
-// (`evaluateRoll`, `nextAssignee`). Behaviour MUST stay in lockstep with the
-// client until the client copy is removed.
+// Roll decision matrix. Server-only — the client has no rollover code path;
+// it just observes Firestore state mutated by this function.
 // ---------------------------------------------------------------------------
 
 interface RollDecision {
@@ -604,9 +608,8 @@ export interface RunOptions {
  * Run the rollover for every house.
  *
  * @param now Wall-clock reference. Its ISO-week / day-key are stamped onto
- *            every rolled chore (matches `src/firebase/choreRollover.ts`,
- *            which also computes both keys from `new Date()`). The nightly
- *            00:01 PT scheduled handler simply passes the default.
+ *            every rolled chore. The nightly 00:01 PT scheduled handler
+ *            simply passes the default.
  */
 export async function runDailyChoreReset(
   now: Date = new Date(),
