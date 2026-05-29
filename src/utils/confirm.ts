@@ -52,3 +52,33 @@ export function confirm(options: ConfirmOptions): Promise<boolean> {
     );
   });
 }
+
+/**
+ * Cross-platform single-button alert.
+ *
+ * Mirrors the rationale for `confirm`: `Alert.alert` from react-native-web
+ * is effectively a no-op (it logs but never renders a dialog), so plain
+ * `Alert.alert('Title', 'message')` calls in shared components silently
+ * disappear on web. This helper routes through `window.alert` on web and
+ * the native `Alert.alert` everywhere else.
+ *
+ * Resolves once the user dismisses the alert.
+ */
+export function notify(title: string, message?: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    const text = message ? `${title}\n\n${message}` : title;
+    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+      window.alert(text);
+    }
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [{ text: 'OK', onPress: () => resolve() }],
+      { cancelable: true, onDismiss: () => resolve() }
+    );
+  });
+}

@@ -29,22 +29,22 @@
  */
 
 import {
-    differenceInCalendarDays,
-    differenceInCalendarMonths,
-    format,
-    getDaysInMonth,
-    getISOWeek,
-    getISOWeekYear,
-    isSameDay,
-    setISOWeek,
-    setISOWeekYear,
-    startOfISOWeek,
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  format,
+  getDaysInMonth,
+  getISOWeek,
+  getISOWeekYear,
+  isSameDay,
+  setISOWeek,
+  setISOWeekYear,
+  startOfISOWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
-    Firestore,
-    Timestamp,
-    getFirestore,
+  Firestore,
+  Timestamp,
+  getFirestore,
 } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -316,10 +316,25 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       const cr = chore.customRecurrence;
       if (!cr || cr.count < 1) return null;
       if (cr.unit === 'days') {
-        if (!lastDay) {
-          return { shift: 1, bumpWeekKey: chore.weekKey !== currentWeekKey };
-        }
-        const elapsed = daysBetweenKeys(lastDay, todayDayKey);
+        // Anchored catch-up. Anchor on the chore's own `lastTriggeredKey`
+        // once it has fired at least once; otherwise fall back to the
+        // creation-time anchor (`recurrenceAnchorKey`, then `createdAt`).
+        // This mirrors the client's `isChoreDueOn` anchor resolution in
+        // `src/utils/choreSchedule.ts`, so the two stay in lockstep on the
+        // anchor grid even though the server is tolerant of missed runs.
+        //
+        // Catch-up (`elapsed >= cr.count`, not strict equality) means a
+        // missed nightly invocation — deploy collision, cold start past
+        // 00:01 PT, transient outage — still fires the chore on the next
+        // run and re-anchors via the `lastTriggeredKey = targetDayKey`
+        // write in `rolloverHouse`. After that re-anchor the client's
+        // strict-modulus check picks up the new grid automatically because
+        // it also resolves anchor as `lastTriggeredKey ?? ...`.
+        const anchorKey =
+          chore.lastTriggeredKey ??
+          chore.recurrenceAnchorKey ??
+          getDayKey(resolveAnchorDate(chore, now));
+        const elapsed = daysBetweenKeys(anchorKey, todayDayKey);
         if (elapsed < cr.count) return null;
         return {
           shift: Math.floor(elapsed / cr.count),
@@ -401,10 +416,10 @@ async function rolloverHouse(
     //   - evaluateRoll returns null once a chore's weekKey is at the target,
     //   - rotationOffset only bumps when cadenceAdvanced > 0,
     //   - completed once-chores are deleted on the first run and absent on
-    //     subsequent runs,
-    //   - the scheduled trigger is configured with retryCount: 0.
-    // Removing the guard makes manual re-invocation from `functions:shell`
-    // safe and lets repeated tests actually do work.
+    //     subsequent runs.
+    // This is what makes `retryCount > 0` safe on the scheduled trigger
+    // (see the bottom of this file) and also lets manual re-invocation
+    // from `functions:shell` and repeated tests actually do work.
 
     const memberIds = house.memberIds ?? [];
     const sortedMembers = [...memberIds].sort();
@@ -513,6 +528,22 @@ async function rolloverHouse(
 
         cadenceAdvanced += 1;
         if (decision.shift > maxWeeksAdvanced) maxWeeksAdvanced = decision.shift;
+      }
+
+      // Daily weekKey re-stamp — visibility fix for chores whose fire day
+      // isn't the start of the ISO week (monthly "day 15", custom-weeks
+      // "Wednesday only", custom-days "every 5 days"). The `useChores`
+      // listener filters by `where('weekKey', '==', currentWeekKey)`, so
+      // any recurring chore whose weekKey lags the current week silently
+      // drops out of the Chores tab until it next fires. The cadence path
+      // above only writes weekKey on actual fire days, which is precisely
+      // when these chores are NOT firing — hence this independent bump.
+      // No rotation, no uncross, no `lastTriggeredKey` write: this is a
+      // pure listener-visibility refresh. (One-time chores already short-
+      // circuited above via `continue`, so we don't need to re-check the
+      // recurrence here.)
+      if (chore.weekKey !== targetWeekKey && update.weekKey === undefined) {
+        update.weekKey = targetWeekKey;
       }
 
       if (Object.keys(update).length === 0) continue;
@@ -668,6 +699,12 @@ export async function runDailyChoreReset(
 //     `isChoreDueOn(now)` respectively, so they advance at most once per
 //     period regardless of how many times this function runs.
 //
+// `retryCount: 2` is safe because `rolloverHouse` is idempotent within a
+// day (per the bullets above and the same-day notes in `rolloverHouse`).
+// It exists to absorb transient cold-start / deploy-collision failures
+// where the first invocation errors before completing — without it, those
+// would silently skip a whole day's rollover for every house.
+//
 // 00:01 PT is also well clear of the 02:00 spring-forward / fall-back DST
 // boundaries.
 // ---------------------------------------------------------------------------
@@ -677,7 +714,7 @@ export const dailyChoreReset = onSchedule(
     schedule: '1 0 * * *',
     timeZone: 'America/Los_Angeles',
     region: 'us-central1',
-    retryCount: 0,
+    retryCount: 2,
   },
   async (_event) => {
     await runDailyChoreReset();
