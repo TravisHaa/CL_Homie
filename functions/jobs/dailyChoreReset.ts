@@ -35,7 +35,6 @@
 
 import {
   differenceInCalendarDays,
-  differenceInCalendarMonths,
   format,
   getDaysInMonth,
   getISOWeek,
@@ -147,11 +146,6 @@ function weeksBetween(a: string, b: string): number {
   const aMon = parseWeekKey(a);
   const bMon = parseWeekKey(b);
   return Math.round(differenceInCalendarDays(bMon, aMon) / 7);
-}
-
-/** Signed calendar-month difference between the Mondays of two week keys: b - a. */
-function monthsBetween(a: string, b: string): number {
-  return differenceInCalendarMonths(parseWeekKey(b), parseWeekKey(a));
 }
 
 /** Stable day identifier like "2026-05-04". */
@@ -294,27 +288,32 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       // Legacy schema-v0 path. Migration v1 rewrites every biweekly chore to
       // `custom { count: 2, unit: 'weeks' }`, but we keep the case live for
       // un-migrated houses (the Cloud Function may run before any client
-      // opens the app). `bumpWeekKey` is left true so the next call sees a
-      // shorter elapsed delta and skips the redundant write.
-      let weeksElapsed: number;
-      try {
-        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
-      } catch {
-        return { shift: 1, bumpWeekKey: true };
-      }
-      if (weeksElapsed < 2) return null;
-      return { shift: Math.floor(weeksElapsed / 2), bumpWeekKey: true };
+      // opens the app). Gate on `isChoreDueOn` (anchor-based modulus over
+      // `recurrenceAnchorKey` / `createdAt`) + the per-day idempotency
+      // check on `lastTriggeredKey`. We can't gate on
+      // `weeksBetween(weekKey, currentWeekKey)` like the original
+      // implementation did: the daily visibility re-stamp at the bottom of
+      // `rolloverHouse` resets `weekKey` to the current ISO week every
+      // night, so `weeksElapsed` is effectively capped at 1 and the
+      // `< 2` threshold would silently prevent every fire.
+      if (!isChoreDueOn(chore, now)) return null;
+      if (lastDay && lastDay >= todayDayKey) return null;
+      return { shift: 1, bumpWeekKey: chore.weekKey !== currentWeekKey };
     }
     case 'monthly': {
-      let monthsElapsed: number;
-      try {
-        monthsElapsed = monthsBetween(chore.weekKey, currentWeekKey);
-      } catch {
-        return null;
-      }
-      if (monthsElapsed < 1) return null;
-      if (chore.dayOfMonth != null && !isChoreDueOn(chore, now)) return null;
-      return { shift: monthsElapsed, bumpWeekKey: true };
+      // Anchor on the chore's target day-of-month (via `isChoreDueOn`,
+      // which clamps day 31 → last day of short months) plus the
+      // `lastTriggeredKey >= todayDayKey` idempotency check. We can't use
+      // `monthsBetween(weekKey, currentWeekKey)` here: the daily
+      // visibility re-stamp at the bottom of `rolloverHouse` resets
+      // `weekKey` to the current ISO week every night, so by the time
+      // the chore's target day arrives `monthsBetween` is 0 and the
+      // chore would silently never fire (causing the user-visible bug
+      // where a day-15 monthly stays assigned to its first holder
+      // indefinitely).
+      if (!isChoreDueOn(chore, now)) return null;
+      if (lastDay && lastDay >= todayDayKey) return null;
+      return { shift: 1, bumpWeekKey: chore.weekKey !== currentWeekKey };
     }
     case 'custom': {
       const cr = chore.customRecurrence;
@@ -697,10 +696,14 @@ export async function runDailyChoreReset(
 // Per-recurrence safety:
 //   - daily / custom-days: idempotent via `lastTriggeredKey >= todayDayKey`
 //     check inside `evaluateRoll`.
-//   - weekly / biweekly / monthly / custom-weeks: gated by
-//     `weeksElapsed <= 0`, `weeksElapsed < 2`, `monthsElapsed < 1`, or
-//     `isChoreDueOn(now)` respectively, so they advance at most once per
-//     period regardless of how many times this function runs.
+//   - weekly: gated by `weeksElapsed <= 0` (one advance per ISO week).
+//   - biweekly / monthly / custom-weeks: gated by `isChoreDueOn(now)` plus
+//     the `lastTriggeredKey >= todayDayKey` idempotency check, so each
+//     fires at most once per scheduled fire day. We deliberately do NOT
+//     gate on `weeksBetween(weekKey, ...)` / `monthsBetween(weekKey, ...)`
+//     for these: the daily visibility re-stamp below resets `weekKey` to
+//     the current ISO week every night, which would peg those deltas at
+//     0–1 and silently suppress every fire.
 //
 // `retryCount: 2` is safe because `rolloverHouse` is idempotent within a
 // day (per the bullets above and the same-day notes in `rolloverHouse`).
