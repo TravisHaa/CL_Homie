@@ -1,90 +1,86 @@
 import {
-  View,
+  Alert,
+  ImageBackground,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  Platform,
+  View,
+  useWindowDimensions,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 import { z } from 'zod';
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
-  query,
-  where,
+  deleteField,
   getDoc,
   getDocs,
-  doc,
-  serverTimestamp,
-  arrayUnion,
-  arrayRemove,
-  deleteField,
+  query,
+  where,
   writeBatch,
 } from 'firebase/firestore';
+
 import { db } from '@/src/firebase/config';
-import { userDoc, houseDoc } from '@/src/firebase/firestore';
+import { houseDoc, userDoc } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
-import { nanoid } from '@/src/utils/nanoid';
+import { PALETTE } from '@/src/theme/palette';
+
+const bg = require('@/assets/images/phoneBG.png');
 
 const joinSchema = z.object({
   inviteCode: z.string().length(6, 'Invite code must be 6 characters').toUpperCase(),
 });
 
-const createSchema = z.object({
-  houseName: z.string().min(2, 'House name must be at least 2 characters'),
-});
-
 export default function JoinHouseScreen() {
-  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
-  const [mode, setMode] = useState<'join' | 'create'>(modeParam === 'create' ? 'create' : 'join');
-  const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [houseNameInput, setHouseNameInput] = useState('');
-  const [joinValidationError, setJoinValidationError] = useState<string | null>(null);
-  const [createValidationError, setCreateValidationError] = useState<string | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [isJoining, setIsJoining] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const { width, height } = useWindowDimensions();
   const { firebaseUser, userProfile } = useAuthStore();
-  const displayNameForHouse =
-    userProfile?.displayName ??
-    firebaseUser?.displayName ??
-    firebaseUser?.email?.split('@')[0] ??
-    'User';
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
-  // Surface backend failures inline on web where Alert is not visible.
-  function showError(
-    setError: (msg: string | null) => void,
-    error: unknown,
-    fallbackMessage: string
-  ) {
+  function showError(error: unknown, fallbackMessage: string) {
     const err = error as { code?: string; message?: string };
     let message = err?.message ?? fallbackMessage;
     if (err?.code === 'permission-denied') {
       message =
-        'Permission denied in Firestore rules. Allow signed-in users to create houses and update their own user profile.';
+        'Permission denied in Firestore rules. Allow signed-in users to join houses and update their own user profile.';
     }
     console.error('[JoinHouse]', err?.code ?? 'unknown-error', message);
-    setError(message);
+    setJoinError(message);
     if (Platform.OS !== 'web') {
       Alert.alert('Error', message);
     }
   }
 
-  async function handleJoin({ inviteCode }: { inviteCode: string }) {
+  async function submitJoin() {
+    setValidationError(null);
+    setJoinError(null);
+
+    const parsed = joinSchema.safeParse({ inviteCode: inviteCodeInput });
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? 'Invalid invite code.');
+      return;
+    }
+
     if (!firebaseUser) {
       setJoinError('You must be logged in to join a house.');
       return;
     }
-    setJoinError(null);
+
+    setIsJoining(true);
     try {
-      // Debug trace: confirms submit handler is running on the current bundle.
-      console.log('[JoinHouse] join submit', inviteCode.toUpperCase());
+      const inviteCode = parsed.data.inviteCode;
+      console.log('[JoinHouse] join submit', inviteCode);
+
       const q = query(
         collection(db, 'houses'),
-        where('inviteCode', '==', inviteCode.toUpperCase())
+        where('inviteCode', '==', inviteCode)
       );
       const snap = await getDocs(q);
       if (snap.empty) {
@@ -95,15 +91,14 @@ export default function JoinHouseScreen() {
         }
         return;
       }
+
       const houseRef = snap.docs[0].ref;
-      // Keep house membership + user profile update in one commit.
+      const houseData = snap.docs[0].data();
+      const nextMemberCount = houseData.memberIds?.includes(firebaseUser.uid)
+        ? houseData.memberIds.length
+        : (houseData.memberIds?.length ?? 0) + 1;
       const batch = writeBatch(db);
 
-      // If the user is already in a house, remove them from it first so we
-      // don't leave behind a ghost member on the old house doc. Skip this if
-      // the prev-house membership has already drifted — Firestore rules deny
-      // updates on a house where the caller is not in memberIds, which would
-      // otherwise fail the whole batch with permission-denied.
       const prevHouseId = userProfile?.houseId;
       if (prevHouseId && prevHouseId !== houseRef.id) {
         const prevHouseSnap = await getDoc(houseDoc(prevHouseId));
@@ -118,190 +113,169 @@ export default function JoinHouseScreen() {
         }
       }
 
-      // Keep a denormalized member name map for quick household rendering.
+      const displayName =
+        userProfile?.displayName ??
+        firebaseUser.displayName ??
+        firebaseUser.email?.split('@')[0] ??
+        'User';
+
       batch.update(houseRef, {
         memberIds: arrayUnion(firebaseUser.uid),
-        [`memberNames.${firebaseUser.uid}`]: displayNameForHouse,
+        [`memberNames.${firebaseUser.uid}`]: displayName,
       });
       batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
       await batch.commit();
       console.log('[JoinHouse] join success', houseRef.id);
-    } catch (err) {
-      showError(setJoinError, err, 'Could not join the house. Please try again.');
-    }
-  }
-
-  async function handleCreate({ houseName }: { houseName: string }) {
-    if (!firebaseUser) {
-      setCreateError('You must be logged in to create a house.');
-      return;
-    }
-    setCreateError(null);
-    try {
-      // Debug trace: confirms create branch and payload are executing.
-      console.log('[JoinHouse] create submit', houseName);
-      const inviteCode = nanoid(6).toUpperCase();
-      const houseRef = doc(collection(db, 'houses'));
-
-      // Keep house creation + profile houseId update in one commit.
-      const batch = writeBatch(db);
-
-      // Remove the user from their current house if they're switching. Skip
-      // when membership has drifted (see handleJoin for the rules rationale).
-      const prevHouseId = userProfile?.houseId;
-      if (prevHouseId) {
-        const prevHouseSnap = await getDoc(houseDoc(prevHouseId));
-        const prevMemberIds: string[] = prevHouseSnap.exists()
-          ? (prevHouseSnap.data()?.memberIds ?? [])
-          : [];
-        if (prevMemberIds.includes(firebaseUser.uid)) {
-          batch.update(houseDoc(prevHouseId), {
-            memberIds: arrayRemove(firebaseUser.uid),
-            [`memberNames.${firebaseUser.uid}`]: deleteField(),
-          });
-        }
-      }
-
-      batch.set(houseRef, {
-        name: houseName,
-        inviteCode,
-        memberIds: [firebaseUser.uid],
-        // Store a lightweight name map on house for quick lookups.
-        memberNames: {
-          [firebaseUser.uid]: displayNameForHouse,
+      router.replace({
+        pathname: '/(auth)/home-status',
+        params: {
+          mode: 'joined',
+          houseName: houseData.name,
+          creatorName:
+            houseData.memberNames?.[houseData.createdBy] ??
+            userProfile?.displayName ??
+            displayName,
+          memberCount: String(nextMemberCount),
         },
-        createdBy: firebaseUser.uid,
-        createdAt: serverTimestamp(),
       });
-      batch.update(userDoc(firebaseUser.uid), { houseId: houseRef.id });
-      await batch.commit();
-      console.log('[JoinHouse] create success', houseRef.id, inviteCode);
     } catch (err) {
-      showError(setCreateError, err, 'Could not create the house. Please try again.');
-    }
-  }
-
-  async function submitJoin() {
-    setJoinValidationError(null);
-    setJoinError(null);
-    const parsed = joinSchema.safeParse({ inviteCode: inviteCodeInput });
-    if (!parsed.success) {
-      setJoinValidationError(parsed.error.issues[0]?.message ?? 'Invalid invite code.');
-      return;
-    }
-    setIsJoining(true);
-    try {
-      await handleJoin({ inviteCode: parsed.data.inviteCode });
+      showError(err, 'Could not join the house. Please try again.');
     } finally {
       setIsJoining(false);
     }
   }
 
-  async function submitCreate() {
-    setCreateValidationError(null);
-    setCreateError(null);
-    const parsed = createSchema.safeParse({ houseName: houseNameInput });
-    if (!parsed.success) {
-      setCreateValidationError(parsed.error.issues[0]?.message ?? 'Invalid house name.');
-      return;
-    }
-    setIsCreating(true);
-    try {
-      await handleCreate({ houseName: parsed.data.houseName });
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Your Home</Text>
-      <Text style={styles.subtitle}>Join an existing house or create a new one</Text>
-
-      <View style={styles.toggle}>
-        {(['join', 'create'] as const).map((m) => (
+    <ImageBackground
+      source={bg}
+      style={[styles.container, { width, height }]}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.content}>
           <TouchableOpacity
-            key={m}
-            style={[styles.toggleBtn, mode === m && styles.toggleActive]}
-            onPress={() => setMode(m)}
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+            onPress={() => router.replace('/(auth)/home-choice')}
           >
-            <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
-              {m === 'join' ? 'Join a house' : 'Create a house'}
-            </Text>
+            <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
-        ))}
-      </View>
 
-      {mode === 'join' ? (
-        <View style={styles.form}>
-          <Text style={styles.label}>Invite code</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="ABC123"
-            autoCapitalize="characters"
-            maxLength={6}
-            onChangeText={setInviteCodeInput}
-            value={inviteCodeInput}
-          />
-          {joinValidationError && <Text style={styles.errorText}>{joinValidationError}</Text>}
-          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-          <TouchableOpacity style={styles.button} onPress={submitJoin} disabled={isJoining}>
-            <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Join House'}</Text>
+          <View style={styles.form}>
+            <Text style={styles.title}>Enter your home's code</Text>
+            <Text style={styles.subtitle}>
+              Contact your home admin to receive{'\n'}your join code
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="xxxxxx"
+              placeholderTextColor={PALETTE.ink}
+              autoCapitalize="characters"
+              maxLength={6}
+              onChangeText={setInviteCodeInput}
+              value={inviteCodeInput}
+            />
+            {validationError && <Text style={styles.errorText}>{validationError}</Text>}
+            {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+          </View>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.button, isJoining && styles.buttonDisabled]}
+            onPress={submitJoin}
+            disabled={isJoining}
+          >
+            <Text style={styles.buttonText}>{isJoining ? 'Joining...' : 'Continue'}</Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        <View style={styles.form}>
-          <Text style={styles.label}>House name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. The Dungeon, 204 Oak St"
-            onChangeText={setHouseNameInput}
-            value={houseNameInput}
-          />
-          {createValidationError && <Text style={styles.errorText}>{createValidationError}</Text>}
-          {createError && <Text style={styles.errorText}>{createError}</Text>}
-          <TouchableOpacity style={styles.button} onPress={submitCreate} disabled={isCreating}>
-            <Text style={styles.buttonText}>{isCreating ? 'Creating...' : 'Create House'}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF5', padding: 32, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '800', color: '#2D3436', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#636e72', marginBottom: 32 },
-  toggle: { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  toggleBtn: {
+  container: {
     flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  toggleActive: { backgroundColor: '#2D3436', borderColor: '#2D3436' },
-  toggleText: { fontWeight: '600', color: '#636e72' },
-  toggleTextActive: { color: '#fff' },
-  form: { gap: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#2D3436' },
+  backgroundImage: {
+    height: '100%',
+    width: '100%',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  content: {
+    alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 27,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 12,
+    left: 22,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+    zIndex: 1,
+  },
+  backIcon: {
+    color: PALETTE.ink,
+    fontSize: 42,
+    fontWeight: '300',
+    lineHeight: 42,
+  },
+  form: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 354,
+    width: '100%',
+  },
+  title: {
+    color: PALETTE.ink,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontSize: 15,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: PALETTE.inkMuted,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 28,
+    textAlign: 'center',
+  },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: PALETTE.field,
+    borderRadius: 21,
+    borderWidth: 0,
+    color: PALETTE.ink,
+    fontSize: 12,
+    height: 42,
+    maxWidth: 356,
+    paddingHorizontal: 15,
+    width: '100%',
   },
-  errorText: { color: '#FF6B6B', fontSize: 12 },
+  errorText: {
+    color: PALETTE.error,
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: 'center',
+  },
   button: {
-    backgroundColor: '#2D3436',
-    borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: PALETTE.teal,
+    borderRadius: 19,
+    bottom: 61,
+    justifyContent: 'center',
+    minHeight: 38,
+    minWidth: 83,
+    paddingHorizontal: 18,
+    position: 'absolute',
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: PALETTE.onAction, fontSize: 12, fontWeight: '500' },
 });

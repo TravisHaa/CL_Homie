@@ -59,17 +59,23 @@ export function useChores() {
       queryClient.setQueryData(['chores', houseId, weekKey], merged);
     };
 
+    const onErr = (err: { code: string }) => {
+      if (err.code !== 'permission-denied') console.error('[useChores]', err);
+    };
+
     const unsub1 = onSnapshot(q1, (snap) => {
       weekData = snap.docs.map((d) => d.data());
       merge();
       setSnapshotsReady((s) => (s.week ? s : { ...s, week: true }));
     });
+    }, onErr);
 
     const unsub2 = onSnapshot(q2, (snap) => {
       onceData = snap.docs.map((d) => d.data());
       merge();
       setSnapshotsReady((s) => (s.once ? s : { ...s, once: true }));
     });
+    }, onErr);
 
     return () => {
       unsub1();

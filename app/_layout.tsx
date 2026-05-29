@@ -83,13 +83,26 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!firebaseUser) {
-      if (!inAuthGroup) router.replace('/(auth)/login');
+      if (!inAuthGroup) router.replace('/(auth)/signup');
     } else if (!userProfile?.houseId) {
-      if (segments[0] !== '(auth)' || segments[1] !== 'join-house') {
-        router.replace('/(auth)/join-house');
+      const onHouseSetupScreen =
+        segments[0] === '(auth)' &&
+        (segments[1] === 'home-choice' ||
+          segments[1] === 'join-house' ||
+          segments[1] === 'create-house' ||
+          segments[1] === 'home-status');
+      if (!onHouseSetupScreen) {
+        router.replace('/(auth)/home-choice');
       }
     } else {
-      if (inAuthGroup) router.replace('/(tabs)');
+      // Members with a house can still reach the house-switch / confirmation
+      // screens (navigated to from the house tab and settings to create or join
+      // a different house). Don't bounce them straight back to the tabs.
+      const onAllowedAuthScreen =
+        segments[1] === 'home-status' ||
+        segments[1] === 'create-house' ||
+        segments[1] === 'join-house';
+      if (inAuthGroup && !onAllowedAuthScreen) router.replace('/(tabs)');
     }
   }, [firebaseUser, userProfile, isLoading, segments]);
 

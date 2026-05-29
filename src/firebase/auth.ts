@@ -22,6 +22,10 @@ export async function signUp(
   // Pick a random color from the palette for this user
   const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
 
+  // Must be awaited: this is a full-document write with houseId: null. If left
+  // fire-and-forget it can resolve *after* a subsequent create/join-house merge
+  // write, overwriting the profile back to houseId: null and dropping the
+  // just-joined house. Awaiting guarantees this lands before navigation.
   await setDoc(userDoc(credential.user.uid), {
     id: credential.user.uid,
     email,
