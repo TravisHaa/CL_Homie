@@ -1,7 +1,7 @@
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
-import { confirm } from '@/src/utils/confirm';
+import { confirm, notify } from '@/src/utils/confirm';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
@@ -14,7 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
 import { RecurrenceDropdown } from './RecurrenceDropdown';
@@ -176,18 +176,18 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (!chore) return;
       const trimmed = title.trim();
       if (!trimmed) {
-        Alert.alert('Title required', 'Please enter a chore name.');
+        notify('Title required', 'Please enter a chore name.');
         return;
       }
 
       // Validate custom shape before building the patch.
       if (recurrence === 'custom') {
         if (customCount < 1) {
-          Alert.alert('Invalid interval', 'Repeat-every count must be at least 1.');
+          notify('Invalid interval', 'Repeat-every count must be at least 1.');
           return;
         }
         if (customUnit === 'weeks' && customDays.length === 0) {
-          Alert.alert('Pick a day', 'Choose at least one day of the week to repeat on.');
+          notify('Pick a day', 'Choose at least one day of the week to repeat on.');
           return;
         }
       }
@@ -234,7 +234,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         await onUpdate(chore.id, patch, { recurrence: chore.recurrence });
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
-        Alert.alert('Could not update chore', err.message ?? 'Unknown error');
+        notify('Could not update chore', err.message ?? 'Unknown error');
       } finally {
         setSubmitting(false);
       }
@@ -255,14 +255,14 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         await onDelete(chore.id);
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
-        Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
+        notify('Could not delete chore', err.message ?? 'Unknown error');
       } finally {
         setSubmitting(false);
       }
     };
 
     const handleAddToCalendar = () => {
-      Alert.alert('Coming soon', 'Calendar sync will be available in a future update.');
+      notify('Coming soon', 'Calendar sync will be available in a future update.');
     };
 
     const handleClose = () => {
