@@ -7,7 +7,9 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import {
   addDays,
   addMonths,
+  addWeeks,
   endOfMonth,
+  endOfWeek,
   format,
   isToday,
   isTomorrow,
@@ -40,22 +42,37 @@ function getDateLabel(date: Date): string {
   return format(date, "MMM d");
 }
 
+type ViewMode = "week" | "month";
+
 export default function CalendarScreen() {
   const { events, isLoading, addEvent, updateEvent } = useCalendarEvents();
   const formRef = useRef<BottomSheetModal>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
+  const [weekStart, setWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
   const [selectedEvent, setSelectedEvent] = useState<
     import("@/src/types").CalendarEvent | null
   >(null);
 
+  // Month view derived state
   const monthEnd = endOfMonth(monthStart);
   const monthLabel = format(monthStart, "MMMM yyyy");
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const gridDays = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
-
   const monthEvents = events.filter((e) => {
     const d = e.startTime.toDate();
     return d >= monthStart && d <= monthEnd;
+  });
+
+  // Week view derived state
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekLabel = `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+  const weekEvents = events.filter((e) => {
+    const d = e.startTime.toDate();
+    return d >= weekStart && d <= weekEnd;
   });
 
   return (
@@ -74,117 +91,155 @@ export default function CalendarScreen() {
                 {format(new Date(), "MMMM yyyy")}
               </Text>
             </View>
+            {/* Week / Month toggle */}
+            <View style={styles.toggle}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnActive]}
+                onPress={() => setViewMode("week")}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleTxt, viewMode === "week" && styles.toggleTxtActive]}>Week</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnActive]}
+                onPress={() => setViewMode("month")}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleTxt, viewMode === "month" && styles.toggleTxtActive]}>Month</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* ── Weekly Grid ─────────────────────────────────────────── */}
-          <View style={styles.gridCard}>
-            {/* Week navigation row */}
-            <View style={styles.weekNav}>
-              <TouchableOpacity
-                onPress={() => setMonthStart((d) => addMonths(d, -1))}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={20}
-                  color={CAL.textStrong}
-                />
-              </TouchableOpacity>
-              <Text style={styles.weekLabel}>{monthLabel}</Text>
-              <TouchableOpacity
-                onPress={() => setMonthStart((d) => addMonths(d, 1))}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={CAL.textStrong}
-                />
-              </TouchableOpacity>
-            </View>
+          {viewMode === "month" ? (
+            <>
+              {/* ── Month Grid ──────────────────────────────────────── */}
+              <View style={styles.gridCard}>
+                <View style={styles.weekNav}>
+                  <TouchableOpacity onPress={() => setMonthStart((d) => addMonths(d, -1))} activeOpacity={0.7}>
+                    <Ionicons name="chevron-back" size={20} color={CAL.textStrong} />
+                  </TouchableOpacity>
+                  <Text style={styles.weekLabel}>{monthLabel}</Text>
+                  <TouchableOpacity onPress={() => setMonthStart((d) => addMonths(d, 1))} activeOpacity={0.7}>
+                    <Ionicons name="chevron-forward" size={20} color={CAL.textStrong} />
+                  </TouchableOpacity>
+                </View>
 
-            {/* Day-of-week headers */}
-            <View style={styles.dowRow}>
-              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                <Text key={i} style={styles.dowLabel}>
-                  {d}
-                </Text>
-              ))}
-            </View>
+                <View style={styles.dowRow}>
+                  {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                    <Text key={i} style={styles.dowLabel}>{d}</Text>
+                  ))}
+                </View>
 
-            {/* 6-row × 7-col monthly grid */}
-            {isLoading ? (
-              <ActivityIndicator style={styles.loader} color={CAL.addBtn} />
-            ) : (
-              Array.from({ length: 6 }).map((_, week) => (
-                <View key={week} style={styles.dayRow}>
-                  {gridDays.slice(week * 7, week * 7 + 7).map((day) => {
+                {isLoading ? (
+                  <ActivityIndicator style={styles.loader} color={CAL.addBtn} />
+                ) : (
+                  Array.from({ length: 6 }).map((_, week) => (
+                    <View key={week} style={styles.dayRow}>
+                      {gridDays.slice(week * 7, week * 7 + 7).map((day) => {
+                        const dayKey = format(day, "yyyy-MM-dd");
+                        const inMonth = day >= monthStart && day <= monthEnd;
+                        const today = isToday(day);
+                        const dayEvents = inMonth
+                          ? monthEvents.filter((e) => format(e.startTime.toDate(), "yyyy-MM-dd") === dayKey)
+                          : [];
+                        return (
+                          <View key={dayKey} style={styles.dayCell}>
+                            <View style={[styles.dayNumCircle, today && styles.dayNumCircleToday]}>
+                              <Text style={[styles.dayNum, !inMonth && styles.dayNumMuted, today && styles.dayNumToday]}>
+                                {format(day, "d")}
+                              </Text>
+                            </View>
+                            <View style={styles.dotsRow}>
+                              {dayEvents.slice(0, 3).map((e) => (
+                                <View key={e.id} style={[styles.dot, { backgroundColor: e.color }]} />
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {/* ── Month Events List ────────────────────────────────── */}
+              {isLoading ? (
+                <ActivityIndicator style={styles.listLoader} color="#2D3436" />
+              ) : events.length === 0 ? (
+                <Text style={styles.empty}>No upcoming events</Text>
+              ) : (
+                events.map((event) => (
+                  <View key={event.id} style={styles.row}>
+                    <View style={styles.datePill}>
+                      <Text style={styles.dateText}>{getDateLabel(event.startTime.toDate())}</Text>
+                    </View>
+                    <EventCard event={event} onPress={() => { setSelectedEvent(event); formRef.current?.present(); }} />
+                  </View>
+                ))
+              )}
+            </>
+          ) : (
+            <>
+              {/* ── Week Grid ───────────────────────────────────────── */}
+              <View style={styles.gridCard}>
+                <View style={styles.weekNav}>
+                  <TouchableOpacity onPress={() => setWeekStart((d) => addWeeks(d, -1))} activeOpacity={0.7}>
+                    <Ionicons name="chevron-back" size={20} color={CAL.textStrong} />
+                  </TouchableOpacity>
+                  <Text style={styles.weekLabel}>{weekLabel}</Text>
+                  <TouchableOpacity onPress={() => setWeekStart((d) => addWeeks(d, 1))} activeOpacity={0.7}>
+                    <Ionicons name="chevron-forward" size={20} color={CAL.textStrong} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.dowRow}>
+                  {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                    <Text key={i} style={styles.dowLabel}>{d}</Text>
+                  ))}
+                </View>
+
+                {/* Single week row */}
+                <View style={styles.dayRow}>
+                  {weekDays.map((day) => {
                     const dayKey = format(day, "yyyy-MM-dd");
-                    const inMonth = day >= monthStart && day <= monthEnd;
                     const today = isToday(day);
-                    const dayEvents = inMonth
-                      ? monthEvents.filter(
-                          (e) =>
-                            format(e.startTime.toDate(), "yyyy-MM-dd") ===
-                            dayKey,
-                        )
-                      : [];
+                    const dayEvents = weekEvents.filter(
+                      (e) => format(e.startTime.toDate(), "yyyy-MM-dd") === dayKey
+                    );
                     return (
                       <View key={dayKey} style={styles.dayCell}>
-                        <View
-                          style={[
-                            styles.dayNumCircle,
-                            today && styles.dayNumCircleToday,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.dayNum,
-                              !inMonth && styles.dayNumMuted,
-                              today && styles.dayNumToday,
-                            ]}
-                          >
+                        <View style={[styles.dayNumCircle, today && styles.dayNumCircleToday]}>
+                          <Text style={[styles.dayNum, today && styles.dayNumToday]}>
                             {format(day, "d")}
                           </Text>
                         </View>
                         <View style={styles.dotsRow}>
                           {dayEvents.slice(0, 3).map((e) => (
-                            <View
-                              key={e.id}
-                              style={[styles.dot, { backgroundColor: e.color }]}
-                            />
+                            <View key={e.id} style={[styles.dot, { backgroundColor: e.color }]} />
                           ))}
                         </View>
                       </View>
                     );
                   })}
                 </View>
-              ))
-            )}
-          </View>
-
-          {/* ── All Events List ──────────────────────────────────────── */}
-          {isLoading ? (
-            <ActivityIndicator style={styles.listLoader} color="#2D3436" />
-          ) : events.length === 0 ? (
-            <Text style={styles.empty}>No upcoming events</Text>
-          ) : (
-            events.map((event) => (
-              <View key={event.id} style={styles.row}>
-                <View style={styles.datePill}>
-                  <Text style={styles.dateText}>
-                    {getDateLabel(event.startTime.toDate())}
-                  </Text>
-                </View>
-                <EventCard
-                  event={event}
-                  onPress={() => {
-                    setSelectedEvent(event);
-                    formRef.current?.present();
-                  }}
-                />
               </View>
-            ))
+
+              {/* ── Week Events List ─────────────────────────────────── */}
+              {isLoading ? (
+                <ActivityIndicator style={styles.listLoader} color="#2D3436" />
+              ) : events.length === 0 ? (
+                <Text style={styles.empty}>No upcoming events</Text>
+              ) : (
+                events.map((event) => (
+                  <View key={event.id} style={styles.row}>
+                    <View style={styles.datePill}>
+                      <Text style={styles.dateText}>{getDateLabel(event.startTime.toDate())}</Text>
+                    </View>
+                    <EventCard event={event} onPress={() => { setSelectedEvent(event); formRef.current?.present(); }} />
+                  </View>
+                ))
+              )}
+            </>
           )}
 
           <View style={styles.bottomPad} />
@@ -292,6 +347,32 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+
+  // Toggle
+  toggle: {
+    flexDirection: "row",
+    backgroundColor: CAL.plateBorder,
+    borderRadius: 8,
+    padding: 2,
+  },
+  toggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  toggleBtnActive: { backgroundColor: CAL.addBtn },
+  toggleTxt: { fontSize: 12, fontWeight: "700", color: CAL.textSoft },
+  toggleTxtActive: { color: "#fff" },
+
+  // Week day section header
+  weekDayHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: CAL.textStrong,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 4,
   },
 
   // All events list

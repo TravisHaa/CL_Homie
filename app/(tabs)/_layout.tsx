@@ -8,12 +8,6 @@ import HomeIcon from '@/assets/images/HomeIcon.svg';
 import PantryIcon from '@/assets/images/PantryIcon.svg';
 import ShoppingIcon from '@/assets/images/ShoppingIcon.svg';
 
-type TabTheme = {
-  headerBg: string;
-  headerTint: string;
-  tabActive: string;
-};
-
 const TABS: { name: string; title: string; Icon: React.FC<{ width: number; height: number; color?: string }> }[] = [
   { name: 'index', title: 'Home', Icon: HomeIcon },
   { name: 'calendar', title: 'Calendar', Icon: CalendarIcon },
@@ -22,11 +16,11 @@ const TABS: { name: string; title: string; Icon: React.FC<{ width: number; heigh
 ];
 
 const HIDDEN = ['chores', 'two', 'house', 'settings'];
-const TAB_THEME: Record<string, TabTheme> = {
-  index: { headerBg: '#FFE3B8', headerTint: '#4A2C1A', tabActive: '#A7572D' },
-  pantry: { headerBg: '#DDF4E7', headerTint: '#154D37', tabActive: '#1B8F63' },
-  shopping: { headerBg: '#FFE9DA', headerTint: '#5A2D18', tabActive: '#C15B2A' },
-  settings: { headerBg: '#EDE9FF', headerTint: '#32246C', tabActive: '#6557C8' },
+const TAB_ACTIVE: Record<string, string> = {
+  index: '#A7572D',
+  pantry: '#1B8F63',
+  shopping: '#C15B2A',
+  settings: '#6557C8',
 };
 
 export default function TabLayout() {
@@ -35,9 +29,9 @@ export default function TabLayout() {
     <Tabs
       safeAreaInsets={{ bottom: 0 }}
       screenOptions={({ route }) => {
-        const theme = TAB_THEME[route.name] ?? TAB_THEME.index;
+        const tabActive = TAB_ACTIVE[route.name] ?? TAB_ACTIVE.index;
         return {
-          tabBarActiveTintColor: theme.tabActive,
+          tabBarActiveTintColor: tabActive,
           tabBarInactiveTintColor: '#B38D71',
           tabBarStyle: {
             borderTopWidth: 0,
@@ -64,10 +58,7 @@ export default function TabLayout() {
             alignItems: 'center',
             margin: 0,
           },
-          headerStyle: { backgroundColor: theme.headerBg },
-          headerTintColor: theme.headerTint,
-          headerTitleStyle: { fontWeight: '800', letterSpacing: 0.2 },
-          headerShadowVisible: false,
+          headerShown: false,
         };
       }}
     >
@@ -85,7 +76,7 @@ export default function TabLayout() {
                 <Icon width={24} height={24} color={color} />
               </View>
             ),
-            ...(name === 'index' && { header: () => <HomeHeader /> }),
+            ...(name === 'index' && { headerShown: true, header: () => <HomeHeader /> }),
           }}
         />
       ))}
