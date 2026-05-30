@@ -37,11 +37,9 @@ export const PALETTE = {
   teal: '#4D797E',
   /** Soft teal tint (selected pills, chips, dividers). */
   tealTint: '#DEEDEE',
-  /** Light blue pill accent. */
+  /** Light blue pill accent (calendar event-time pills, "Next Event" header). */
   pillBlue: '#B5E2F1',
-  /** Soft yellow pill accent (one-time / due-by chores). */
-  pillYellow: '#FFE493',
-  /** Soft pink pill accent (weekend / monthly chores). */
+  /** Soft pink magnet/pill accent (dashboard deadline pill, decorative magnets). */
   pillPink: '#FFC7C3',
   /** Link / inline-accent text. */
   terracotta: '#E38C6E',
@@ -81,6 +79,8 @@ export const TYPE = {
   title: { fontFamily: FONTS.display, fontSize: 24, lineHeight: 30 },
   /** Emphasis heading — Gowun Batang Bold 16 ("Body 1"). */
   heading: { fontFamily: FONTS.display, fontSize: 16, lineHeight: 20 },
+  /** Sub-section header — Albert Sans Medium 16 ("Header 2"). */
+  header2: { fontFamily: FONTS.bodyMedium, fontSize: 16, lineHeight: 20 },
   /** Body emphasis — Albert Sans Medium 14 ("Body Medium"). */
   bodyMedium: { fontFamily: FONTS.bodyMedium, fontSize: 14 },
   /** Body — Albert Sans Regular 14. */
@@ -115,4 +115,10 @@ export const SHADOWS = {
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
+  /**
+   * "inner shadow v1" — Figma inner shadow (color #40302154, radius 4).
+   * RN has no native inner shadow, so screens fake it by overlaying a hairline
+   * inset View or by tinting the inner surface slightly darker.
+   */
+  innerShadow: { color: 'rgba(64, 48, 33, 0.33)', radius: 4 },
 } as const;

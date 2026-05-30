@@ -46,19 +46,6 @@ function recurrenceLabel(c: Chore): string {
   }
 }
 
-// Pill color cycles by recurrence type per Figma 2694:28099: one-time → yellow,
-// weekly → blue, monthly/weekend → pink, daily/custom → teal.
-function recurrenceTint(c: Chore): string {
-  if (c.recurrence === 'once') return PALETTE.pillYellow;
-  if (c.recurrence === 'weekly') {
-    return c.dayOfWeek === 5 || c.dayOfWeek === 6 || c.dayOfWeek === 0
-      ? PALETTE.pillPink
-      : PALETTE.pillBlue;
-  }
-  if (c.recurrence === 'monthly') return PALETTE.pillPink;
-  return PALETTE.tealTint;
-}
-
 // Streak = consecutive days back from today where any chore was completed.
 function calcStreak(chores: Chore[]): number {
   const days = new Set<string>();
@@ -147,14 +134,8 @@ export default function ChoresScreen() {
             <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
           </View>
         </View>
-        <View
-          style={[
-            styles.recPill,
-            !completed && { backgroundColor: recurrenceTint(c) },
-            completed && styles.donePill,
-          ]}
-        >
-          <Text style={[styles.recPillText, completed && styles.donePillText]}>
+        <View style={[styles.recPill, completed && styles.donePill]}>
+          <Text style={styles.recPillText}>
             {completed ? 'Completed' : recurrenceLabel(c)}
           </Text>
         </View>
@@ -165,9 +146,12 @@ export default function ChoresScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Tracker card */}
+        {/* Tracker card — Figma 2694:28099 */}
         <View style={styles.tracker}>
-          <Text style={styles.trackerTitle}>Home Chore Tracker</Text>
+          <View style={styles.trackerHead}>
+            <Text style={styles.trackerTitle}>Home Chore Tracker</Text>
+            <MaterialCommunityIcons name="restart" size={20} color={PALETTE.ink} style={styles.trackerReset} />
+          </View>
           <ProgressRing pct={pct} />
           <View style={styles.stats}>
             <StatPill icon="calendar-today" label="Due Today" value={`${dueToday} chore${dueToday === 1 ? '' : 's'}`} />
@@ -214,18 +198,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
   },
-  trackerTitle: { ...TYPE.title, color: PALETTE.ink, textAlign: 'center' },
+  // Figma 2694:28134: Gowun Batang Bold 18 (not 24)
+  trackerHead: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', justifyContent: 'space-between' },
+  trackerTitle: { fontFamily: FONTS.display, fontSize: 18, color: PALETTE.ink, lineHeight: 22 },
+  trackerReset: { marginLeft: 8 },
   ringPct: { fontFamily: FONTS.display, fontSize: 44, color: PALETTE.ink },
   ringLabel: { ...TYPE.small, color: PALETTE.inkMuted },
   stats: { flexDirection: 'row', gap: SPACING.md, alignSelf: 'stretch' },
+  // Figma 2694:28139: pill bg sand, h 57.285, rounded 21.375
   statPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     backgroundColor: PALETTE.sand,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
+    borderRadius: 22,
+    paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
   },
   statLabel: { ...TYPE.small, color: PALETTE.inkMuted },
@@ -260,10 +248,10 @@ const styles = StyleSheet.create({
   cardTitleDone: { color: PALETTE.inkFaint, textDecorationLine: 'line-through' },
   assignRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   assignText: { ...TYPE.small, color: PALETTE.inkMuted },
-  recPill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
-  recPillText: { ...TYPE.label, color: PALETTE.ink },
+  // Figma 2694:28099: pill bg teal, text white, h 22.88, rounded 16.04, font Albert Sans Medium 12.48
+  recPill: { backgroundColor: PALETTE.teal, borderRadius: 16, paddingVertical: 4, paddingHorizontal: 9, minWidth: 80, alignItems: 'center' },
+  recPillText: { fontFamily: FONTS.bodyMedium, fontSize: 12, color: PALETTE.onAction },
   donePill: { backgroundColor: PALETTE.ink },
-  donePillText: { color: PALETTE.onAction },
 
   fab: {
     position: 'absolute',

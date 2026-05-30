@@ -22,7 +22,7 @@ export default function CalendarScreen() {
   const memberMap = useHouseStore((s) => s.memberMap);
   const formRef = useRef<BottomSheetModal>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [mode, setMode] = useState<'week' | 'month'>('month');
+  const [mode, setMode] = useState<'week' | 'month'>('week');
   const [cursor, setCursor] = useState(new Date());
   const [selected, setSelected] = useState(new Date());
 
@@ -125,9 +125,7 @@ export default function CalendarScreen() {
                   <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
                 </View>
               </View>
-              <View style={[styles.timePill, { backgroundColor: e.color || PALETTE.pillBlue }]}>
-                <Text style={styles.timePillText}>{format(e.startTime.toDate(), 'h:mma').toLowerCase()}</Text>
-              </View>
+              <Avatar name={m?.displayName} uri={m?.avatarUrl} color={e.color || m?.color} size={20} />
             </Pressable>
           );
         })}
@@ -183,8 +181,9 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PALETTE.cream },
   scroll: { padding: SPACING.base, paddingBottom: 96 },
-  title: { ...TYPE.header, color: PALETTE.ink },
-  subtitle: { ...TYPE.small, color: PALETTE.inkMuted, marginBottom: SPACING.base },
+  // Figma 2694:27381: Gowun Bold 22 (not 32)
+  title: { fontFamily: FONTS.display, fontSize: 22, color: PALETTE.ink, lineHeight: 29 },
+  subtitle: { fontFamily: FONTS.bodyRegular, fontSize: 14, color: PALETTE.inkMuted, marginBottom: SPACING.base },
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
   monthNav: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   monthLabel: { ...TYPE.heading, color: PALETTE.ink },
@@ -193,7 +192,8 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: PALETTE.ink },
   toggleText: { ...TYPE.label, color: PALETTE.ink },
   toggleTextActive: { color: PALETTE.onAction },
-  selectedLabel: { ...TYPE.bodyMedium, color: PALETTE.ink, textAlign: 'center', marginVertical: SPACING.md },
+  // Figma 2694:27396: Albert Sans Medium 16
+  selectedLabel: { ...TYPE.header2, color: PALETTE.ink, textAlign: 'center', marginVertical: SPACING.md },
   dowRow: { flexDirection: 'row' },
   dow: { flex: 1, textAlign: 'center', ...TYPE.small, color: PALETTE.inkMuted },
   weekRow: { flexDirection: 'row' },
@@ -224,12 +224,11 @@ const styles = StyleSheet.create({
   cardMeta: { ...TYPE.small, color: PALETTE.inkMuted, marginTop: 2 },
   assignRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   assignText: { ...TYPE.small, color: PALETTE.inkMuted },
-  chorePill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
-  chorePillText: { ...TYPE.label, color: PALETTE.ink },
-  timePill: { borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
-  timePillText: { ...TYPE.label, color: PALETTE.ink },
-  donePill: { backgroundColor: PALETTE.ink, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
-  donePillText: { ...TYPE.label, color: PALETTE.onAction },
+  // Figma 2694:27480: pill bg #afccd8 (light blue-grey), white text, rounded 16.68
+  chorePill: { backgroundColor: '#afccd8', borderRadius: 16, paddingVertical: 4, paddingHorizontal: 10 },
+  chorePillText: { fontFamily: FONTS.bodyMedium, fontSize: 12, color: PALETTE.onAction },
+  donePill: { backgroundColor: PALETTE.ink, borderRadius: 16, paddingVertical: 4, paddingHorizontal: 10 },
+  donePillText: { fontFamily: FONTS.bodyMedium, fontSize: 12, color: PALETTE.onAction },
   fab: {
     position: 'absolute', right: SPACING.lg, bottom: SPACING.lg,
     width: 56, height: 56, borderRadius: RADIUS.pill, backgroundColor: PALETTE.white,
