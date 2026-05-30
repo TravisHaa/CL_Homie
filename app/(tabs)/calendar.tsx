@@ -22,7 +22,7 @@ export default function CalendarScreen() {
   const memberMap = useHouseStore((s) => s.memberMap);
   const formRef = useRef<BottomSheetModal>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [mode, setMode] = useState<'week' | 'month'>('week');
+  const [mode, setMode] = useState<'week' | 'month'>('month');
   const [cursor, setCursor] = useState(new Date());
   const [selected, setSelected] = useState(new Date());
 
@@ -45,6 +45,9 @@ export default function CalendarScreen() {
     .filter((e) => isSameDay(e.startTime.toDate(), selected))
     .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
   const dayChores = chores.filter((c) => !c.isCompleted && isChoreDueOn(c, selected));
+  const doneToday = chores.filter(
+    (c) => c.isCompleted && c.completedAt && isSameDay(c.completedAt.toDate(), selected),
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -117,25 +120,55 @@ export default function CalendarScreen() {
               <View style={styles.cardIcon}><Ionicons name="calendar" size={18} color={PALETTE.ink} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{e.title}</Text>
-                <Text style={styles.cardMeta}>{format(e.startTime.toDate(), 'h:mm a')}</Text>
+                <View style={styles.assignRow}>
+                  <Avatar name={m?.displayName} uri={m?.avatarUrl} color={e.color || m?.color} size={18} />
+                  <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
+                </View>
               </View>
-              <Avatar name={m?.displayName} uri={m?.avatarUrl} color={e.color || m?.color} size={20} />
+              <View style={[styles.timePill, { backgroundColor: e.color || PALETTE.pillBlue }]}>
+                <Text style={styles.timePillText}>{format(e.startTime.toDate(), 'h:mma').toLowerCase()}</Text>
+              </View>
             </Pressable>
           );
         })}
         {dayChores.map((c) => {
           const m = memberMap[c.assignedTo];
           return (
-            <Pressable key={c.id} style={[styles.card, styles.choreCard]} onPress={() => formRef.current && undefined}>
+            <Pressable key={c.id} style={styles.card} onPress={() => formRef.current && undefined}>
               <View style={styles.cardIcon}><MaterialCommunityIcons name="broom" size={18} color={PALETTE.ink} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-                <Text style={styles.cardMeta}>Chore · {m?.displayName ?? '—'}</Text>
+                <View style={styles.assignRow}>
+                  <Avatar name={m?.displayName} uri={m?.avatarUrl} color={m?.color} size={18} />
+                  <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
+                </View>
               </View>
               <View style={styles.chorePill}><Text style={styles.chorePillText}>Chore</Text></View>
             </Pressable>
           );
         })}
+
+        {doneToday.length > 0 ? (
+          <>
+            <Text style={styles.section}>Done ({doneToday.length})</Text>
+            {doneToday.map((c) => {
+              const m = memberMap[c.assignedTo];
+              return (
+                <View key={c.id} style={[styles.card, styles.cardDone]}>
+                  <View style={styles.cardIcon}><MaterialCommunityIcons name="broom" size={18} color={PALETTE.inkFaint} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, styles.cardTitleDone]} numberOfLines={1}>{c.title}</Text>
+                    <View style={styles.assignRow}>
+                      <Avatar name={m?.displayName} uri={m?.avatarUrl} color={m?.color} size={18} />
+                      <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.donePill}><Text style={styles.donePillText}>Completed</Text></View>
+                </View>
+              );
+            })}
+          </>
+        ) : null}
       </ScrollView>
 
       <Pressable accessibilityLabel="Add event" style={styles.fab} onPress={() => { setSelectedEvent(null); formRef.current?.present(); }}>
@@ -184,11 +217,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   choreCard: { backgroundColor: PALETTE.sand },
+  cardDone: { backgroundColor: PALETTE.sand },
   cardIcon: { width: 36, height: 36, borderRadius: RADIUS.pill, backgroundColor: PALETTE.cream, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { ...TYPE.bodyMedium, color: PALETTE.ink },
+  cardTitleDone: { color: PALETTE.inkFaint, textDecorationLine: 'line-through' },
   cardMeta: { ...TYPE.small, color: PALETTE.inkMuted, marginTop: 2 },
-  chorePill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 4, paddingHorizontal: 10 },
-  chorePillText: { ...TYPE.label, color: PALETTE.teal },
+  assignRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  assignText: { ...TYPE.small, color: PALETTE.inkMuted },
+  chorePill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
+  chorePillText: { ...TYPE.label, color: PALETTE.ink },
+  timePill: { borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
+  timePillText: { ...TYPE.label, color: PALETTE.ink },
+  donePill: { backgroundColor: PALETTE.ink, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
+  donePillText: { ...TYPE.label, color: PALETTE.onAction },
   fab: {
     position: 'absolute', right: SPACING.lg, bottom: SPACING.lg,
     width: 56, height: 56, borderRadius: RADIUS.pill, backgroundColor: PALETTE.white,

@@ -39,6 +39,10 @@ export const PALETTE = {
   tealTint: '#DEEDEE',
   /** Light blue pill accent. */
   pillBlue: '#B5E2F1',
+  /** Soft yellow pill accent (one-time / due-by chores). */
+  pillYellow: '#FFE493',
+  /** Soft pink pill accent (weekend / monthly chores). */
+  pillPink: '#FFC7C3',
   /** Link / inline-accent text. */
   terracotta: '#E38C6E',
   /** Sparing highlight accent. */

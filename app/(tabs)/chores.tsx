@@ -46,6 +46,34 @@ function recurrenceLabel(c: Chore): string {
   }
 }
 
+// Pill color cycles by recurrence type per Figma 2694:28099: one-time → yellow,
+// weekly → blue, monthly/weekend → pink, daily/custom → teal.
+function recurrenceTint(c: Chore): string {
+  if (c.recurrence === 'once') return PALETTE.pillYellow;
+  if (c.recurrence === 'weekly') {
+    return c.dayOfWeek === 5 || c.dayOfWeek === 6 || c.dayOfWeek === 0
+      ? PALETTE.pillPink
+      : PALETTE.pillBlue;
+  }
+  if (c.recurrence === 'monthly') return PALETTE.pillPink;
+  return PALETTE.tealTint;
+}
+
+// Streak = consecutive days back from today where any chore was completed.
+function calcStreak(chores: Chore[]): number {
+  const days = new Set<string>();
+  for (const c of chores) {
+    if (c.completedAt) days.add(format(c.completedAt.toDate(), 'yyyy-MM-dd'));
+  }
+  let n = 0;
+  const cursor = new Date();
+  while (days.has(format(cursor, 'yyyy-MM-dd'))) {
+    n += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return n;
+}
+
 function ProgressRing({ pct }: { pct: number }) {
   const size = 200;
   const stroke = 22;
@@ -103,6 +131,7 @@ export default function ChoresScreen() {
   const pct = chores.length ? done.length / chores.length : 0;
   const today = new Date();
   const dueToday = todo.filter((c) => isChoreDueOn(c, today)).length;
+  const streak = calcStreak(chores);
 
   const renderCard = (c: Chore, completed: boolean) => {
     const m = memberMap[c.assignedTo];
@@ -118,7 +147,13 @@ export default function ChoresScreen() {
             <Text style={styles.assignText}>Assigned to {m?.displayName ?? '—'}</Text>
           </View>
         </View>
-        <View style={[styles.recPill, completed && styles.donePill]}>
+        <View
+          style={[
+            styles.recPill,
+            !completed && { backgroundColor: recurrenceTint(c) },
+            completed && styles.donePill,
+          ]}
+        >
           <Text style={[styles.recPillText, completed && styles.donePillText]}>
             {completed ? 'Completed' : recurrenceLabel(c)}
           </Text>
@@ -136,7 +171,7 @@ export default function ChoresScreen() {
           <ProgressRing pct={pct} />
           <View style={styles.stats}>
             <StatPill icon="calendar-today" label="Due Today" value={`${dueToday} chore${dueToday === 1 ? '' : 's'}`} />
-            <StatPill icon="check-circle-outline" label="This week" value={`${done.length}/${chores.length} done`} />
+            <StatPill icon="fire" label="Streak" value={`${streak} day streak`} />
           </View>
         </View>
 
@@ -225,8 +260,8 @@ const styles = StyleSheet.create({
   cardTitleDone: { color: PALETTE.inkFaint, textDecorationLine: 'line-through' },
   assignRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   assignText: { ...TYPE.small, color: PALETTE.inkMuted },
-  recPill: { backgroundColor: PALETTE.teal, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
-  recPillText: { ...TYPE.label, color: PALETTE.onAction },
+  recPill: { backgroundColor: PALETTE.tealTint, borderRadius: RADIUS.pill, paddingVertical: 5, paddingHorizontal: 10 },
+  recPillText: { ...TYPE.label, color: PALETTE.ink },
   donePill: { backgroundColor: PALETTE.ink },
   donePillText: { color: PALETTE.onAction },
 
