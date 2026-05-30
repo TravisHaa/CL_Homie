@@ -1,8 +1,11 @@
 import {
+  confirmPasswordReset,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile,
+  verifyPasswordResetCode,
 } from 'firebase/auth';
 import { setDoc, serverTimestamp } from 'firebase/firestore';
 import { Platform } from 'react-native';
@@ -42,6 +45,18 @@ export async function signUp(
 export async function signIn(email: string, password: string) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
+}
+
+export async function sendResetPasswordEmail(email: string) {
+  await sendPasswordResetEmail(auth, email);
+}
+
+export async function verifyResetPasswordCode(code: string) {
+  return verifyPasswordResetCode(auth, code);
+}
+
+export async function confirmResetPassword(code: string, password: string) {
+  await confirmPasswordReset(auth, code, password);
 }
 
 export async function signOut() {
