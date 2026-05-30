@@ -5,6 +5,7 @@ interface MemberInfo {
   displayName: string;
   color: string;
   avatarUrl: string | null;
+  email: string;
 }
 
 interface HouseState {
@@ -25,6 +26,7 @@ export const useHouseStore = create<HouseState>((set) => ({
         displayName: m.displayName,
         color: m.color,
         avatarUrl: m.avatarUrl,
+        email: m.email,
       };
     }
     set({ memberMap });

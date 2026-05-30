@@ -79,7 +79,9 @@ export const TYPE = {
   title: { fontFamily: FONTS.display, fontSize: 24, lineHeight: 30 },
   /** Emphasis heading — Gowun Batang Bold 16 ("Body 1"). */
   heading: { fontFamily: FONTS.display, fontSize: 16, lineHeight: 20 },
-  /** Sub-section header — Albert Sans Medium 16 ("Header 2"). */
+  /** Screen sub-title — Gowun Batang Bold 22 ("Header 2" in shopping/pantry/settings). */
+  subheader: { fontFamily: FONTS.display, fontSize: 22, lineHeight: 29 },
+  /** Calendar date label — Albert Sans Medium 16 (calendar-scope "Header 2"). */
   header2: { fontFamily: FONTS.bodyMedium, fontSize: 16, lineHeight: 20 },
   /** Body emphasis — Albert Sans Medium 14 ("Body Medium"). */
   bodyMedium: { fontFamily: FONTS.bodyMedium, fontSize: 14 },
@@ -121,4 +123,12 @@ export const SHADOWS = {
    * inset View or by tinting the inner surface slightly darker.
    */
   innerShadow: { color: 'rgba(64, 48, 33, 0.33)', radius: 4 },
+  /** "Drop Shadow/2" — settings screen sticky elements (0px 2px 4px rgba(0,0,0,0.10)). */
+  sticky: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
 } as const;
