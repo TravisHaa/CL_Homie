@@ -3,8 +3,8 @@ import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ImageBackground,
   Image,
   Pressable,
   ScrollView,
@@ -26,7 +26,10 @@ import { FONTS, PALETTE } from '@/src/theme/palette';
 const CANVAS = 402;
 const HEADER_H = 132;
 const INK = PALETTE.ink;
-const GRADIENT = require('@/assets/images/home/header-gradient-clean.png');
+// Authoritative mesh-gradient stops sampled from Figma node 2694:26990 via
+// use_figma → exportAsync 5×2 downsample with text/icons hidden. Diagonal
+// peach (top-left) → soft-blue (bottom-right).
+const GRADIENT_COLORS = ['#FDD9C5', '#F1D4BA', '#E1CEBF', '#C2CACC', '#B2CAD0'] as const;
 const STAR_PURPLE = require('@/assets/images/home/star-purple.png');
 const STAR_YELLOW = require('@/assets/images/home/star-yellow.png');
 
@@ -92,8 +95,14 @@ export default function HomeScreen() {
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.canvas}>
-          {/* Header band: gradient image + status-bar safe pad + text + icons */}
-          <ImageBackground source={GRADIENT} style={styles.headerBand} resizeMode="cover">
+          {/* Header band: authoritative mesh-gradient (Figma 2694:26990 image fill, sampled). */}
+          <LinearGradient
+            colors={GRADIENT_COLORS as unknown as readonly [string, string, ...string[]]}
+            locations={[0, 0.25, 0.5, 0.75, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerBand}
+          >
             <View style={styles.headerInner}>
               <View style={{ flex: 1 }}>
                 {house?.name ? <Text style={styles.houseName}>{house.name}</Text> : null}
@@ -112,7 +121,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-          </ImageBackground>
+          </LinearGradient>
 
           {/* Grid spans the canvas behind everything below the header */}
           <View style={styles.belowHeader}>
@@ -270,8 +279,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: PALETTE.cream },
-  scroll: { alignItems: 'center', minHeight: 900, paddingBottom: 40 },
-  canvas: { width: CANVAS, minHeight: 900 },
+  // Authoritative Figma frame is 402×874 (home node 2694:26963); RecentActivity
+  // strip bottom = y≈846, so the canvas needs minHeight ≥ 874 to contain it.
+  scroll: { alignItems: 'center', minHeight: 1000, paddingBottom: 40 },
+  canvas: { width: CANVAS, minHeight: 1000, overflow: 'visible' },
 
   // ── Header band (gradient + text + icons) ───────────────────────────────
   headerBand: { width: CANVAS, height: HEADER_H, overflow: 'hidden' },
@@ -296,7 +307,10 @@ const styles = StyleSheet.create({
   },
 
   // ── Canvas region below the header ──────────────────────────────────────
-  belowHeader: { width: CANVAS, minHeight: 700, position: 'relative', backgroundColor: PALETTE.cream },
+  // Authoritative: RecentActivity strip ends at canvas y≈846 → belowHeader needs
+  // ≥ 846 − 132 = 714 to contain it. Use 870 for buffer + overflow: 'visible'
+  // so the purple star can sit above its top edge if needed.
+  belowHeader: { width: CANVAS, minHeight: 870, position: 'relative', backgroundColor: PALETTE.cream, overflow: 'visible' },
 
   // ── Grid background ─────────────────────────────────────────────────────
   grid: { ...StyleSheet.absoluteFillObject, opacity: 0.4, overflow: 'hidden' },
@@ -377,19 +391,21 @@ const styles = StyleSheet.create({
   },
   shopMeta: { fontFamily: FONTS.bodyRegular, fontSize: 12, color: INK },
 
-  // ── Stars ───────────────────────────────────────────────────────────────
+  // Authoritative positions from Figma metadata 2694:26963:
+  //   star 1 (purple) 2694:26976 — canvas (346.28, 183.90), 58.77×58.77 → belowHeader (346.28, 51.90)
+  //   star 2 (yellow) 2694:26977 — canvas (374.23, 189.98), 35.98×35.98 → belowHeader (374.23, 57.98)
   starPurple: {
     position: 'absolute',
-    top: -8,
-    left: 290,
+    top: 52,
+    left: 346,
     width: 59,
     height: 59,
     transform: [{ rotate: '-165deg' }],
   },
   starYellow: {
     position: 'absolute',
-    top: 22,
-    left: 339,
+    top: 58,
+    left: 374,
     width: 36,
     height: 36,
     transform: [{ rotate: '-178.78deg' }],
