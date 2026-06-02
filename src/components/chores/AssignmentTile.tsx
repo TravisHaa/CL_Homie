@@ -1,15 +1,7 @@
+import { CHORE_THEME } from '@/src/theme/chores';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const CH = {
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-};
 
 interface AssignmentTileProps {
   label: string;
@@ -37,12 +29,12 @@ export function AssignmentTile({
       <View
         style={[
           styles.circle,
-          { backgroundColor: color || CH.plateBg },
+          { backgroundColor: color || CHORE_THEME.cardBg },
           selected && styles.circleSelected,
         ]}
       >
         {iconName ? (
-          <Ionicons name={iconName} size={22} color={CH.textStrong} />
+          <Ionicons name={iconName} size={22} color={CHORE_THEME.text} />
         ) : (
           <Text style={styles.initial}>{initial ?? '?'}</Text>
         )}
@@ -72,22 +64,22 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   circleSelected: {
-    borderColor: CH.fill,
+    borderColor: CHORE_THEME.accent,
   },
   initial: {
     fontSize: 18,
     fontWeight: '700',
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
   },
   label: {
     fontSize: 12,
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginTop: 4,
     fontWeight: '500',
     textAlign: 'center',
   },
   labelSelected: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '700',
   },
 });

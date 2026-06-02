@@ -14,6 +14,7 @@ import {
 
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
+import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 
@@ -57,7 +58,7 @@ export default function HomeStatusScreen() {
             )}
 
             <View style={styles.homeCard}>
-              <FontAwesome name="home" size={23} color="#3c160f" />
+              <FontAwesome name="home" size={23} color={PALETTE.ink} />
               <Text style={styles.homeName}>{houseName}</Text>
 
               <View style={styles.divider} />
@@ -103,7 +104,7 @@ export default function HomeStatusScreen() {
                 style={styles.createNewHome}
                 onPress={() => router.push('/(auth)/create-house')}
               >
-                <FontAwesome name="plus" size={18} color="#2b1b16" />
+                <FontAwesome name="plus" size={18} color={PALETTE.ink} />
                 <Text style={styles.createNewHomeText}>Create new home</Text>
               </Pressable>
             )}
@@ -152,14 +153,14 @@ const styles = StyleSheet.create({
     marginTop: 204,
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 20,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    color: '#5c4942',
+    color: PALETTE.inkMuted,
     fontSize: 16,
     marginBottom: 26,
     textAlign: 'center',
@@ -174,14 +175,14 @@ const styles = StyleSheet.create({
     width: 235,
   },
   homeName: {
-    color: '#3c160f',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 16,
     marginTop: 10,
     textAlign: 'center',
   },
   divider: {
-    backgroundColor: 'rgba(43, 27, 22, 0.14)',
+    backgroundColor: PALETTE.inkHairline,
     height: 1,
     marginTop: 13,
     width: '100%',
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metaLabel: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 11,
     fontWeight: '700',
     marginBottom: 9,
@@ -207,13 +208,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   avatarDot: {
-    backgroundColor: '#747474',
+    backgroundColor: PALETTE.avatar,
     borderRadius: 9,
     height: 18,
     width: 18,
   },
   personName: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
     marginLeft: 9,
   },
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   memberText: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
     marginTop: 8,
   },
@@ -230,26 +231,26 @@ const styles = StyleSheet.create({
     marginTop: 37,
   },
   question: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 16,
     marginBottom: 14,
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     borderRadius: 23,
     justifyContent: 'center',
     minHeight: 46,
     paddingHorizontal: 18,
   },
   primaryButtonText: {
-    color: '#fff',
+    color: PALETTE.onAction,
     fontSize: 13,
     fontWeight: '600',
   },
   editButton: {
     alignItems: 'center',
-    borderColor: '#fff',
+    borderColor: PALETTE.cream,
     borderRadius: 23,
     borderWidth: 1,
     height: 46,
@@ -258,7 +259,7 @@ const styles = StyleSheet.create({
     width: 59,
   },
   editButtonText: {
-    color: '#fff',
+    color: PALETTE.cream,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -269,13 +270,13 @@ const styles = StyleSheet.create({
     marginTop: 27,
   },
   createNewHomeText: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 14,
     fontWeight: '700',
   },
   bottomButton: {
     alignItems: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     borderRadius: 23,
     bottom: 66,
     justifyContent: 'center',

@@ -1,15 +1,7 @@
+import { CHORE_THEME } from '@/src/theme/chores';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const CH = {
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-};
 
 const WEEKDAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 // 31 days padded to a 5x7 = 35 cell grid.
@@ -34,12 +26,12 @@ export function MonthDayPicker({ value, onChange }: MonthDayPickerProps) {
         onPress={() => setOpen((o) => !o)}
         activeOpacity={0.7}
       >
-        <Ionicons name="calendar-outline" size={14} color={CH.textStrong} />
+        <Ionicons name="calendar-outline" size={14} color={CHORE_THEME.text} />
         <Text style={styles.triggerText}>Day {value}</Text>
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={14}
-          color={CH.textStrong}
+          color={CHORE_THEME.text}
         />
       </TouchableOpacity>
 
@@ -120,16 +112,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: CH.plateBg,
+    borderRadius: 12,
+    backgroundColor: CHORE_THEME.cardBg,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
   },
   triggerText: {
     fontSize: 14,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '600',
   },
   menu: {
@@ -137,13 +129,13 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     marginTop: 8,
-    backgroundColor: CH.plateBg,
+    backgroundColor: CHORE_THEME.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
     padding: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
@@ -157,7 +149,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '700',
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginBottom: 4,
   },
   grid: {
@@ -179,19 +171,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellInnerSelected: {
-    backgroundColor: CH.fill,
+    backgroundColor: CHORE_THEME.accent,
   },
   cellText: {
     fontSize: 13,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   cellTextSelected: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontWeight: '700',
   },
   hint: {
     fontSize: 11,
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginTop: 6,
     maxWidth: CELL_SIZE * 7,
   },

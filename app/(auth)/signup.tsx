@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 
+import { PALETTE } from '@/src/theme/palette';
+
 const bg = require('@/assets/images/phoneBG.png');
 
 export default function SignupScreen() {
@@ -77,13 +79,13 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -40 }],
   },
   title: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     fontSize: 28,
     marginBottom: 10,
   },
   subtitle: {
-    color: '#5c4942',
+    color: PALETTE.inkMuted,
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: 'center',
-    backgroundColor: '#ef8f73',
+    backgroundColor: PALETTE.teal,
     borderRadius: 20,
     justifyContent: 'center',
     minHeight: 40,
@@ -103,18 +105,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   buttonText: {
-    color: '#fff',
+    color: PALETTE.onAction,
     fontSize: 12,
     fontWeight: '700',
   },
   loginText: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
     marginTop: 24,
     textAlign: 'center',
   },
   loginLink: {
-    color: '#ef7f65',
+    color: PALETTE.ink,
     fontSize: 12,
     fontWeight: '700',
   },

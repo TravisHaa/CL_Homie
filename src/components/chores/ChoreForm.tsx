@@ -1,4 +1,5 @@
 import { useHouseStore } from '@/src/store/houseStore';
+import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -10,22 +11,11 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import React, { forwardRef, useCallback, useMemo, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
 import { RecurrenceDropdown } from './RecurrenceDropdown';
-
-// Peach palette mirrors app/(tabs)/chores.tsx (CH constants).
-const CH = {
-  peachBg: '#FFF0E2',
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-};
 
 export type ChoreFormPayload = Pick<Chore, 'title' | 'recurrence'> & {
   assignedTo?: string;
@@ -40,11 +30,9 @@ interface ChoreFormProps {
   onSubmit: (input: ChoreFormPayload) => Promise<void>;
 }
 
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-// User-facing recurrence options. Order matches the spec; 'biweekly' is
-// intentionally absent — it now lives under 'Custom' (every 2 weeks).
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+// User-facing recurrence options. Order matches the spec; every-N-weeks
+// cadences (including the legacy biweekly) live under 'Custom'.
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -62,13 +50,13 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const house = useHouseStore((s) => s.house);
     const memberIds = Object.keys(memberMap);
 
-    // Auto-rotate is only available for recurring (non-once, non-daily) chores.
+    // Auto-rotate is available for every recurring shape (anything but 'once').
     // It defaults ON when the house-wide master switch is enabled.
     const masterAutoRotate = house?.weeklyScrambleEnabled !== false;
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState(memberIds[0] ?? '');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(masterAutoRotate);
     const [dayOfWeek, setDayOfWeek] = useState(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -80,6 +68,21 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const [submitting, setSubmitting] = useState(false);
 
     const webDateInputRef = React.useRef<HTMLInputElement>(null);
+
+    // `assignedTo` is seeded from `memberIds[0]` at mount. If the house store
+    // hadn't hydrated yet (rare but possible right after login), `memberIds`
+    // would be empty and the field would stay `''` even after members load,
+    // leaving the user stuck on the "Pick a member" submit-gate alert until
+    // they manually tapped an avatar. Backfill the default once members
+    // become available — only when the field is still empty, so we never
+    // clobber an explicit user choice.
+    const memberIdsKey = memberIds.join('|');
+    useEffect(() => {
+      if (!assignedTo && memberIds.length > 0) {
+        setAssignedTo(memberIds[0]);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [memberIdsKey]);
 
     // Single fixed snap point so the sheet never resizes when fields change.
     const snapPoints = useMemo(() => ['90%'], []);
@@ -95,8 +98,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
     const showDueDatePicker = recurrence === 'once';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
@@ -200,7 +202,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
               onPress={handleClose}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={24} color={CH.textStrong} />
+              <Ionicons name="close" size={24} color={CHORE_THEME.text} />
             </TouchableOpacity>
           </View>
           <View style={styles.headerDivider} />
@@ -210,7 +212,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           <TextInput
             style={styles.input}
             placeholder="e.g. Vacuum living room"
-            placeholderTextColor={CH.textSoft}
+            placeholderTextColor={CHORE_THEME.textMuted}
             value={title}
             onChangeText={setTitle}
           />
@@ -367,7 +369,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                         border: 'none',
                         background: 'transparent',
                         fontSize: 16,
-                        color: CH.textStrong,
+                        color: CHORE_THEME.text,
                         outline: 'none',
                         padding: 0,
                         position: 'relative',
@@ -480,10 +482,10 @@ ChoreForm.displayName = 'ChoreForm';
 
 const styles = StyleSheet.create({
   sheetBackground: {
-    backgroundColor: CH.peachBg,
+    backgroundColor: CHORE_THEME.bg,
   },
   handle: {
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
   },
   content: {
     padding: 24,
@@ -497,19 +499,18 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 22,
     fontWeight: '800',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
     marginTop: 10,
     marginBottom: 4,
-    opacity: 0.6,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginBottom: 8,
     marginTop: 18,
     textTransform: 'uppercase',
@@ -518,25 +519,25 @@ const styles = StyleSheet.create({
   subLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginBottom: 8,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: CH.textStrong,
-    backgroundColor: CH.white,
+    color: CHORE_THEME.text,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   settingsCard: {
-    backgroundColor: CH.plateBg,
+    backgroundColor: CHORE_THEME.cardBg,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
   },
   chipRow: {
     flexDirection: 'row',
@@ -544,26 +545,26 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dayChip: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
   },
   dayChipActive: {
-    backgroundColor: CH.fill,
-    borderColor: CH.fill,
+    backgroundColor: CHORE_THEME.accent,
+    borderColor: CHORE_THEME.accent,
   },
   dayChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   dayChipTextActive: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
   },
   stepperRow: {
     flexDirection: 'row',
@@ -574,17 +575,17 @@ const styles = StyleSheet.create({
   stepperButton: {
     width: 36,
     height: 36,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperButtonText: {
     fontSize: 20,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     lineHeight: 22,
   },
   stepperValue: {
@@ -592,7 +593,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   unitGroup: {
     flexDirection: 'row',
@@ -602,22 +603,22 @@ const styles = StyleSheet.create({
   unitChip: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   unitChipActive: {
-    backgroundColor: CH.fill,
-    borderColor: CH.fill,
+    backgroundColor: CHORE_THEME.accent,
+    borderColor: CHORE_THEME.accent,
   },
   unitChipText: {
     fontSize: 14,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '500',
   },
   unitChipTextActive: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontWeight: '700',
   },
   datePickerContainer: {
@@ -627,28 +628,28 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   dateButtonText: {
     fontSize: 16,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   clearButton: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.fill,
-    backgroundColor: CH.plateBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   clearButtonText: {
     fontSize: 14,
-    color: CH.fill,
+    color: CHORE_THEME.text,
     fontWeight: '600',
   },
   assignmentRow: {
@@ -663,22 +664,22 @@ const styles = StyleSheet.create({
   },
   outlineButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   outlineButtonText: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '600',
     fontSize: 14,
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: CH.fill,
-    borderRadius: 999,
+    backgroundColor: CHORE_THEME.accent,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontSize: 15,
     fontWeight: '700',
   },

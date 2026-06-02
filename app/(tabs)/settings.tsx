@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RotationCard } from '@/src/components/settings/RotationCard';
 import { signOut } from '@/src/firebase/auth';
 import { leaveHouse } from '@/src/firebase/house';
+import { useGoogleCalendar } from '@/src/hooks/useGoogleCalendar';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -39,6 +40,7 @@ export default function SettingsScreen() {
   const memberMap = useHouseStore((s) => s.memberMap);
   const houseId = useAuthStore((s) => s.userProfile?.houseId ?? null);
   const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
+  const gcal = useGoogleCalendar();
 
   async function handleLeaveHouse() {
     if (!currentUid || !houseId) return;
@@ -237,6 +239,43 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
           )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Calendar sync</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Google Calendar</Text>
+            <Text style={styles.cardBody}>
+              {gcal.isLinked
+                ? 'Connected. Events you’re assigned to will export to your Google Calendar.'
+                : 'Connect your Google Calendar to export Homie events you’re assigned to.'}
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={gcal.isLinked ? 'Disconnect Google Calendar' : 'Connect Google Calendar'}
+              onPress={() => (gcal.isLinked ? gcal.unlink() : gcal.link())}
+              disabled={gcal.isLinking || !gcal.canLink}
+              style={({ pressed }) => [
+                styles.secondaryButton,
+                { marginTop: 14 },
+                (gcal.isLinking || !gcal.canLink) && styles.signOutButtonDisabled,
+                pressed && !gcal.isLinking && styles.secondaryButtonPressed,
+              ]}
+            >
+              {gcal.isLinking ? (
+                <View style={styles.signOutButtonInner}>
+                  <ActivityIndicator />
+                  <Text style={styles.secondaryButtonText}>Connecting…</Text>
+                </View>
+              ) : (
+                <Text style={styles.secondaryButtonText}>
+                  {gcal.isLinked ? 'Disconnect' : 'Connect Google Calendar'}
+                </Text>
+              )}
+            </Pressable>
+            {gcal.error && <Text style={styles.errorText}>{gcal.error}</Text>}
+          </View>
         </View>
 
         <View style={styles.section}>

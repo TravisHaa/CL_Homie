@@ -1,18 +1,18 @@
 import {
-  confirmPasswordReset,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  updateProfile,
-  verifyPasswordResetCode,
+    confirmPasswordReset,
+    createUserWithEmailAndPassword,
+    signOut as firebaseSignOut,
+    sendPasswordResetEmail,
+    signInWithEmailAndPassword,
+    updateProfile,
+    verifyPasswordResetCode,
 } from 'firebase/auth';
-import { setDoc, serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, setDoc } from 'firebase/firestore';
 import { Platform } from 'react-native';
-import { auth } from './config';
-import { userDoc, deviceDoc } from './firestore';
 import { ROOMMATE_COLORS } from '../utils/colors';
 import { getOrCreateDeviceId } from '../utils/deviceId';
+import { auth } from './config';
+import { deviceDoc, userDoc } from './firestore';
 
 export async function signUp(
   email: string,
@@ -25,7 +25,11 @@ export async function signUp(
   // Pick a random color from the palette for this user
   const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
 
-  setDoc(userDoc(credential.user.uid), {
+  // Must be awaited: this is a full-document write with houseId: null. If left
+  // fire-and-forget it can resolve *after* a subsequent create/join-house merge
+  // write, overwriting the profile back to houseId: null and dropping the
+  // just-joined house. Awaiting guarantees this lands before navigation.
+  await setDoc(userDoc(credential.user.uid), {
     id: credential.user.uid,
     email,
     displayName,

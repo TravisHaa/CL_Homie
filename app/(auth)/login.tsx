@@ -1,21 +1,22 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ImageBackground,
-  SafeAreaView,
-  useWindowDimensions,
-} from 'react-native';
-import { useState } from 'react';
-import { Link, router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
+import { PALETTE } from '@/src/theme/palette';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, router } from 'expo-router';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import {
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { z } from 'zod';
 const bg = require('@/assets/images/phoneBG.png');
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -79,7 +80,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={[styles.input, errors.email && styles.inputError]}
                   placeholder="Write here"
-                  placeholderTextColor="#2b1b16"
+                  placeholderTextColor={PALETTE.ink}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   onChangeText={onChange}
@@ -99,7 +100,7 @@ export default function LoginScreen() {
                 <TextInput
                   style={[styles.input, errors.password && styles.inputError]}
                   placeholder="Write here"
-                  placeholderTextColor="#2b1b16"
+                  placeholderTextColor={PALETTE.ink}
                   secureTextEntry
                   onChangeText={onChange}
                   value={value}
@@ -158,36 +159,39 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backButton: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 12,
+    left: 22,
     height: 44,
     width: 44,
     justifyContent: 'center',
-    marginTop: 28,
+    zIndex: 1,
   },
   backIcon: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 42,
     lineHeight: 42,
     fontWeight: '300',
   },
   form: {
     alignSelf: 'center',
-    marginTop: 128,
-    maxWidth: 326,
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 354,
     width: '100%',
   },
   title: {
     fontSize: 20,
     textAlign: 'center',
     marginBottom: 34,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   label: {
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontWeight: '400',
   },
   input: {
@@ -195,42 +199,42 @@ const styles = StyleSheet.create({
     height: 48,
     width: '100%',
     borderRadius: 24,
-    backgroundColor: '#fff8f1',
+    backgroundColor: PALETTE.field,
     paddingHorizontal: 16,
     fontSize: 14,
     marginBottom: 24,
-    color: '#2b1b16',
+    color: PALETTE.ink,
     borderWidth: 0,
   },
   inputError: {
     borderWidth: 1.5,
-    borderColor: '#FF6B6B',
+    borderColor: PALETTE.error,
   },
   errorText: {
-    color: '#FF6B6B',
+    color: PALETTE.error,
     fontSize: 12,
     marginTop: -18,
     marginBottom: 12,
     marginLeft: 16,
   },
   forgot: {
-    color: '#ef7f65',
+    color: PALETTE.ink,
     fontSize: 14,
     marginTop: -16,
   },
   signupText: {
-    color: '#2b1b16',
+    color: PALETTE.ink,
     fontSize: 12,
     marginTop: 20,
     textAlign: 'center',
   },
   signupLink: {
-    color: '#ef7f65',
+    color: PALETTE.ink,
     fontSize: 12,
     fontWeight: '700',
   },
   authError: {
-    color: '#FF6B6B',
+    color: PALETTE.error,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 12,
@@ -239,7 +243,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 66,
     alignSelf: 'center',
-    backgroundColor: '#4d7580',
+    backgroundColor: PALETTE.teal,
     minWidth: 84,
     minHeight: 38,
     justifyContent: 'center',
@@ -251,7 +255,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: PALETTE.onAction,
     fontSize: 13,
     fontWeight: '500',
   },

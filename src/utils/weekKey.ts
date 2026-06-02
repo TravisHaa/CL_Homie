@@ -12,7 +12,7 @@ import {
 } from 'date-fns';
 
 /**
- * Returns a stable week identifier like "2026-W15".
+ * Returns a stable ISO-week identifier like "2026-W15" (weeks run Mon–Sun).
  * Used to key weekly chores for efficient querying.
  */
 export function getWeekKey(date: Date = new Date()): string {
@@ -30,7 +30,7 @@ export function parseWeekKey(key: string): Date {
   if (!match) throw new Error(`Invalid week key: ${key}`);
   const year = Number(match[1]);
   const week = Number(match[2]);
-  // Anchor on a date guaranteed to be inside the target ISO year, then set week.
+  // Anchor on a date guaranteed to be inside the target ISO-week-year, then set week.
   const anchor = setISOWeekYear(new Date(year, 5, 1), year);
   const inWeek = setISOWeek(anchor, week);
   return startOfISOWeek(inWeek);
@@ -39,7 +39,7 @@ export function parseWeekKey(key: string): Date {
 /**
  * Signed ISO-week difference: b - a. Same week → 0.
  */
-export function isoWeeksBetween(a: string, b: string): number {
+export function weeksBetween(a: string, b: string): number {
   const aMon = parseWeekKey(a);
   const bMon = parseWeekKey(b);
   return Math.round(differenceInCalendarDays(bMon, aMon) / 7);
@@ -85,11 +85,19 @@ export function parseDayKey(key: string): Date {
 }
 
 /**
- * Monotonic ISO-week index (ISO-year * 53 + week). Lets us compare two dates
- * by ISO-week regardless of year boundaries.
+ * Monotonic ISO-week index (true week count). Lets us compare two dates by
+ * ISO-week regardless of year boundaries. Defined as the number of full ISO
+ * weeks (Mon-start) between `date` and a fixed epoch Monday. The previous
+ * `isoYear * 53 + isoWeek` formula was not monotonic across ISO years that
+ * end at week 52 (e.g. 2022-W52 → 2023-W01 produced a diff of 2 instead of
+ * 1), which corrupted the biweekly / custom-weeks cadence modulus in
+ * `isChoreDueOn`.
  */
-export function isoWeekIndex(date: Date): number {
-  return getISOWeekYear(date) * 53 + getISOWeek(date);
+const WEEK_INDEX_EPOCH = new Date(1970, 0, 5); // 1970-01-05 was a Monday (local).
+export function weekIndex(date: Date): number {
+  return Math.round(
+    differenceInCalendarDays(startOfISOWeek(date), WEEK_INDEX_EPOCH) / 7
+  );
 }
 
 /**
