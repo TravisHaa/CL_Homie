@@ -3,6 +3,7 @@ import { choresCol } from '@/src/firebase/firestore';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 import type { Chore } from '@/src/types';
+import { computeCreationLastTriggeredKey } from '@/src/utils/choreSchedule';
 import { getDayKey, getWeekKey } from '@/src/utils/weekKey';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from 'firebase/firestore';
@@ -67,14 +68,12 @@ export function useChores() {
       weekData = snap.docs.map((d) => d.data());
       merge();
       setSnapshotsReady((s) => (s.week ? s : { ...s, week: true }));
-    });
     }, onErr);
 
     const unsub2 = onSnapshot(q2, (snap) => {
       onceData = snap.docs.map((d) => d.data());
       merge();
       setSnapshotsReady((s) => (s.once ? s : { ...s, once: true }));
-    });
     }, onErr);
 
     return () => {
@@ -140,27 +139,17 @@ export function useChores() {
     // Chores created on a non-fire day keep `lastTriggeredKey = null`, which
     // the rollover treats as "first cadence advance" and skips rotation for,
     // so the seeded assignee still owns the chore's first natural occurrence.
-    const dow = now.getDay();
-    let lastTriggeredKey: string | null = null;
-    if (input.recurrence === 'daily') {
-      // Daily fires every day, so creation day is always a fire day.
-      lastTriggeredKey = todayDayKey;
-    } else if (input.recurrence === 'weekly' && (input.dayOfWeek ?? null) === dow) {
-      lastTriggeredKey = todayDayKey;
-    } else if (
-      input.recurrence === 'monthly' &&
-      (input.dayOfMonth ?? null) === now.getDate()
-    ) {
-      lastTriggeredKey = todayDayKey;
-    } else if (input.recurrence === 'custom' && input.customRecurrence) {
-      const cr = input.customRecurrence;
-      if (cr.unit === 'days') {
-        // Custom-days fires on creation by definition (anchor = today).
-        lastTriggeredKey = todayDayKey;
-      } else if (cr.daysOfWeek?.includes(dow)) {
-        lastTriggeredKey = todayDayKey;
-      }
-    }
+    // Delegated to `computeCreationLastTriggeredKey` so the monthly clamp
+    // (day-31 in Feb → last day of month) stays in lockstep with `isChoreDueOn`.
+    const lastTriggeredKey = computeCreationLastTriggeredKey(
+      input.recurrence,
+      {
+        dayOfWeek: input.dayOfWeek ?? null,
+        dayOfMonth: input.dayOfMonth ?? null,
+        customRecurrence: input.customRecurrence ?? null,
+      },
+      now
+    );
 
     try {
       await addDoc(choresCol(houseId), {
@@ -253,6 +242,34 @@ export function useChores() {
       }
       // Apply resets first, then let the patch's explicit values win via spread.
       Object.assign(update, shapeReset, patch);
+
+      // Re-anchor the cadence so the new recurrence starts a fresh cycle from
+      // today instead of inheriting state from the previous shape:
+      //   - `recurrenceAnchorKey` controls the modulus in `isChoreDueOn` and
+      //     `evaluateRoll` for custom-days / custom-weeks. Without a reset,
+      //     switching `once`-with-null-anchor → custom-days falls back to
+      //     `createdAt` (potentially weeks ago), inflating `shift` on the
+      //     first advance.
+      //   - `lastTriggeredKey` controls the `isFirstAdvance` guard in
+      //     `rolloverHouse`. Carrying it over from the prior cadence causes
+      //     the user-picked assignee to be rotated away on the new cadence's
+      //     very first scheduled fire. Pre-stamping it via the shared helper
+      //     keeps the seeded assignee on the current occurrence when today
+      //     happens to be a fire day for the new shape.
+      const now = new Date();
+      const todayDayKey = getDayKey(now);
+      const effectiveShape = {
+        dayOfWeek: (update.dayOfWeek as number | null | undefined) ?? null,
+        dayOfMonth: (update.dayOfMonth as number | null | undefined) ?? null,
+        customRecurrence:
+          (update.customRecurrence as Chore['customRecurrence']) ?? null,
+      };
+      update.recurrenceAnchorKey = r === 'once' ? null : todayDayKey;
+      update.lastTriggeredKey = computeCreationLastTriggeredKey(
+        r,
+        effectiveShape,
+        now
+      );
     }
 
     await updateDoc(choreRef, update);

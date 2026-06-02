@@ -1,8 +1,10 @@
+import { ProgressRing } from '@/src/components/chores/ProgressRing';
 import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
+import { CHORE_THEME } from '@/src/theme/chores';
 import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
@@ -315,17 +317,21 @@ export default function HomeScreen() {
                 <Text style={styles.noteMeta}>Nothing today ✓</Text>
               ) : (
                 <>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${(doneCount / chores.length) * 100}%` as any },
-                      ]}
-                    />
+                  <View style={styles.choreRingRow}>
+                    <ProgressRing
+                      size={56}
+                      stroke={5}
+                      progress={doneCount / chores.length}
+                      trackColor={C.progressBg}
+                      fillColor={CHORE_THEME.accent}
+                      centerColor={C.noteCream}
+                    >
+                      <Text style={styles.choreRingInner}>
+                        {doneCount}/{chores.length}
+                      </Text>
+                    </ProgressRing>
+                    <Text style={styles.choreRingCaption}>done this week</Text>
                   </View>
-                  <Text style={styles.progressLabel}>
-                    {doneCount}/{chores.length} done
-                  </Text>
                   {chores.slice(0, 5).map((c) => {
                     const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
                     return (
@@ -716,15 +722,23 @@ const styles = StyleSheet.create({
   },
 
   // ── Chores ──────────────────────────────────────────────────────────────────
-  progressTrack: {
-    height: 4,
-    backgroundColor: C.progressBg,
-    borderRadius: 2,
-    marginBottom: 4,
-    overflow: "hidden",
+  choreRingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
   },
-  progressFill: { height: 4, backgroundColor: C.magnetPurple, borderRadius: 2 },
-  progressLabel: { fontSize: 10, color: C.noteMeta, marginBottom: 8 },
+  choreRingInner: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: C.noteText,
+  },
+  choreRingCaption: {
+    fontSize: 11,
+    color: C.noteMeta,
+    fontWeight: "600",
+    flex: 1,
+  },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,15 +1,7 @@
+import { CHORE_THEME } from '@/src/theme/chores';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const CH = {
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-};
 
 export interface DropdownOption<V extends string> {
   label: string;
@@ -44,7 +36,7 @@ export function RecurrenceDropdown<V extends string>({
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
-          color={CH.textStrong}
+          color={CHORE_THEME.text}
         />
       </TouchableOpacity>
 
@@ -73,7 +65,7 @@ export function RecurrenceDropdown<V extends string>({
               >
                 <View style={styles.checkSlot}>
                   {selected && (
-                    <Ionicons name="checkmark" size={14} color={CH.textStrong} />
+                    <Ionicons name="checkmark" size={14} color={CHORE_THEME.accent} />
                   )}
                 </View>
                 <Text
@@ -118,16 +110,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: CH.plateBg,
+    borderRadius: 12,
+    backgroundColor: CHORE_THEME.cardBg,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
   },
   triggerText: {
     fontSize: 14,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '600',
   },
   menu: {
@@ -136,13 +128,13 @@ const styles = StyleSheet.create({
     left: 0,
     marginTop: 8,
     minWidth: 180,
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: CH.plateBorder,
+    borderColor: CHORE_THEME.hairline,
     paddingVertical: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
@@ -161,11 +153,11 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 14,
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     fontWeight: '500',
   },
   menuItemTextSelected: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '700',
   },
 });
