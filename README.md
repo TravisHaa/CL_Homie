@@ -232,6 +232,33 @@ npx expo start --ios      # requires Xcode
 npx expo start --android  # requires Android Studio
 ```
 
+### 6. Push notifications (one-time setup, physical device only)
+
+Push notifications require an EAS project ID. This is a **one-time step** — once it's in `app.json` you never run it again.
+
+```bash
+npm install -g eas-cli   # install EAS CLI (skip if already installed)
+eas login                # log in with your Expo account
+eas init                 # links the project and writes projectId into app.json
+```
+
+After `eas init`, `app.json` will contain:
+
+```json
+"extra": {
+  "eas": { "projectId": "your-project-id" }
+}
+```
+
+Then test on a real device (push tokens don't work in simulators or on web):
+
+1. `npm start` → scan QR with **Expo Go**
+2. Log in — the app will request notification permission automatically
+3. Check Firestore: `users/{uid}/devices/{deviceId}` should have a non-null `expoPushToken`
+4. Create a calendar event and assign it to a roommate → they'll receive a push: **"[your name] added you to an event"**
+
+> **Note:** Without the EAS project ID the app still runs normally — push registration is silently skipped with a console warning. You only need this setup when testing notifications specifically.
+
 ---
 
 ## External APIs
