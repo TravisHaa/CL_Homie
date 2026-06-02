@@ -19,6 +19,12 @@ functions/.env.local
 functions/*.log
 WORKTREES.md
 
+# Firebase emulator / debug logs
+firestore-debug.log
+firebase-debug.log
+*-debug.log
+ui-debug.log
+
 # Playwright / MCP browser artifacts
 .playwright-mcp/
 playwright-report/

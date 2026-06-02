@@ -5,5 +5,6 @@
  * `functions/jobs/` and re-exported here so Firebase can discover it.
  */
 
+export { dailyChoreReset } from '../jobs/dailyChoreReset';
 export { weeklyChoreReset } from '../jobs/weeklyChoreReset';
 export { exchangeGoogleAuthCode, unlinkGoogleCalendar } from './google-oauth';

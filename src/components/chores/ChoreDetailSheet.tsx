@@ -1,6 +1,8 @@
 import { useHouseStore } from '@/src/store/houseStore';
+import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
+import { confirm, notify } from '@/src/utils/confirm';
 import { Ionicons } from '@expo/vector-icons';
 import {
     BottomSheetBackdrop,
@@ -13,27 +15,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
 import { RecurrenceDropdown } from './RecurrenceDropdown';
 
-// Peach palette mirrors app/(tabs)/chores.tsx (CH constants).
-const CH = {
-  peachBg: '#FFF0E2',
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-  danger: '#C0392B',
-  dangerBg: '#FBE9E7',
-};
-
-type EditableRecurrence = Exclude<Chore['recurrence'], 'biweekly'>;
-
-const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
+const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
@@ -42,11 +29,6 @@ const RECURRENCES: { label: string; value: EditableRecurrence }[] = [
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// Coerces the (possibly legacy 'biweekly') stored value to an editable form.
-function toEditable(r: Chore['recurrence']): EditableRecurrence {
-  return r === 'biweekly' ? 'custom' : r;
-}
 
 type ChoreUpdatePatch = Partial<
   Pick<
@@ -82,7 +64,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
     const [title, setTitle] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
-    const [recurrence, setRecurrence] = useState<EditableRecurrence>('once');
+    const [recurrence, setRecurrence] = useState<Chore['recurrence']>('once');
     const [autoRotate, setAutoRotate] = useState(false);
     const [dayOfWeek, setDayOfWeek] = useState<number>(0);
     const [dayOfMonth, setDayOfMonth] = useState<number>(1);
@@ -108,17 +90,16 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     // Reset form whenever a different chore is opened.
     useEffect(() => {
       if (!chore) return;
-      const editable = toEditable(chore.recurrence);
       setTitle(chore.title);
       setAssignedTo(chore.assignedTo);
-      setRecurrence(editable);
+      setRecurrence(chore.recurrence);
       setAutoRotate(!!chore.autoRotate);
       setDayOfWeek(chore.dayOfWeek ?? 0);
       setDayOfMonth(chore.dayOfMonth ?? 1);
       // Seed custom controls from the stored shape, or sensible defaults when
       // switching INTO custom from a different recurrence in the editor.
       const cr = chore.customRecurrence ?? null;
-      setCustomCount(cr?.count ?? (chore.recurrence === 'biweekly' ? 2 : 1));
+      setCustomCount(cr?.count ?? 1);
       setCustomUnit(cr?.unit ?? 'weeks');
       setCustomDays(
         cr?.daysOfWeek ??
@@ -151,8 +132,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const showWeeklyDayPicker = recurrence === 'weekly';
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
-    const supportsAutoRotate =
-      recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'custom';
+    const supportsAutoRotate = recurrence !== 'once';
     const requiresMemberPick = !supportsAutoRotate || !autoRotate;
 
     const toggleCustomDay = (idx: number) => {
@@ -173,7 +153,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const isDirty =
       title.trim() !== chore.title ||
       (requiresMemberPick && assignedTo !== chore.assignedTo) ||
-      recurrence !== toEditable(chore.recurrence) ||
+      recurrence !== chore.recurrence ||
       (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
       (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
       (showMonthlyDayPicker && dayOfMonth !== (chore.dayOfMonth ?? 1)) ||
@@ -184,18 +164,18 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (!chore) return;
       const trimmed = title.trim();
       if (!trimmed) {
-        Alert.alert('Title required', 'Please enter a chore name.');
+        notify('Title required', 'Please enter a chore name.');
         return;
       }
 
       // Validate custom shape before building the patch.
       if (recurrence === 'custom') {
         if (customCount < 1) {
-          Alert.alert('Invalid interval', 'Repeat-every count must be at least 1.');
+          notify('Invalid interval', 'Repeat-every count must be at least 1.');
           return;
         }
         if (customUnit === 'weeks' && customDays.length === 0) {
-          Alert.alert('Pick a day', 'Choose at least one day of the week to repeat on.');
+          notify('Pick a day', 'Choose at least one day of the week to repeat on.');
           return;
         }
       }
@@ -205,7 +185,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
         patch.assignedTo = assignedTo;
       }
-      if (recurrence !== toEditable(chore.recurrence)) {
+      if (recurrence !== chore.recurrence) {
         patch.recurrence = recurrence;
       }
       if (supportsAutoRotate && autoRotate !== !!chore.autoRotate) {
@@ -242,40 +222,35 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
         await onUpdate(chore.id, patch, { recurrence: chore.recurrence });
         (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
       } catch (err: any) {
-        Alert.alert('Could not update chore', err.message ?? 'Unknown error');
+        notify('Could not update chore', err.message ?? 'Unknown error');
       } finally {
         setSubmitting(false);
       }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
       if (!chore) return;
-      Alert.alert(
-        'Delete chore?',
-        `"${chore.title}" will be removed. This cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: async () => {
-              setSubmitting(true);
-              try {
-                await onDelete(chore.id);
-                (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
-              } catch (err: any) {
-                Alert.alert('Could not delete chore', err.message ?? 'Unknown error');
-              } finally {
-                setSubmitting(false);
-              }
-            },
-          },
-        ]
-      );
+      const ok = await confirm({
+        title: 'Delete chore?',
+        message: `"${chore.title}" will be removed. This cannot be undone.`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        destructive: true,
+      });
+      if (!ok) return;
+      setSubmitting(true);
+      try {
+        await onDelete(chore.id);
+        (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
+      } catch (err: any) {
+        notify('Could not delete chore', err.message ?? 'Unknown error');
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     const handleAddToCalendar = () => {
-      Alert.alert('Coming soon', 'Calendar sync will be available in a future update.');
+      notify('Coming soon', 'Calendar sync will be available in a future update.');
     };
 
     const handleClose = () => {
@@ -302,7 +277,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           <View style={styles.headerRow}>
             <Text style={styles.heading}>Edit Chore</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color={CH.textStrong} />
+              <Ionicons name="close" size={24} color={CHORE_THEME.text} />
             </TouchableOpacity>
           </View>
           <View style={styles.headerDivider} />
@@ -312,7 +287,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           <TextInput
             style={styles.input}
             placeholder="e.g. Clean the bathroom"
-            placeholderTextColor={CH.textSoft}
+            placeholderTextColor={CHORE_THEME.textMuted}
             value={title}
             onChangeText={setTitle}
           />
@@ -446,7 +421,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
                         border: 'none',
                         background: 'transparent',
                         fontSize: 16,
-                        color: CH.textStrong,
+                        color: CHORE_THEME.text,
                         outline: 'none',
                         padding: 0,
                         position: 'relative',
@@ -559,7 +534,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
             disabled={submitting}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color={CH.danger} />
+            <Ionicons name="trash-outline" size={16} color={CHORE_THEME.danger} />
             <Text style={styles.deleteButtonText}>Delete chore</Text>
           </TouchableOpacity>
         </BottomSheetScrollView>
@@ -572,10 +547,10 @@ ChoreDetailSheet.displayName = 'ChoreDetailSheet';
 
 const styles = StyleSheet.create({
   sheetBackground: {
-    backgroundColor: CH.peachBg,
+    backgroundColor: CHORE_THEME.bg,
   },
   handle: {
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
   },
   content: {
     padding: 24,
@@ -589,33 +564,32 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 22,
     fontWeight: '800',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
     marginTop: 10,
     marginBottom: 4,
-    opacity: 0.6,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginBottom: 8,
     marginTop: 18,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: CH.textStrong,
-    backgroundColor: CH.white,
+    color: CHORE_THEME.text,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   chipRow: {
     flexDirection: 'row',
@@ -625,22 +599,22 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   chipActive: {
-    backgroundColor: CH.fill,
-    borderColor: CH.fill,
+    backgroundColor: CHORE_THEME.accent,
+    borderColor: CHORE_THEME.accent,
   },
   chipText: {
     fontSize: 14,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '500',
   },
   summary: {
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     fontSize: 13,
     marginBottom: 8,
   },
@@ -653,17 +627,17 @@ const styles = StyleSheet.create({
   stepperButton: {
     width: 36,
     height: 36,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperButtonText: {
     fontSize: 20,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     lineHeight: 22,
   },
   stepperValue: {
@@ -671,7 +645,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   unitGroup: {
     flexDirection: 'row',
@@ -679,7 +653,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   chipTextActive: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontWeight: '700',
   },
   datePickerContainer: {
@@ -689,28 +663,28 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   dateButtonText: {
     fontSize: 16,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   clearButton: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.fill,
-    backgroundColor: CH.plateBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   clearButtonText: {
     fontSize: 14,
-    color: CH.fill,
+    color: CHORE_THEME.text,
     fontWeight: '600',
   },
   avatarRow: {
@@ -732,21 +706,21 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   avatarCircleActive: {
-    borderColor: CH.fill,
+    borderColor: CHORE_THEME.accent,
   },
   avatarInitial: {
     fontSize: 18,
     fontWeight: '700',
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
   },
   avatarName: {
     fontSize: 12,
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
   avatarNameActive: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '700',
   },
   footerRow: {
@@ -756,22 +730,22 @@ const styles = StyleSheet.create({
   },
   outlineButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   outlineButtonText: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '600',
     fontSize: 14,
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: CH.fill,
-    borderRadius: 999,
+    backgroundColor: CHORE_THEME.accent,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -779,7 +753,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -792,7 +766,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   deleteButtonText: {
-    color: CH.danger,
+    color: CHORE_THEME.danger,
     fontSize: 13,
     fontWeight: '600',
   },

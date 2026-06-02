@@ -69,7 +69,7 @@ Homie/
 │   └── utils/                  # weekKey, colors, categories, nanoid
 │
 └── functions/                  # Firebase Cloud Functions (Node.js)
-    ├── weeklyChoreReset.ts     # Generates next week's chore docs every Sunday
+    ├── dailyChoreReset.ts      # Advances each house's recurring chores nightly (00:01 PT)
     └── expirationAlerts.ts     # Checks pantry daily, sends push notifications
 ```
 

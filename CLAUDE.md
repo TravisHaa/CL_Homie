@@ -182,7 +182,9 @@ progressBg:   '#E8E4DC'
 
 ---
 
-#### Theme B — Thermal Receipt (`chores.tsx`, `shopping.tsx`)
+#### Theme B — Thermal Receipt (`shopping.tsx`)
+
+> **Note:** `chores.tsx` was previously also a Thermal Receipt screen. As of the Figma redesign it lives on its own — see "Theme C — Chore Tracker" below.
 
 These screens look like a printed receipt from a thermal printer. Off-white paper, monospace type, dashed separators, items laid out as receipt line items (name left, value right). Think deli counter or grocery checkout tape.
 
@@ -249,6 +251,36 @@ thinRule: { height: 1, backgroundColor: '#E8E8E4', marginVertical: 8 }
 
 ---
 
+#### Theme C — Chore Tracker (`chores.tsx`, chore bottom sheets, home chore widget)
+
+The chores subsystem matches the Figma "Chore Tracker" frame (file `5HytbjMjgLB2Gu7lSGXqk2`, node `794:1845`). Cream surfaces, espresso ink, teal as the single primary accent. Centerpiece is a circular completion dial showing `{pct}%` for the week.
+
+**Tokens** — never declare local `CH = { ... }` blocks in chore files. Always import:
+
+```ts
+import { CHORE_THEME } from '@/src/theme/chores';
+// CHORE_THEME.bg / .text / .textMuted / .textFaint / .hairline
+// .cardBg / .accent / .onAccent / .ringTrack / .ringFill
+// .dueToday / .overdue / .danger (all derived from PALETTE)
+```
+
+`CHORE_THEME` resolves to the values in `src/theme/palette.ts` (cream `#FCF5EE`, espresso `#2E0800`, teal `#4D797E`, terracotta `#E38C6E`, coral `#FF6237`). Nothing here is hand-picked.
+
+**Centerpiece** — `src/components/chores/ProgressRing.tsx`. Pure-RN (no `react-native-svg` dep), implemented with two rotating half-discs over a track + an inner punch-out. Props: `size`, `stroke`, `progress`, `trackColor?`, `fillColor?`, `centerColor?`, `children`. `centerColor` MUST match whatever sits behind the ring (cream on the chores tab, `noteCream` on the home magnet note) or you'll see a colored disc in the middle.
+
+**Layout rules**
+- `borderRadius: 14` for cards and buttons; pill-radius 999 is banned for chore UI (drop it during any future edits).
+- Day-of-week chips and the day-of-month grid: idle = `cardBg` + `hairline` border, active = filled `accent` + `onAccent` text.
+- FAB on the chores tab: 44pt, filled `accent`, white `+`.
+- Done chores: `textDecorationLine: 'line-through'` + `color: textFaint`. The check button is a 22pt circle, idle hairline border, done filled teal with a white checkmark.
+
+**Files in this theme**
+- `app/(tabs)/chores.tsx` — header, ProgressRing dial, member avatar row, FlatList
+- `src/components/chores/{ChoreCard, ChoreForm, ChoreDetailSheet, ChoresEmptyState, AssignmentTile, RecurrenceDropdown, MonthDayPicker, ProgressRing}.tsx`
+- The chore "Note" widget on `app/(tabs)/index.tsx` (Fridge Magnet wrapper stays; only the inner progress bar was swapped for a 56pt teal ProgressRing).
+
+---
+
 #### Global Tokens (auth, settings, modals, calendar, pantry)
 
 ```
@@ -278,8 +310,8 @@ tabBar: { backgroundColor: '#FFFBF5', borderTopWidth: 0, shadowOpacity: 0 }
 
 | Screen | Theme |
 |---|---|
-| `index.tsx` | Fridge Magnet |
-| `chores.tsx` | Thermal Receipt |
+| `index.tsx` | Fridge Magnet (chore widget restyled with `ProgressRing` from Theme C) |
+| `chores.tsx` | Chore Tracker |
 | `shopping.tsx` | Thermal Receipt |
 | `calendar.tsx` | Global (neutral) |
 | `pantry.tsx` | Global (neutral) |

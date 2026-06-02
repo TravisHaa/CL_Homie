@@ -1,11 +1,10 @@
 # Homie Cloud Functions
 
 Server-side scheduled jobs for Homie. The current deliverable is the
-**weekly chore reset** (`weeklyChoreReset`), which is the authoritative
-source for advancing each house's recurring chores to the new week.
-The client-side rollover in `src/firebase/choreRollover.ts` is a
-temporary same-session fallback and will be retired in a follow-up issue
-once this function is observed running cleanly in production.
+**daily chore reset** (`dailyChoreReset`), which is the authoritative
+(and only) source for advancing each house's recurring chores to the
+current day / week / month. The client has no rollover code path of its
+own — it just observes Firestore state mutated by this function.
 
 ## Prerequisites (one-time)
 
@@ -35,7 +34,11 @@ firebase emulators:start --only functions,firestore
 
 # Or use the Functions shell to invoke handlers manually:
 npm run shell
-> weeklyChoreReset()    # invokes the scheduled function once
+> dailyChoreReset()     # invokes the scheduled function once (cadence-respecting; off-cycle calls only uncross)
+
+# Force-rotate every recurring chore by one step regardless of cadence
+# (useful for testing rotation off-cycle). Production cron never sets force=true.
+> require('./lib/jobs/dailyChoreReset').runDailyChoreReset(new Date(), { force: true })
 ```
 
 The emulators do **not** require the Blaze plan.
@@ -52,21 +55,25 @@ Cloud Logging filter for this function:
 
 ```
 resource.type="cloud_function"
-resource.labels.function_name="weeklyChoreReset"
+resource.labels.function_name="dailyChoreReset"
 ```
 
 The function emits structured events with severities `info` and `error`:
 
-- `weeklyChoreReset.start` — `{ targetWeekKey, targetDayKey, houseCount }`
-- `weeklyChoreReset.house` — `{ houseId, status, rolled, weeksAdvanced, errorMessage? }`
-  where `status` is one of `rolled | noop | race_guard_hit | empty | error`.
-- `weeklyChoreReset.end` — `{ durationMs, totals: { rolled, noop, raceGuardHit, empty, errors } }`
+- `dailyChoreReset.start` — `{ targetWeekKey, targetDayKey, houseCount }`
+- `dailyChoreReset.house` — `{ houseId, status, rolled, weeksAdvanced, errorMessage? }`
+  where `status` is one of `rolled | noop | empty | error`.
+- `dailyChoreReset.end` — `{ durationMs, totals: { rolled, noop, empty, errors } }`
 
 No PII is logged; only `houseId` and counts.
 
 ## Schedule
 
-`0 23 * * 0` in `America/Los_Angeles` — late Sunday Pacific, just before
-the Monday ISO-week flip. The handler computes its target week from
-`nextMondayDate(now)` rather than `now`, so a small schedule drift in
-either direction does not change the resulting `weekKey`.
+`1 0 * * *` in `America/Los_Angeles` — every day at 00:01 Pacific, the
+first minute of the new calendar day and well clear of the 02:00 DST
+jumps. Daily firing is required for correctness: cadences whose due-day
+isn't a Monday (e.g. a "Wednesday only" custom-weeks chore or a "day 15"
+monthly chore) need their `weekKey` re-stamped on the day they actually
+fire, otherwise the `useChores` listener (which filters by `weekKey ==
+currentWeek`) silently hides them from the Chores tab. The handler is
+idempotent within a day, so repeated invocations are safe.

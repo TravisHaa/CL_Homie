@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type TabTheme = {
@@ -61,7 +61,16 @@ export default function TabLayout() {
         />
       ))}
       {HIDDEN.map((name) => (
-        <Tabs.Screen key={name} name={name} options={{ href: null }} />
+        <Tabs.Screen
+          key={name}
+          name={name}
+          options={{
+            href: null,
+            // Chores has its own in-screen header in the cream/teal redesign;
+            // showing the default peach native header above it would clash.
+            ...(name === 'chores' ? { headerShown: false } : {}),
+          }}
+        />
       ))}
     </Tabs>
   );
