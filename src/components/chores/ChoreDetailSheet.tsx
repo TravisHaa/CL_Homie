@@ -1,4 +1,5 @@
 import { useHouseStore } from '@/src/store/houseStore';
+import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore, CustomIntervalUnit, CustomRecurrence } from '@/src/types';
 import { recurrenceLabel as formatRecurrenceLabel } from '@/src/utils/choreSchedule';
 import { confirm, notify } from '@/src/utils/confirm';
@@ -18,19 +19,6 @@ import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'r
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
 import { RecurrenceDropdown } from './RecurrenceDropdown';
-
-// Peach palette mirrors app/(tabs)/chores.tsx (CH constants).
-const CH = {
-  peachBg: '#FFF0E2',
-  plateBg: '#FFE2CB',
-  plateBorder: '#F4BA93',
-  textStrong: '#5A2F1A',
-  textSoft: '#946345',
-  fill: '#D97745',
-  white: '#FFFFFF',
-  danger: '#C0392B',
-  dangerBg: '#FBE9E7',
-};
 
 const RECURRENCES: { label: string; value: Chore['recurrence'] }[] = [
   { label: 'Does not repeat', value: 'once' },
@@ -289,7 +277,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           <View style={styles.headerRow}>
             <Text style={styles.heading}>Edit Chore</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color={CH.textStrong} />
+              <Ionicons name="close" size={24} color={CHORE_THEME.text} />
             </TouchableOpacity>
           </View>
           <View style={styles.headerDivider} />
@@ -299,7 +287,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           <TextInput
             style={styles.input}
             placeholder="e.g. Clean the bathroom"
-            placeholderTextColor={CH.textSoft}
+            placeholderTextColor={CHORE_THEME.textMuted}
             value={title}
             onChangeText={setTitle}
           />
@@ -433,7 +421,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
                         border: 'none',
                         background: 'transparent',
                         fontSize: 16,
-                        color: CH.textStrong,
+                        color: CHORE_THEME.text,
                         outline: 'none',
                         padding: 0,
                         position: 'relative',
@@ -546,7 +534,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
             disabled={submitting}
             activeOpacity={0.7}
           >
-            <Ionicons name="trash-outline" size={16} color={CH.danger} />
+            <Ionicons name="trash-outline" size={16} color={CHORE_THEME.danger} />
             <Text style={styles.deleteButtonText}>Delete chore</Text>
           </TouchableOpacity>
         </BottomSheetScrollView>
@@ -559,10 +547,10 @@ ChoreDetailSheet.displayName = 'ChoreDetailSheet';
 
 const styles = StyleSheet.create({
   sheetBackground: {
-    backgroundColor: CH.peachBg,
+    backgroundColor: CHORE_THEME.bg,
   },
   handle: {
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
   },
   content: {
     padding: 24,
@@ -576,33 +564,32 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 22,
     fontWeight: '800',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   headerDivider: {
     height: 1,
-    backgroundColor: CH.plateBorder,
+    backgroundColor: CHORE_THEME.hairline,
     marginTop: 10,
     marginBottom: 4,
-    opacity: 0.6,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginBottom: 8,
     marginTop: 18,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: CH.textStrong,
-    backgroundColor: CH.white,
+    color: CHORE_THEME.text,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   chipRow: {
     flexDirection: 'row',
@@ -612,22 +599,22 @@ const styles = StyleSheet.create({
   chip: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   chipActive: {
-    backgroundColor: CH.fill,
-    borderColor: CH.fill,
+    backgroundColor: CHORE_THEME.accent,
+    borderColor: CHORE_THEME.accent,
   },
   chipText: {
     fontSize: 14,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '500',
   },
   summary: {
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     fontSize: 13,
     marginBottom: 8,
   },
@@ -640,17 +627,17 @@ const styles = StyleSheet.create({
   stepperButton: {
     width: 36,
     height: 36,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    backgroundColor: CH.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperButtonText: {
     fontSize: 20,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     lineHeight: 22,
   },
   stepperValue: {
@@ -658,7 +645,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '700',
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   unitGroup: {
     flexDirection: 'row',
@@ -666,7 +653,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   chipTextActive: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontWeight: '700',
   },
   datePickerContainer: {
@@ -676,28 +663,28 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   dateButtonText: {
     fontSize: 16,
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
   },
   clearButton: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: CH.fill,
-    backgroundColor: CH.plateBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   clearButtonText: {
     fontSize: 14,
-    color: CH.fill,
+    color: CHORE_THEME.text,
     fontWeight: '600',
   },
   avatarRow: {
@@ -719,21 +706,21 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   avatarCircleActive: {
-    borderColor: CH.fill,
+    borderColor: CHORE_THEME.accent,
   },
   avatarInitial: {
     fontSize: 18,
     fontWeight: '700',
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
   },
   avatarName: {
     fontSize: 12,
-    color: CH.textSoft,
+    color: CHORE_THEME.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
   avatarNameActive: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '700',
   },
   footerRow: {
@@ -743,22 +730,22 @@ const styles = StyleSheet.create({
   },
   outlineButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: CH.plateBorder,
-    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: CH.white,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   outlineButtonText: {
-    color: CH.textStrong,
+    color: CHORE_THEME.text,
     fontWeight: '600',
     fontSize: 14,
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: CH.fill,
-    borderRadius: 999,
+    backgroundColor: CHORE_THEME.accent,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -766,7 +753,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: CH.white,
+    color: CHORE_THEME.onAccent,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -779,7 +766,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   deleteButtonText: {
-    color: CH.danger,
+    color: CHORE_THEME.danger,
     fontSize: 13,
     fontWeight: '600',
   },
