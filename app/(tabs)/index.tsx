@@ -5,9 +5,8 @@ import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
 import { CHORE_THEME } from '@/src/theme/chores';
-import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
-import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
+import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
@@ -204,16 +203,11 @@ export default function HomeScreen() {
   const weekKey = getWeekKey();
   const now = new Date();
 
-  const chores = allChores.filter((c) => {
-    // Overdue / today's one-time chores remain visible.
-    if (c.recurrence === 'once') {
-      return (
-        !!c.dueAt &&
-        (isToday(c.dueAt.toDate()) || (isPast(c.dueAt.toDate()) && !c.isCompleted))
-      );
-    }
-    return isChoreDueOn(c, now);
-  });
+  // `useChores` already scopes to the current ISO week (plus still-incomplete
+  // one-time chores from prior weeks, so overdue tasks remain visible). The
+  // Home card mirrors the Chores tab's working set so the count under the
+  // "done this week" caption matches what the user sees one tap away.
+  const chores = allChores;
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
   const events = allEvents
@@ -314,7 +308,7 @@ export default function HomeScreen() {
               {choresLoading ? (
                 <Text style={styles.noteMeta}>Loading…</Text>
               ) : chores.length === 0 ? (
-                <Text style={styles.noteMeta}>Nothing today ✓</Text>
+                <Text style={styles.noteMeta}>Nothing this week ✓</Text>
               ) : (
                 <>
                   <View style={styles.choreRingRow}>
