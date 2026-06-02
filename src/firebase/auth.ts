@@ -1,15 +1,18 @@
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  updateProfile,
+    confirmPasswordReset,
+    createUserWithEmailAndPassword,
+    signOut as firebaseSignOut,
+    sendPasswordResetEmail,
+    signInWithEmailAndPassword,
+    updateProfile,
+    verifyPasswordResetCode,
 } from 'firebase/auth';
-import { setDoc, serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, setDoc } from 'firebase/firestore';
 import { Platform } from 'react-native';
-import { auth } from './config';
-import { userDoc, deviceDoc } from './firestore';
 import { ROOMMATE_COLORS } from '../utils/colors';
 import { getOrCreateDeviceId } from '../utils/deviceId';
+import { auth } from './config';
+import { deviceDoc, userDoc } from './firestore';
 
 export async function signUp(
   email: string,
@@ -34,7 +37,9 @@ export async function signUp(
     houseId: null,
     color,
     createdAt: serverTimestamp(),
-  } as any);
+  } as any).catch((err) => {
+    console.warn('[Auth] profile write after signUp failed:', err);
+  });
 
   return credential.user;
 }
@@ -42,6 +47,18 @@ export async function signUp(
 export async function signIn(email: string, password: string) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
+}
+
+export async function sendResetPasswordEmail(email: string) {
+  await sendPasswordResetEmail(auth, email);
+}
+
+export async function verifyResetPasswordCode(code: string) {
+  return verifyPasswordResetCode(auth, code);
+}
+
+export async function confirmResetPassword(code: string, password: string) {
+  await confirmPasswordReset(auth, code, password);
 }
 
 export async function signOut() {
