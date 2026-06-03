@@ -124,7 +124,7 @@ export default function SettingsScreen() {
 
         {/* ── Profile card ── */}
         <Text style={styles.profileSectionLabel}>My account</Text>
-        <Pressable style={styles.profileCard} onPress={() => {}} android_ripple={{ color: '#eee' }}>
+        <Pressable style={styles.profileCard} onPress={() => router.push('/(tabs)/myaccount')} android_ripple={{ color: '#eee' }}>
           <View style={styles.profileAvatar}>
             {userProfile?.avatarUrl ? (
               <Image source={{ uri: userProfile.avatarUrl }} style={styles.profileAvatarImg} />

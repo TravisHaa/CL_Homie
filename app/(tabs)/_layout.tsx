@@ -14,7 +14,7 @@ const TABS: { name: string; title: string; Icon: React.FC<{ width: number; heigh
   { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard'];
+const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
 const TAB_ACTIVE: Record<string, string> = {
   index: '#A7572D',
   pantry: '#1B8F63',

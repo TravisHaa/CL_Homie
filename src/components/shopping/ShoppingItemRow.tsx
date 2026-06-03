@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Animated, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ShoppingItem } from '@/src/types';
 
@@ -30,13 +30,24 @@ function boughtWhen(ts: any): string {
   return `${diffDays} days ago`;
 }
 
+function MemberAvatar({ info, size = 38 }: { info?: MemberInfo | null; size?: number }) {
+  const radius = size / 2;
+  if (info?.avatarUrl) {
+    return <Image source={{ uri: info.avatarUrl }} style={{ width: size, height: size, borderRadius: radius }} />;
+  }
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: info?.color ?? '#B0BEC5', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={[styles.avatarInitial, { fontSize: size * 0.39 }]}>
+        {info?.displayName?.charAt(0).toUpperCase() ?? '?'}
+      </Text>
+    </View>
+  );
+}
+
 export function ShoppingItemRow({ item, memberMap, currentUserId, onToggle, onDelete, onEdit, onBought, onUndo }: Props) {
   const addedByInfo = memberMap[item.addedBy];
   const checkedByInfo = item.checkedBy ? memberMap[item.checkedBy] : null;
-  const avatarColor = checkedByInfo?.color ?? addedByInfo?.color ?? '#B0BEC5';
-  const avatarInitial = checkedByInfo?.displayName?.charAt(0).toUpperCase()
-    ?? addedByInfo?.displayName?.charAt(0).toUpperCase()
-    ?? '?';
+  const displayInfo = checkedByInfo ?? addedByInfo;
 
   const buyerName = !item.checkedBy
     ? null
@@ -87,9 +98,7 @@ export function ShoppingItemRow({ item, memberMap, currentUserId, onToggle, onDe
               <Text style={styles.undoBtnText}>Undo</Text>
             </TouchableOpacity>
           ) : (
-            <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
-            </View>
+            <MemberAvatar info={displayInfo} />
           )}
         </Animated.View>
       </Pressable>
@@ -122,9 +131,7 @@ export function ShoppingItemRow({ item, memberMap, currentUserId, onToggle, onDe
             </View>
           </View>
 
-          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-            <Text style={styles.avatarInitial}>{avatarInitial}</Text>
-          </View>
+          <MemberAvatar info={displayInfo} />
         </TouchableOpacity>
       ) : (
         /* ── Back face — tap anywhere to flip back ── */

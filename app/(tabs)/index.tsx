@@ -15,6 +15,7 @@ import { GridBackground } from '@/src/components/GridBackground';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 import RecentActivitySvg from '@/assets/images/recent activity.svg';
+import RecentActivityIcon from '@/assets/images/Recent Activity icon.svg';
 import { Ionicons } from '@expo/vector-icons';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import HeaderSvg from '@/assets/images/header.svg';
@@ -234,6 +235,46 @@ export default function HomeScreen() {
 
   const uncheckedCount = allShopping.filter((i) => !i.isChecked).length;
 
+  function toTimeAgo(ts: { toDate(): Date }): string {
+    const diff = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  }
+
+  function memberInfo(userId: string) {
+    const m = memberMap[userId];
+    return {
+      avatarColor: m?.color ?? '#C8B89A',
+      avatarInitial: m?.displayName?.charAt(0).toUpperCase() ?? '?',
+      avatarUrl: m?.avatarUrl ?? null,
+    };
+  }
+
+  const rawActivities: { ts: number; boldText: string; message: string; avatarColor: string; avatarInitial: string; avatarUrl: string | null; timeAgo: string }[] = [];
+  for (const item of allShopping) {
+    if (!item.createdAt) continue;
+    const mi = memberInfo(item.addedBy);
+    rawActivities.push({ ts: item.createdAt.toMillis(), boldText: item.name, message: ' added to Shopping List', timeAgo: toTimeAgo(item.createdAt), ...mi });
+  }
+  for (const chore of allChores) {
+    if (chore.completedAt && chore.completedBy) {
+      const mi = memberInfo(chore.completedBy);
+      rawActivities.push({ ts: chore.completedAt.toMillis(), boldText: chore.title, message: ' marked as done', timeAgo: toTimeAgo(chore.completedAt), ...mi });
+    }
+    if (chore.createdAt) {
+      const mi = memberInfo(chore.createdBy);
+      rawActivities.push({ ts: chore.createdAt.toMillis(), boldText: chore.title, message: ' added to Chores', timeAgo: toTimeAgo(chore.createdAt), ...mi });
+    }
+  }
+  for (const event of allEvents) {
+    if (!event.createdAt) continue;
+    const mi = memberInfo(event.createdBy);
+    rawActivities.push({ ts: event.createdAt.toMillis(), boldText: event.title, message: ' event created', timeAgo: toTimeAgo(event.createdAt), ...mi });
+  }
+  const recentActivities = rawActivities.sort((a, b) => b.ts - a.ts).slice(0, 3);
+
   const houseId = house?.id;
   const [uploading, setUploading] = useState(false);
   const [pictureLabel, setPictureLabel] = useState('Picture');
@@ -442,12 +483,61 @@ export default function HomeScreen() {
                 selectTextOnFocus
               />
             </Note>
-            <View style={{ marginTop: 48, position: 'relative' }}>
+            <View style={{ marginTop: 48, aspectRatio: 168 / 445, position: 'relative' }}>
+              {/* Tilted background copy */}
               <RecentActivitySvg
-                width="100%"
-                style={{ position: 'absolute', top: 0, left: 0, right: 0, transform: [{ rotate: '6deg' }, { translateX: 40 }, { translateY: 20 }], zIndex: 0 }}
+                width="100%" height="100%"
+                style={{ position: 'absolute', transform: [{ rotate: '6deg' }, { translateX: 40 }, { translateY: 20 }], zIndex: 0 }}
               />
-              <RecentActivitySvg width="100%" style={{ zIndex: 1 }} />
+              {/* Main SVG */}
+              <RecentActivitySvg width="100%" height="100%" style={{ position: 'absolute', zIndex: 1 }} />
+
+              {/* Notification overlays — boxes at ~16.7/18.5/20.2% left, tops at 6.7/30.8/54.8% */}
+              {([
+                [16.67, 6.74],
+                [18.45, 30.79],
+                [20.24, 54.83],
+              ] as [number, number][]).map(([l, t], i) => {
+                const notif = recentActivities[i];
+                return (
+                  <View
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      left: `${l}%`,
+                      top: `${t}%`,
+                      width: '59.52%',
+                      height: '22.25%',
+                      transform: [{ rotate: '-1.68deg' }],
+                      padding: 8,
+                      justifyContent: 'space-between',
+                      zIndex: 2,
+                    }}
+                  >
+                    {notif ? (
+                      <>
+                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2D1A0E', lineHeight: 16 }}>
+                          <Text style={{ fontFamily: 'AlbertSans_700Bold' }}>{notif.boldText}</Text>
+                          {notif.message}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          {notif.avatarUrl ? (
+                            <Image source={{ uri: notif.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                          ) : (
+                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: notif.avatarColor, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ fontFamily: 'AlbertSans_700Bold', fontSize: 8, color: '#fff' }}>{notif.avatarInitial}</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#7A6652' }}>{notif.timeAgo}</Text>
+                        </View>
+                      </>
+                    ) : null}
+                  </View>
+                );
+              })}
+
+              {/* Icon */}
+              <RecentActivityIcon width={180} height={180} style={{ position: 'absolute', top: -75, zIndex: 3, left: '-2%' }} />
             </View>
           </View>
 

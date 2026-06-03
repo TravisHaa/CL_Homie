@@ -1,7 +1,7 @@
 import { useHouseStore } from "@/src/store/houseStore";
 import type { CalendarEvent } from "@/src/types";
 import { format } from "date-fns";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface Props {
   event: CalendarEvent;
@@ -35,11 +35,15 @@ export function EventCard({ event, onPress }: Props) {
         {/* Assignee row */}
         {firstAssignee && (
           <View style={styles.assigneeRow}>
-            <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#6B5E52' }]}>
-              <Text style={styles.avatarInitial}>
-                {firstAssignee.displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
+            {firstAssignee.avatarUrl ? (
+              <Image source={{ uri: firstAssignee.avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#6B5E52', justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={styles.avatarInitial}>
+                  {firstAssignee.displayName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <Text style={styles.assigneeText}>
               Assigned to{" "}
               {assignees.map((m) => m!.displayName).join(", ")}
@@ -75,14 +79,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
-  title: { flex: 1, fontSize: 15, fontWeight: "700", color: "#2D1A0E" },
+  title: { flex: 1, fontSize: 15, fontFamily: 'AlbertSans_600SemiBold', color: "#2D1A0E" },
   duePill: {
     backgroundColor: "#C8D8E8",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  dueText: { fontSize: 12, fontWeight: "600", color: "#4A6A84" },
+  dueText: { fontSize: 12, fontFamily: 'AlbertSans_600SemiBold', color: "#4A6A84" },
   assigneeRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   avatar: {
     width: 22,
@@ -91,7 +95,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarInitial: { color: "#fff", fontSize: 11, fontWeight: "700" },
-  assigneeText: { fontSize: 12, color: "#9E9380" },
-  desc: { fontSize: 12, color: "#9E9380", marginTop: 6, fontStyle: "italic" },
+  avatarInitial: { color: "#fff", fontSize: 11, fontFamily: 'AlbertSans_700Bold' },
+  assigneeText: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380" },
+  desc: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380", marginTop: 6, fontStyle: "italic" },
 });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { addDoc, deleteDoc, doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { addDoc, deleteDoc, doc, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore';
 import { differenceInCalendarDays } from 'date-fns';
 import { pantryCol } from '@/src/firebase/firestore';
 import { db } from '@/src/firebase/config';
@@ -77,6 +77,19 @@ export function usePantry() {
     }
   }
 
+  async function updatePantryItem(itemId: string, input: AddPantryItemInput) {
+    if (!houseId) throw new Error('No house connected.');
+    await updateDoc(doc(db, 'houses', houseId, 'pantryItems', itemId), {
+      name: input.name,
+      quantity: input.quantity,
+      unit: input.unit,
+      category: input.category,
+      isShared: input.isShared,
+      expirationDate: input.expirationDate ? Timestamp.fromDate(input.expirationDate) : null,
+      barcode: input.barcode ?? null,
+    });
+  }
+
   async function deletePantryItem(itemId: string) {
     if (!houseId) throw new Error('No house connected. Join a house first.');
     try {
@@ -86,5 +99,5 @@ export function usePantry() {
     }
   }
 
-  return { items, expiringItems, isLoading, addPantryItem, deletePantryItem };
+  return { items, expiringItems, isLoading, addPantryItem, updatePantryItem, deletePantryItem };
 }

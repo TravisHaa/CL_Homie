@@ -1,94 +1,53 @@
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { daysUntilExpiry } from '@/src/hooks/usePantry';
-import { useHouseStore } from '@/src/store/houseStore';
 import type { PantryItem } from '@/src/types';
 
 interface Props {
   item: PantryItem;
   onDelete: (itemId: string) => void;
+  onEdit: (item: PantryItem) => void;
 }
 
-function expiryColor(days: number): string {
-  if (days <= 2) return '#E17055';
-  if (days <= 5) return '#FDCB6E';
-  return '#00B894';
+function expiryLabel(days: number): { text: string; color: string } {
+  if (days === Infinity) return { text: '', color: '#aaa' };
+  if (days < 0) return { text: `expired ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} ago`, color: '#E17055' };
+  if (days === 0) return { text: 'expires today', color: '#E17055' };
+  if (days === 1) return { text: 'expires tomorrow', color: '#FDCB6E' };
+  return { text: `expires in ${days} days`, color: '#7A6652' };
 }
 
-function confidenceLabel(confidence: PantryItem['expirationConfidence']): string {
-  switch (confidence) {
-    case 'manual':
-      return 'Manual';
-    case 'scanned':
-      return 'Scanned';
-    case 'predicted':
-      return 'Predicted';
-  }
-}
-
-function categoryLabel(category: string): string {
-  return category.charAt(0).toUpperCase() + category.slice(1);
-}
-
-export function PantryItemCard({ item, onDelete }: Props) {
-  const memberMap = useHouseStore((s) => s.memberMap);
+export function PantryItemCard({ item, onDelete, onEdit }: Props) {
   const days = daysUntilExpiry(item);
-  const ownerName = memberMap[item.ownedBy]?.displayName ?? 'Unknown';
-
-  function handleLongPress() {
-    Alert.alert(item.name, 'What would you like to do?', [
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => onDelete(item.id),
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }
+  const expiry = expiryLabel(days);
+  const isExpired = days !== Infinity && days <= 0;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onLongPress={handleLongPress}
-      activeOpacity={0.85}
-    >
-      <View style={styles.row}>
-        <View style={styles.main}>
-          <Text style={styles.name} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={styles.meta}>
-            {item.quantity} {item.unit} · {categoryLabel(item.category)}
-          </Text>
-          <View style={styles.bottomRow}>
-            <Text style={styles.owner}>{ownerName}</Text>
-            {item.isShared && (
-              <View style={styles.sharedBadge}>
-                <Text style={styles.sharedText}>Shared</Text>
-              </View>
-            )}
-            <View style={styles.confidenceBadge}>
-              <Text style={styles.confidenceText}>
-                {confidenceLabel(item.expirationConfidence)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.right}>
-          {days !== Infinity ? (
-            <View style={[styles.expiryBadge, { backgroundColor: expiryColor(days) }]}>
-              <Text style={styles.expiryDays}>{days < 0 ? 0 : days}</Text>
-              <Text style={styles.expiryLabel}>days</Text>
-            </View>
-          ) : (
-            <View style={[styles.expiryBadge, { backgroundColor: '#DFE6E9' }]}>
-              <Text style={[styles.expiryLabel, { color: '#636e72', fontSize: 10 }]}>
-                No{'\n'}expiry
-              </Text>
-            </View>
-          )}
-        </View>
+    <TouchableOpacity style={styles.card} onPress={() => onEdit(item)} activeOpacity={0.75}>
+      {/* Icon */}
+      <View style={styles.iconWrap}>
+        <Ionicons name="fast-food-outline" size={22} color="#3D6B5E" />
       </View>
+
+      {/* Text */}
+      <View style={styles.body}>
+        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+        {expiry.text ? (
+          <Text style={[styles.expiry, { color: expiry.color }]}>{expiry.text}</Text>
+        ) : (
+          <Text style={styles.noExpiry}>No expiry set</Text>
+        )}
+      </View>
+
+      {/* Action */}
+      <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); onDelete(item.id); }}
+        style={[styles.throwBtn, !isExpired && styles.throwBtnMuted]}
+        activeOpacity={0.75}
+      >
+        <Text style={[styles.throwText, !isExpired && styles.throwTextMuted]}>
+          {isExpired ? 'throw' : 'remove'}
+        </Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -96,82 +55,62 @@ export function PantryItemCard({ item, onDelete }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DFE6E9',
-    padding: 14,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     marginBottom: 10,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  main: {
-    flex: 1,
-    marginRight: 12,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3436',
-    marginBottom: 2,
-  },
-  meta: {
-    fontSize: 13,
-    color: '#636e72',
-    marginBottom: 8,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  owner: {
-    fontSize: 12,
-    color: '#636e72',
-  },
-  sharedBadge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  sharedText: {
-    fontSize: 11,
-    color: '#00B894',
-    fontWeight: '600',
-  },
-  confidenceBadge: {
-    backgroundColor: '#F0F3F4',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  confidenceText: {
-    fontSize: 11,
-    color: '#636e72',
-    fontWeight: '500',
-  },
-  right: {
-    alignItems: 'center',
-  },
-  expiryBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F0EC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  expiryDays: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 20,
+  body: {
+    flex: 1,
   },
-  expiryLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+  name: {
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 15,
+    color: '#2D1A0E',
+    marginBottom: 3,
+  },
+  expiry: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+  },
+  noExpiry: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    color: '#C4A98A',
+  },
+  throwBtn: {
+    backgroundColor: '#2D1A0E',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  throwBtnMuted: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#D4C4B0',
+  },
+  throwText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 13,
     color: '#FFFFFF',
+  },
+  throwTextMuted: {
+    color: '#7A6652',
   },
 });

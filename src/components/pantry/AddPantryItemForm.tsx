@@ -29,6 +29,7 @@ import { lookupBarcode } from '@/src/services/openFoodFacts';
 
 interface Props {
   onAdd: (input: AddPantryItemInput) => Promise<void>;
+  initialBarcode?: string | null;
 }
 
 const INITIAL_STATE = {
@@ -41,7 +42,7 @@ const INITIAL_STATE = {
 };
 
 export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
-  ({ onAdd }, ref) => {
+  ({ onAdd, initialBarcode }, ref) => {
     const snapPoints = useMemo(() => ['70%', '92%'], []);
     // BottomSheetTextInput relies on a native focus API that is missing on react-native-web.
     const SheetInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
@@ -50,6 +51,10 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
     const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
     const [scannerVisible, setScannerVisible] = useState(false);
     const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle');
+
+    useEffect(() => {
+      if (initialBarcode) setScannedBarcode(initialBarcode);
+    }, [initialBarcode]);
 
     useEffect(() => {
       if (!scannedBarcode) {

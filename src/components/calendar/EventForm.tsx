@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {
   BottomSheetModal,
@@ -14,6 +16,7 @@ import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
+import { Calendar } from 'react-native-calendars';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addHours } from 'date-fns';
@@ -24,7 +27,6 @@ import { useHouseStore } from '@/src/store/houseStore';
 // ── Scroll picker constants ───────────────────────────────────────────
 const ITEM_H  = 44;
 const VISIBLE = 5;
-const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const HOURS   = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 const AMPM    = ['AM', 'PM'];
@@ -69,23 +71,14 @@ function PickerCol({ data, selectedIndex, onChange, width = 56 }: {
   );
 }
 
-function DatePickerDropdown({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 8 }, (_, i) => String(currentYear - 1 + i));
-  const mo = value.getMonth(), dy = value.getDate(), yr = value.getFullYear();
+function TimePickerRow({ value, onChange }: { value: Date; onChange: (d: Date) => void }) {
   const h24 = value.getHours(), min = value.getMinutes();
   const isAM = h24 < 12, h12 = h24 % 12 || 12, miIdx = Math.min(Math.round(min / 5), 11);
-  const daysInMonth = new Date(yr, mo + 1, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
 
-  const apply = (patch: { mo?: number; dy?: number; yr?: number; h12?: number; miIdx?: number; isAM?: boolean }) => {
-    const m = patch.mo ?? mo, y = patch.yr ?? yr;
-    const maxD = new Date(y, m + 1, 0).getDate();
-    const d = Math.min(patch.dy ?? dy, maxD);
+  const apply = (patch: { h12?: number; miIdx?: number; isAM?: boolean }) => {
     const hour = patch.h12 ?? h12, am = patch.isAM ?? isAM, mi = patch.miIdx ?? miIdx;
     const h = am ? (hour === 12 ? 0 : hour) : (hour === 12 ? 12 : hour + 12);
     const next = new Date(value);
-    next.setFullYear(y, m, d);
     next.setHours(h, mi * 5, 0, 0);
     onChange(next);
   };
@@ -94,10 +87,6 @@ function DatePickerDropdown({ value, onChange }: { value: Date; onChange: (d: Da
     <View style={pickerStyles.wrap}>
       <View style={pickerStyles.highlight} pointerEvents="none" />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-        <PickerCol data={MONTHS} selectedIndex={mo} onChange={(i) => apply({ mo: i })} width={52} />
-        <PickerCol key={daysInMonth} data={days} selectedIndex={Math.min(dy - 1, daysInMonth - 1)} onChange={(i) => apply({ dy: i + 1 })} width={36} />
-        <PickerCol data={years} selectedIndex={Math.max(0, yr - (currentYear - 1))} onChange={(i) => apply({ yr: currentYear - 1 + i })} width={60} />
-        <View style={pickerStyles.sep} />
         <PickerCol data={HOURS} selectedIndex={h12 - 1} onChange={(i) => apply({ h12: i + 1 })} width={36} />
         <Text style={pickerStyles.colon}>:</Text>
         <PickerCol data={MINUTES} selectedIndex={miIdx} onChange={(i) => apply({ miIdx: i })} width={40} />
@@ -192,7 +181,7 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={['85%']}
+        snapPoints={['98%']}
         backdropComponent={renderBackdrop}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
@@ -236,15 +225,48 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
           <Text style={[styles.label, { marginTop: 8 }]}>Event Date</Text>
           <TouchableOpacity
             style={styles.datePill}
-            onPress={() => setShowDatePicker((p) => !p)}
+            onPress={() => setShowDatePicker(true)}
             activeOpacity={0.75}
           >
             <Ionicons name="calendar-outline" size={15} color="#3B1F0E" />
             <Text style={styles.datePillTxt}>{format(startDate, "EEEE, MMM. d")}</Text>
           </TouchableOpacity>
-          {showDatePicker && (
-            <DatePickerDropdown value={startDate} onChange={setStartDate} />
-          )}
+
+          {/* Time picker (always visible) */}
+          <TimePickerRow value={startDate} onChange={setStartDate} />
+
+          {/* Calendar modal */}
+          <Modal visible={showDatePicker} transparent animationType="fade">
+            <Pressable style={styles.calOverlay} onPress={() => setShowDatePicker(false)}>
+              <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
+                <Calendar
+                  current={format(startDate, 'yyyy-MM-dd')}
+                  markedDates={{ [format(startDate, 'yyyy-MM-dd')]: { selected: true, selectedColor: '#4E7B78' } }}
+                  onDayPress={(day: { dateString: string }) => {
+                    const [y, m, d] = day.dateString.split('-').map(Number);
+                    const next = new Date(startDate);
+                    next.setFullYear(y, m - 1, d);
+                    setStartDate(next);
+                    setShowDatePicker(false);
+                  }}
+                  theme={{
+                    backgroundColor: '#FDFAF7',
+                    calendarBackground: '#FDFAF7',
+                    todayTextColor: '#4E7B78',
+                    selectedDayBackgroundColor: '#4E7B78',
+                    selectedDayTextColor: '#fff',
+                    arrowColor: '#2D1A0E',
+                    textDayFontFamily: 'AlbertSans_400Regular',
+                    textMonthFontFamily: 'AlbertSans_700Bold',
+                    textDayHeaderFontFamily: 'AlbertSans_600SemiBold',
+                    textDayFontSize: 14,
+                    textMonthFontSize: 16,
+                    textDayHeaderFontSize: 12,
+                  }}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           {/* Recurrence */}
           <Text style={[styles.label, { marginTop: 8 }]}>Recurrence</Text>
@@ -378,6 +400,25 @@ const styles = StyleSheet.create({
 
   // Error
   error: { color: '#E17055', fontSize: 13, marginBottom: 8, marginTop: 4 },
+
+  // Calendar modal
+  calOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calCard: {
+    backgroundColor: '#FDFAF7',
+    borderRadius: 20,
+    overflow: 'hidden',
+    width: '90%',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
 
   // Save button
   saveBtn: {

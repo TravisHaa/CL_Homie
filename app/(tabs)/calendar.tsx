@@ -93,15 +93,15 @@ const choreStyles = StyleSheet.create({
     elevation: 2,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 },
-  title: { flex: 1, fontSize: 15, fontWeight: '700', color: '#2D1A0E' },
+  title: { flex: 1, fontSize: 15, fontFamily: 'AlbertSans_600SemiBold', color: '#2D1A0E' },
   pill: { backgroundColor: '#F5D9B0', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   pillDone: { backgroundColor: '#D4E8D0' },
-  pillTxt: { fontSize: 12, fontWeight: '600', color: '#8A5A1A' },
+  pillTxt: { fontSize: 12, fontFamily: 'AlbertSans_600SemiBold', color: '#8A5A1A' },
   pillTxtDone: { color: '#3A6E45' },
   assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   avatar: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
-  avatarInitial: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  assigneeTxt: { fontSize: 12, color: '#9E9380' },
+  avatarInitial: { color: '#fff', fontSize: 11, fontFamily: 'AlbertSans_700Bold' },
+  assigneeTxt: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: '#9E9380' },
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -135,8 +135,28 @@ export default function CalendarScreen() {
   const visibleEvents = viewMode === "week" ? weekEvents : events;
 
   // Nav
-  const navBack    = () => viewMode === "week" ? setWeekStart((d) => addWeeks(d, -1)) : setMonthStart((d) => addMonths(d, -1));
-  const navForward = () => viewMode === "week" ? setWeekStart((d) => addWeeks(d, 1))  : setMonthStart((d) => addMonths(d, 1));
+  const navBack = () => {
+    if (viewMode === "week") {
+      const next = addWeeks(weekStart, -1);
+      setWeekStart(next);
+      setMonthStart(startOfMonth(next));
+    } else {
+      const next = addMonths(monthStart, -1);
+      setMonthStart(next);
+      setWeekStart(startOfWeek(next, { weekStartsOn: 0 }));
+    }
+  };
+  const navForward = () => {
+    if (viewMode === "week") {
+      const next = addWeeks(weekStart, 1);
+      setWeekStart(next);
+      setMonthStart(startOfMonth(next));
+    } else {
+      const next = addMonths(monthStart, 1);
+      setMonthStart(next);
+      setWeekStart(startOfWeek(next, { weekStartsOn: 0 }));
+    }
+  };
   const navLabel   = viewMode === "week" ? format(weekStart, "MMMM") : format(monthStart, "MMMM");
 
   // Filter popup
@@ -188,14 +208,14 @@ export default function CalendarScreen() {
             <View style={styles.toggle}>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnActive]}
-                onPress={() => setViewMode("week")}
+                onPress={() => { setWeekStart(startOfWeek(monthStart, { weekStartsOn: 0 })); setViewMode("week"); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.toggleTxt, viewMode === "week" && styles.toggleTxtActive]}>Week</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnActive]}
-                onPress={() => setViewMode("month")}
+                onPress={() => { setMonthStart(startOfMonth(weekStart)); setViewMode("month"); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.toggleTxt, viewMode === "month" && styles.toggleTxtActive]}>Month</Text>
@@ -471,5 +491,5 @@ const styles = StyleSheet.create({
     right: 20,
   },
 
-  bottomPad: { height: 32 },
+  bottomPad: { height: 180 },
 });
