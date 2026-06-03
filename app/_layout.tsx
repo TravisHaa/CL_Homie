@@ -9,6 +9,7 @@ import {
   AlbertSans_700Bold,
   AlbertSans_800ExtraBold,
 } from '@expo-google-fonts/albert-sans';
+import { GowunBatang_400Regular, GowunBatang_700Bold } from '@expo-google-fonts/gowun-batang';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
@@ -37,6 +38,8 @@ export default function RootLayout() {
     AlbertSans_600SemiBold,
     AlbertSans_700Bold,
     AlbertSans_800ExtraBold,
+    GowunBatang_400Regular,
+    GowunBatang_700Bold,
     ...FontAwesome.font,
   });
 

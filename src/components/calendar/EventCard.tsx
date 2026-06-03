@@ -11,40 +11,44 @@ interface Props {
 export function EventCard({ event, onPress }: Props) {
   const memberMap = useHouseStore((s) => s.memberMap);
   const start = event.startTime.toDate();
-  const end = event.endTime.toDate();
-  const timeRange = `${format(start, "h:mm a")} – ${format(end, "h:mm a")}`;
+
+  const assignees = (event.assignedTo ?? [])
+    .map((uid) => memberMap[uid])
+    .filter(Boolean);
+
+  const firstAssignee = assignees[0];
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        { flex: 1 },
-        pressed && onPress && { opacity: 0.75 },
-      ]}
+      style={({ pressed }) => [{ flex: 1 }, pressed && onPress && { opacity: 0.75 }]}
     >
-      <View style={[styles.card, { borderLeftColor: event.color }]}>
-        <Text style={styles.title}>{event.title}</Text>
-        <Text style={styles.time}>{timeRange}</Text>
+      <View style={styles.card}>
+        {/* Title row */}
+        <View style={styles.topRow}>
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+          <View style={styles.duePill}>
+            <Text style={styles.dueText}>Due {format(start, "M/d")}</Text>
+          </View>
+        </View>
+
+        {/* Assignee row */}
+        {firstAssignee && (
+          <View style={styles.assigneeRow}>
+            <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#6B5E52' }]}>
+              <Text style={styles.avatarInitial}>
+                {firstAssignee.displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.assigneeText}>
+              Assigned to{" "}
+              {assignees.map((m) => m!.displayName).join(", ")}
+            </Text>
+          </View>
+        )}
+
         {!!event.description && (
           <Text style={styles.desc}>{event.description}</Text>
-        )}
-        {event.assignedTo?.length > 0 && (
-          <View style={styles.assigneeRow}>
-            {event.assignedTo.map((uid) => {
-              const member = memberMap[uid];
-              if (!member) return null;
-              return (
-                <View
-                  key={uid}
-                  style={[styles.dot, { backgroundColor: member.color }]}
-                >
-                  <Text style={styles.initial}>
-                    {member.displayName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
         )}
       </View>
     </Pressable>
@@ -55,24 +59,39 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 4,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  title: { fontSize: 15, fontWeight: "600", color: "#2D3436" },
-  time: { fontSize: 12, color: "#636e72", marginTop: 2 },
-  desc: { fontSize: 12, color: "#636e72", marginTop: 4, fontStyle: "italic" },
-  assigneeRow: { flexDirection: "row", gap: 4, marginTop: 8 },
-  dot: {
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 8,
+  },
+  title: { flex: 1, fontSize: 15, fontWeight: "700", color: "#2D1A0E" },
+  duePill: {
+    backgroundColor: "#C8D8E8",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  dueText: { fontSize: 12, fontWeight: "600", color: "#4A6A84" },
+  assigneeRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  avatar: {
     width: 22,
     height: 22,
     borderRadius: 11,
     justifyContent: "center",
     alignItems: "center",
   },
-  initial: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  avatarInitial: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  assigneeText: { fontSize: 12, color: "#9E9380" },
+  desc: { fontSize: 12, color: "#9E9380", marginTop: 6, fontStyle: "italic" },
 });

@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 12,
     marginHorizontal: 16,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     marginBottom: 12,
   },
   progressTrack: {
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   list: {
-    padding: 20,
+    padding: 24,
     paddingTop: 8,
     paddingBottom: 40,
   },

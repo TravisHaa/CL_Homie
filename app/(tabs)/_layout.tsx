@@ -1,4 +1,3 @@
-import { HomeHeader } from '@/src/components/HomeHeader';
 import { Tabs } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
@@ -15,7 +14,7 @@ const TABS: { name: string; title: string; Icon: React.FC<{ width: number; heigh
   { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'two', 'house', 'settings'];
+const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard'];
 const TAB_ACTIVE: Record<string, string> = {
   index: '#A7572D',
   pantry: '#1B8F63',
@@ -76,7 +75,6 @@ export default function TabLayout() {
                 <Icon width={24} height={24} color={color} />
               </View>
             ),
-            ...(name === 'index' && { headerShown: true, header: () => <HomeHeader /> }),
           }}
         />
       ))}

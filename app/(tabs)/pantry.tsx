@@ -14,6 +14,9 @@ import { usePantry } from '@/src/hooks/usePantry';
 import { PantryItemCard } from '@/src/components/pantry/PantryItemCard';
 import { AddPantryItemForm } from '@/src/components/pantry/AddPantryItemForm';
 import type { PantryItem } from '@/src/types';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import PantryBg from '@/assets/images/Pantry-bg.svg';
 
 const P = {
   mintBg: '#EAF7F0',
@@ -38,6 +41,7 @@ function PantryContent() {
   const { items, expiringItems, isLoading, addPantryItem, deletePantryItem } =
     usePantry();
   const addFormRef = useRef<BottomSheetModal>(null);
+  const router = useRouter();
 
   function renderItem({ item }: { item: PantryItem }) {
     return <PantryItemCard item={item} onDelete={deletePantryItem} />;
@@ -48,12 +52,16 @@ function PantryContent() {
       <GridBackground />
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="close" size={22} color="#2E0800" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
           <Text style={styles.title}>Pantry</Text>
-          <Text style={styles.subtitle}>
-            {items.length} {items.length === 1 ? 'item' : 'items'}
-          </Text>
+          <Text style={styles.subtitle}>See what shared goods you have</Text>
         </View>
+        <TouchableOpacity hitSlop={12}>
+          <Ionicons name="scan-outline" size={24} color="#2E0800" />
+        </TouchableOpacity>
       </View>
 
       {/* Expiry alert banner */}
@@ -69,26 +77,29 @@ function PantryContent() {
       )}
 
       {/* Content */}
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#2D3436" />
-        </View>
-      ) : items.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyTitle}>Your pantry is empty</Text>
-          <Text style={styles.emptyHint}>
-            Tap + to add your first item
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <View style={styles.contentArea}>
+        <PantryBg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} preserveAspectRatio="xMidYMid slice" />
+        {isLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#2D3436" />
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={styles.emptyTitle}>Your pantry is empty</Text>
+            <Text style={styles.emptyHint}>
+              Tap + to add your first item
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={items}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
 
       {/* FAB */}
       <TouchableOpacity
@@ -110,30 +121,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FCF5EE',
   },
+  contentArea: {
+    flex: 1,
+    overflow: 'hidden',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 20,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: 64,
+    paddingBottom: 16,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 10,
-    borderRadius: 14,
-    backgroundColor: P.plateBg,
-    borderWidth: 1,
-    borderColor: P.plateBorder,
+  },
+  headerCenter: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: P.textStrong,
+    fontSize: 30,
+    fontFamily: 'GowunBatang_700Bold',
+    color: '#2E0800',
   },
   subtitle: {
-    color: P.textSoft,
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    color: '#7A6652',
     marginTop: 2,
-    fontSize: 14,
   },
   alertBanner: {
     flexDirection: 'row',
@@ -179,7 +195,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 28,
+    bottom: 110,
     right: 24,
     width: 56,
     height: 56,

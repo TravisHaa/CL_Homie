@@ -19,6 +19,8 @@ export interface AddItemInput {
   category: string;
   quantity: number;
   unit: string;
+  price?: string;
+  assignedTo?: string;
 }
 
 export function useShoppingList() {
@@ -56,6 +58,8 @@ export function useShoppingList() {
         category: input.category,
         quantity: input.quantity,
         unit: input.unit,
+        price: input.price ?? '',
+        assignedTo: input.assignedTo ?? 'anyone',
         isChecked: false,
         addedBy: userProfile.id,
         checkedBy: null,
@@ -95,5 +99,16 @@ export function useShoppingList() {
     }
   };
 
-  return { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked };
+  const updateShoppingItem = async (itemId: string, updates: { name?: string; price?: string }) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), updates);
+  };
+
+  const deleteShoppingItem = async (itemId: string) => {
+    if (!houseId) throw new Error('No house connected. Join a house first.');
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId));
+  };
+
+  return { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked, deleteShoppingItem, updateShoppingItem };
 }

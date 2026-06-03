@@ -85,8 +85,8 @@ export default function SetupAccountScreen() {
               render={({ field: { onChange, value } }) => (
                 <TextInput
                   style={[styles.input, errors.email && styles.inputError]}
-                  placeholder="Write here"
-                  placeholderTextColor={PALETTE.ink}
+                  placeholder="Email"
+                  placeholderTextColor="#999"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   onChangeText={onChange}
@@ -105,8 +105,8 @@ export default function SetupAccountScreen() {
               render={({ field: { onChange, value } }) => (
                 <TextInput
                   style={[styles.input, errors.password && styles.inputError]}
-                  placeholder="Write here"
-                  placeholderTextColor={PALETTE.ink}
+                  placeholder="Password"
+                  placeholderTextColor="#999"
                   secureTextEntry
                   onChangeText={onChange}
                   value={value}
