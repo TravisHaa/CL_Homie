@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ReanimatedSwipeable, {
-    type SwipeableMethods,
+  type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 interface ChoreCardProps {

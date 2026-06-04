@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,17 +14,14 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
 
+import HeaderSvg from '@/assets/images/header.svg';
 import { GridBackground } from '@/src/components/GridBackground';
-import { RotationCard } from '@/src/components/settings/RotationCard';
 import { houseDoc } from '@/src/firebase/firestore';
 import { leaveHouse } from '@/src/firebase/house';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
-import HeaderSvg from '@/assets/images/header.svg';
 import { updateDoc } from 'firebase/firestore';
 
 const S = {
@@ -280,11 +279,6 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
           )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.profileSectionLabel}>Chore Rotation</Text>
-          <RotationCard />
         </View>
 
       </ScrollView>

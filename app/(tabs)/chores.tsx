@@ -1,10 +1,10 @@
+import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import HeaderSvg from '@/assets/images/header.svg';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
 import { ProgressRing } from '@/src/components/chores/ProgressRing';
 import { GridBackground } from '@/src/components/GridBackground';
-import HeaderSvg from '@/assets/images/header.svg';
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
 import { useChores } from '@/src/hooks/useChores';
 import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore } from '@/src/types';
@@ -16,12 +16,13 @@ import { format, isToday } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -133,14 +134,20 @@ export default function ChoresScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
             <Text style={styles.heroTitle}>Home Chore Tracker</Text>
-            <TouchableOpacity
-              style={styles.heroRefresh}
-              onPress={() => router.push({ pathname: '/(tabs)/settings', params: { scrollToBottom: '1' } })}
-              activeOpacity={0.7}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open rotation schedule"
+              onPress={() => router.push('/rotation')}
               hitSlop={8}
+              style={({ pressed }) => [styles.heroRefresh, pressed && { opacity: 0.6 }]}
             >
-              <Ionicons name="refresh-outline" size={18} color={CHORE_THEME.textMuted} />
-            </TouchableOpacity>
+              <Image
+                source={require('@/assets/images/rotation-icon.png')}
+                style={styles.heroRefreshIcon}
+                resizeMode="contain"
+                accessible={false}
+              />
+            </Pressable>
           </View>
 
           <View style={styles.ringWrap}>
@@ -300,6 +307,11 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     padding: 4,
+  },
+  heroRefreshIcon: {
+    width: 22,
+    height: 22,
+    tintColor: CHORE_THEME.textMuted,
   },
   ringWrap: {
     alignItems: 'center',
