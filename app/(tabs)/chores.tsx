@@ -13,6 +13,7 @@ import { getDayKey } from '@/src/utils/weekKey';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { format, isToday } from 'date-fns';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -85,6 +86,7 @@ function computeStreak(chores: Chore[]): number {
 }
 
 export default function ChoresScreen() {
+  const router = useRouter();
   const { chores, isLoading, addChore, toggleChore, updateChore, deleteChore } = useChores();
   const sheetRef = useRef<BottomSheetModal>(null);
   const detailRef = useRef<BottomSheetModal>(null);
@@ -131,9 +133,14 @@ export default function ChoresScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
             <Text style={styles.heroTitle}>Home Chore Tracker</Text>
-            <View style={styles.heroRefresh}>
+            <TouchableOpacity
+              style={styles.heroRefresh}
+              onPress={() => router.push({ pathname: '/(tabs)/settings', params: { scrollToBottom: '1' } })}
+              activeOpacity={0.7}
+              hitSlop={8}
+            >
               <Ionicons name="refresh-outline" size={18} color={CHORE_THEME.textMuted} />
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.ringWrap}>

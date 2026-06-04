@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -37,6 +37,15 @@ const S = {
 };
 
 export default function SettingsScreen() {
+  const scrollRef = useRef<ScrollView>(null);
+  const { scrollToBottom } = useLocalSearchParams<{ scrollToBottom?: string }>();
+
+  useEffect(() => {
+    if (scrollToBottom === '1') {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 400);
+    }
+  }, [scrollToBottom]);
+
   const [isLeavingHouse, setIsLeavingHouse] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -133,6 +142,7 @@ export default function SettingsScreen() {
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView
+        ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -270,6 +280,11 @@ export default function SettingsScreen() {
               </Pressable>
             </View>
           )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.profileSectionLabel}>Chore Rotation</Text>
+          <RotationCard />
         </View>
 
       </ScrollView>
