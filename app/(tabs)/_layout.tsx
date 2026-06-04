@@ -69,7 +69,7 @@ export default function TabLayout() {
             title,
             tabBarIcon: ({ color, focused }) => (
               <View style={[
-                { alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 20 },
+                { alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20 },
                 focused && { backgroundColor: '#FEF3ED' },
               ]}>
                 <Icon width={24} height={24} color={color} />

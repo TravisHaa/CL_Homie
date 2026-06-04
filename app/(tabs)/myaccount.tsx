@@ -9,6 +9,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { GridBackground } from '@/src/components/GridBackground';
 import { ImageCropModal } from '@/src/components/ImageCropModal';
 import { useAuthStore } from '@/src/store/authStore';
+import { signOut } from '@/src/firebase/auth';
 import { db, storage } from '@/src/firebase/config';
 import HeaderSvg from '@/assets/images/header.svg';
 
@@ -19,6 +20,16 @@ export default function MyAccountScreen() {
   const setUserProfile = useAuthStore((s) => s.setUserProfile);
   const [uploading, setUploading] = useState(false);
   const [cropUri, setCropUri] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   async function pickAvatar() {
     if (!firebaseUser?.uid) return;
@@ -67,7 +78,7 @@ export default function MyAccountScreen() {
 
       {/* Header */}
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" />
+        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
         <Pressable style={styles.backBtn} onPress={() => router.push('/(tabs)/settings')} hitSlop={12}>
           <Ionicons name="chevron-back" size={22} color="#2E0800" />
         </Pressable>
@@ -118,6 +129,18 @@ export default function MyAccountScreen() {
             </View>
           </View>
 
+          {/* Sign out */}
+          <Pressable
+            style={({ pressed }) => [styles.signOutBtn, pressed && { opacity: 0.75 }]}
+            onPress={handleSignOut}
+            disabled={signingOut}
+          >
+            {signingOut
+              ? <ActivityIndicator color="#C0392B" />
+              : <Text style={styles.signOutBtnText}>Sign Out</Text>
+            }
+          </Pressable>
+
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -132,6 +155,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 18,
     left: 20,
+    zIndex: 10,
   },
   headerTitle: {
     position: 'absolute',
@@ -211,5 +235,20 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#EDE8E0',
+  },
+
+  signOutBtn: {
+    marginTop: 24,
+    borderWidth: 1.5,
+    borderColor: '#C0392B',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutBtnText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 15,
+    color: '#C0392B',
   },
 });

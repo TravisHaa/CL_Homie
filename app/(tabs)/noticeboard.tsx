@@ -42,8 +42,8 @@ export default function NoticeBoardScreen() {
         <View style={styles.safe}>
           <GridBackground />
           <View style={{ width: '100%', overflow: 'hidden' }}>
-            <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" />
-            <Pressable style={styles.backButton} onPress={() => router.back()} hitSlop={10}>
+            <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
+            <Pressable style={styles.backButton} onPress={() => router.push('/(tabs)')} hitSlop={10}>
               <Ionicons name="chevron-back" size={22} color="#2E0800" />
             </Pressable>
             <Text style={styles.headerTitle}>Notice Board</Text>
@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     left: 20,
+    zIndex: 10,
   },
   headerTitle: {
     position: 'absolute',

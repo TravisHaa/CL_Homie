@@ -6,7 +6,7 @@ import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
 import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { Timestamp, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
@@ -277,8 +277,7 @@ export default function HomeScreen() {
 
   const houseId = house?.id;
   const [uploading, setUploading] = useState(false);
-  const [pictureLabel, setPictureLabel] = useState('Picture');
-  const [pictureDate, setPictureDate] = useState<Date | null>(null);
+  const [pictureLabel, setPictureLabel] = useState('');
 
   const pickAndUploadImage = async () => {
     if (!houseId) return;
@@ -304,8 +303,7 @@ export default function HomeScreen() {
       const storageRef = ref(storage, `houses/${houseId}/pictureCard`);
       await uploadBytes(storageRef, blob);
       const url = await getDownloadURL(storageRef);
-      await updateDoc(doc(db, 'houses', houseId), { pictureCardUrl: url });
-      setPictureDate(new Date());
+      await updateDoc(doc(db, 'houses', houseId), { pictureCardUrl: url, pictureCardUpdatedAt: serverTimestamp() });
     } catch (e) {
       console.error('[pictureCard] upload failed:', e);
     } finally {
@@ -471,17 +469,22 @@ export default function HomeScreen() {
                   <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={32} color="#ffffff44" />
                 )}
               </Pressable>
-              {pictureDate && (
+              {house?.pictureCardUpdatedAt && (
                 <Text style={styles.pictureDateText}>
-                  {format(pictureDate, 'dd.MM.yy')}
+                  {format(house.pictureCardUpdatedAt.toDate(), 'dd,MM,yy')}
                 </Text>
               )}
-              <TextInput
-                value={pictureLabel}
-                onChangeText={setPictureLabel}
-                style={[styles.noteTitle, { marginTop: 2, fontFamily: 'AlbertSans_700Bold' }]}
-                selectTextOnFocus
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4 }}>
+                <TextInput
+                  value={pictureLabel}
+                  onChangeText={setPictureLabel}
+                  style={[styles.noteTitle, { marginTop: 2, fontFamily: 'AlbertSans_700Bold', flexShrink: 1 }]}
+                  placeholder="write here"
+                  placeholderTextColor={C.noteMeta}
+                  selectTextOnFocus
+                />
+                <Ionicons name="pencil-outline" size={14} color={C.noteMeta} style={{ marginTop: 2 }} />
+              </View>
             </Note>
             <View style={{ marginTop: 48, aspectRatio: 168 / 445, position: 'relative' }}>
               {/* Tilted background copy */}

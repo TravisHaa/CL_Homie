@@ -117,14 +117,18 @@ export function ShoppingItemRow({ item, memberMap, currentUserId, onToggle, onDe
           <View style={styles.body}>
             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
             <View style={styles.metaRow}>
-              {item.price ? (
+              {item.neededBy ? (
                 <>
                   <View style={styles.deadlinePill}>
-                    <Text style={styles.deadlinePillText}>by soon</Text>
+                    <Text style={styles.deadlinePillText}>
+                      by {item.neededBy.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
                   </View>
-                  <Text style={styles.metaDivider}>|</Text>
-                  <Text style={styles.metaPrice}>${item.price} est.</Text>
+                  {item.price ? <Text style={styles.metaDivider}>|</Text> : null}
+                  {item.price ? <Text style={styles.metaPrice}>${item.price} est.</Text> : null}
                 </>
+              ) : item.price ? (
+                <Text style={styles.metaPrice}>${item.price} est.</Text>
               ) : (
                 <Text style={styles.metaPrice}>qty {item.quantity}</Text>
               )}

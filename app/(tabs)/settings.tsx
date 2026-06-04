@@ -1,4 +1,3 @@
-import { GridBackground } from '@/src/components/GridBackground';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -10,6 +9,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +18,12 @@ import * as Clipboard from 'expo-clipboard';
 
 import { GridBackground } from '@/src/components/GridBackground';
 import { RotationCard } from '@/src/components/settings/RotationCard';
+import { houseDoc } from '@/src/firebase/firestore';
 import { leaveHouse } from '@/src/firebase/house';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 import HeaderSvg from '@/assets/images/header.svg';
+import { updateDoc } from 'firebase/firestore';
 
 const S = {
   lavenderBg: '#F2EFFF',
@@ -38,6 +40,8 @@ export default function SettingsScreen() {
   const [isLeavingHouse, setIsLeavingHouse] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
   const router = useRouter();
   const house = useHouseStore((s) => s.house);
@@ -82,6 +86,17 @@ export default function SettingsScreen() {
         ]
       );
     }
+  }
+
+  async function saveHouseName() {
+    const trimmed = editNameValue.trim();
+    if (!trimmed || !houseId || trimmed === house?.name) { setIsEditingName(false); return; }
+    try {
+      await updateDoc(houseDoc(houseId), { name: trimmed });
+    } catch (err) {
+      console.error('[settings] rename house', err);
+    }
+    setIsEditingName(false);
   }
 
   async function copyInviteCode() {
@@ -150,8 +165,23 @@ export default function SettingsScreen() {
             <View style={styles.householdCard}>
               {/* House name */}
               <View style={styles.householdNameRow}>
-                <Text style={styles.householdName}>{house.name}</Text>
-                <Pressable hitSlop={8}>
+                {isEditingName ? (
+                  <TextInput
+                    style={styles.householdNameInput}
+                    value={editNameValue}
+                    onChangeText={setEditNameValue}
+                    onBlur={saveHouseName}
+                    onSubmitEditing={saveHouseName}
+                    autoFocus
+                    returnKeyType="done"
+                    maxLength={40}
+                  />
+                ) : (
+                  <Pressable style={{ flex: 1 }} onPress={() => { setEditNameValue(house.name); setIsEditingName(true); }}>
+                    <Text style={styles.householdName}>{house.name}</Text>
+                  </Pressable>
+                )}
+                <Pressable hitSlop={8} onPress={() => { setEditNameValue(house.name); setIsEditingName(true); }}>
                   <Ionicons name="pencil-outline" size={18} color="#7A6652" />
                 </Pressable>
               </View>
@@ -419,6 +449,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#1A1A1A',
     flex: 1,
+  },
+  householdNameInput: {
+    flex: 1,
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 20,
+    color: '#1A1A1A',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#7A6652',
+    paddingVertical: 2,
   },
   householdSectionLabel: {
     fontFamily: 'AlbertSans_600SemiBold',

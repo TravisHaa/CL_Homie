@@ -7,9 +7,10 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/src/firebase/config';
-import { shoppingCol } from '@/src/firebase/firestore';
+import { shoppingCol, pantryCol } from '@/src/firebase/firestore';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
 import type { ShoppingItem } from '@/src/types';
@@ -21,6 +22,7 @@ export interface AddItemInput {
   unit: string;
   price?: string;
   assignedTo?: string;
+  neededBy?: Date | null;
 }
 
 export function useShoppingList() {
@@ -60,6 +62,7 @@ export function useShoppingList() {
         unit: input.unit,
         price: input.price ?? '',
         assignedTo: input.assignedTo ?? 'anyone',
+        neededBy: input.neededBy ? Timestamp.fromDate(input.neededBy) : null,
         isChecked: false,
         addedBy: userProfile.id,
         checkedBy: null,
@@ -71,14 +74,38 @@ export function useShoppingList() {
     }
   };
 
-  const toggleShoppingItem = async (itemId: string, currentValue: boolean) => {
+  const toggleShoppingItem = async (itemId: string, currentValue: boolean, expirationDate?: Date) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
+    const beingChecked = !currentValue;
     try {
       await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), {
-        isChecked: !currentValue,
-        checkedBy: !currentValue ? userProfile.id : null,
-        checkedAt: !currentValue ? serverTimestamp() : null,
+        isChecked: beingChecked,
+        checkedBy: beingChecked ? userProfile.id : null,
+        checkedAt: beingChecked ? serverTimestamp() : null,
       });
+
+      if (beingChecked) {
+        const cached = queryClient.getQueryData<ShoppingItem[]>(['shopping', houseId]) ?? [];
+        const shoppingItem = cached.find((i) => i.id === itemId);
+        const FOOD_CATEGORIES = new Set(['food', 'produce', 'dairy', 'meat', 'snacks', 'beverages', 'condiments', 'grains']);
+        if (shoppingItem && FOOD_CATEGORIES.has(shoppingItem.category.toLowerCase())) {
+          await addDoc(pantryCol(houseId), {
+            id: '',
+            name: shoppingItem.name,
+            quantity: shoppingItem.quantity,
+            unit: shoppingItem.unit,
+            category: shoppingItem.category,
+            isShared: true,
+            expirationDate: expirationDate ? Timestamp.fromDate(expirationDate) : null,
+            expirationConfidence: 'manual' as const,
+            ownedBy: userProfile.id,
+            addedBy: userProfile.id,
+            barcode: null,
+            imageUrl: null,
+            createdAt: Timestamp.now(),
+          });
+        }
+      }
     } catch (err) {
       throw err;
     }

@@ -609,6 +609,9 @@ export default function ShoppingScreen() {
                         amenities: 'cleaning',
                         furnishing: 'frozen',
                       };
+                      const neededByDate = newItemDeadline
+                        ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(newItemDeadline)); return d; })()
+                        : null;
                       await addShoppingItem({
                         name: newItemName || 'New item',
                         category: categoryMap[newItemCategory] ?? 'other',
@@ -616,6 +619,7 @@ export default function ShoppingScreen() {
                         unit: 'unit',
                         price: newItemPrice,
                         assignedTo: newItemAssignee === 'you' ? currentUserId : newItemAssignee,
+                        neededBy: neededByDate,
                       });
                       setNewItemStep(3);
                     }}
@@ -628,7 +632,7 @@ export default function ShoppingScreen() {
             )}
 
             {newItemStep === 3 && (
-              <>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
                 <Text style={styles.confirmTitle}>
                   {newItemName || 'Item'} was added to your home's shopping list!
                 </Text>
@@ -664,13 +668,13 @@ export default function ShoppingScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.modalPrimaryBtn, { flex: 0 }]}
+                  style={[styles.modalPrimaryBtn, { flex: 0, marginTop: 20 }]}
                   onPress={() => setNewItemModalOpen(false)}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.modalPrimaryBtnText}>Return to list</Text>
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -1024,7 +1028,7 @@ export default function ShoppingScreen() {
                 style={[styles.modalPrimaryBtn, { backgroundColor: '#3D6B5E' }]}
                 onPress={async () => {
                   if (!boughtItem) return;
-                  await toggleShoppingItem(boughtItem.id, boughtItem.isChecked);
+                  await toggleShoppingItem(boughtItem.id, boughtItem.isChecked, boughtExpiry ?? undefined);
                   if (boughtCost) await updateShoppingItem(boughtItem.id, { price: boughtCost });
                   setBoughtItem(null);
                 }}
@@ -1223,7 +1227,7 @@ export default function ShoppingScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalSecondaryBtn}
-                onPress={() => { setRecurringModalOpen(false); formRef.current?.expand(); }}
+                onPress={() => { setRecurringModalOpen(false); setNewItemName(''); setNewItemPrice(''); setNewItemQty(1); setNewItemStep(1); setNewItemDeadline('2'); setNewItemAssignee('anyone'); setNewItemModalOpen(true); }}
                 activeOpacity={0.75}
               >
                 <Text style={styles.modalSecondaryBtnText}>New item</Text>
@@ -1683,7 +1687,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FDF6EE',
     borderRadius: 24,
     padding: 24,
-    overflow: 'hidden',
+    paddingBottom: 28,
+    maxHeight: '88%',
   },
   newItemTitle: {
     fontFamily: 'GowunBatang_700Bold',

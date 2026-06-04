@@ -103,6 +103,17 @@ const pickerStyles = StyleSheet.create({
   colon: { fontSize: 17, fontWeight: '700', color: '#2D1A0E', paddingHorizontal: 2 },
 });
 
+// ── Recurrence ────────────────────────────────────────────────────────
+
+type RecurrenceOption = 'none' | 'daily' | 'weekly' | 'monthly';
+
+const RECURRENCE_LABELS: Record<RecurrenceOption, string> = {
+  none: 'Does not repeat',
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+};
+
 // ── EventForm ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -117,9 +128,11 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     const [description, setDescription] = useState('');
     const [startDate, setStartDate]     = useState<Date>(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [assignedTo, setAssignedTo]   = useState<string[]>([]);
-    const [error, setError]             = useState('');
-    const [submitting, setSubmitting]   = useState(false);
+    const [assignedTo, setAssignedTo]         = useState<string[]>([]);
+    const [recurrence, setRecurrence]         = useState<RecurrenceOption>('none');
+    const [showRecurrence, setShowRecurrence] = useState(false);
+    const [error, setError]                   = useState('');
+    const [submitting, setSubmitting]         = useState(false);
 
     const memberMap = useHouseStore((s) => s.memberMap);
 
@@ -138,7 +151,7 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     const reset = () => {
       setTitle(''); setDescription('');
       setStartDate(new Date()); setShowDatePicker(false);
-      setAssignedTo([]); setError('');
+      setAssignedTo([]); setRecurrence('none'); setShowRecurrence(false); setError('');
     };
 
     const dismiss = () => (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
@@ -270,10 +283,35 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
 
           {/* Recurrence */}
           <Text style={[styles.label, { marginTop: 8 }]}>Recurrence</Text>
-          <View style={styles.recurrencePill}>
-            <Text style={styles.recurrenceTxt}>Does not repeat</Text>
-            <Ionicons name="chevron-down" size={14} color="#9E9380" />
-          </View>
+          <TouchableOpacity
+            style={styles.recurrencePill}
+            onPress={() => setShowRecurrence((p) => !p)}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.recurrenceTxt}>{RECURRENCE_LABELS[recurrence]}</Text>
+            <Ionicons name={showRecurrence ? 'chevron-up' : 'chevron-down'} size={14} color="#9E9380" />
+          </TouchableOpacity>
+          {showRecurrence && (
+            <View style={styles.recurrenceDropdown}>
+              {(Object.entries(RECURRENCE_LABELS) as [RecurrenceOption, string][]).map(([key, label], i, arr) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.recurrenceOption,
+                    recurrence === key && styles.recurrenceOptionSelected,
+                    i < arr.length - 1 && styles.recurrenceOptionBorder,
+                  ]}
+                  onPress={() => { setRecurrence(key); setShowRecurrence(false); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.recurrenceOptionTxt, recurrence === key && styles.recurrenceOptionTxtSelected]}>
+                    {label}
+                  </Text>
+                  {recurrence === key && <Ionicons name="checkmark" size={15} color="#4E7B78" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Assign To */}
           {memberIds.length > 0 && (
@@ -315,7 +353,10 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
-          {/* Save button */}
+        </BottomSheetScrollView>
+
+        {/* Fixed save button — always visible at the bottom */}
+        <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.saveBtn, submitting && styles.saveBtnDisabled]}
             onPress={handleSubmit}
@@ -326,8 +367,7 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
               {submitting ? 'Saving…' : event ? 'Save Event' : 'Save Event'}
             </Text>
           </TouchableOpacity>
-
-        </BottomSheetScrollView>
+        </View>
       </BottomSheetModal>
     );
   }
@@ -347,7 +387,8 @@ const styles = StyleSheet.create({
   dottedDivider: { height: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#C4B5E0', marginHorizontal: 0 },
 
   // Form
-  container: { padding: 20, paddingBottom: 48 },
+  container: { padding: 20, paddingBottom: 8 },
+  footer: { paddingHorizontal: 20, paddingBottom: 32, paddingTop: 8, backgroundColor: '#FDFAF7' },
   label: { fontSize: 14, fontWeight: '700', color: '#3B1F0E', marginBottom: 8 },
 
   // Text inputs
@@ -391,6 +432,25 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recurrenceTxt: { fontSize: 14, fontWeight: '500', color: '#3B1F0E' },
+  recurrenceDropdown: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D8CFC5',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  recurrenceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  recurrenceOptionBorder: { borderBottomWidth: 1, borderBottomColor: '#F0E8DC' },
+  recurrenceOptionSelected: { backgroundColor: '#F5F0EC' },
+  recurrenceOptionTxt: { fontSize: 14, color: '#3B1F0E' },
+  recurrenceOptionTxtSelected: { fontWeight: '700', color: '#4E7B78' },
 
   // Assignee chips
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
