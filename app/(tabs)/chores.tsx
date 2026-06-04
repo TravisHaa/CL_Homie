@@ -290,8 +290,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroTitle: {
+    fontFamily: 'GowunBatang_700Bold',
     fontSize: 17,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     letterSpacing: -0.2,
   },
@@ -307,11 +307,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   percentText: {
+    fontFamily: 'AlbertSans_800ExtraBold',
     fontSize: 28,
-    fontWeight: '800',
     color: CHORE_THEME.text,
   },
   percentLabel: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 11,
     color: CHORE_THEME.textMuted,
     marginTop: 2,
@@ -340,22 +341,22 @@ const styles = StyleSheet.create({
   },
   statBody: { flex: 1 },
   statLabel: {
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 10,
     color: CHORE_THEME.textMuted,
-    fontWeight: '600',
     letterSpacing: 0.2,
   },
   statValue: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 13,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     marginTop: 1,
   },
 
   // ── Sections ────────────────────────────────────────────────────────────────
   sectionLabel: {
+    fontFamily: 'GowunBatang_700Bold',
     fontSize: 14,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     marginBottom: 10,
     marginLeft: 2,
@@ -364,6 +365,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   sectionInline: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 12,
     color: CHORE_THEME.textMuted,
     paddingVertical: 8,
@@ -379,12 +381,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emptyTitle: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 15,
-    fontWeight: '700',
     color: CHORE_THEME.text,
     marginTop: 6,
   },
   emptyBody: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
     color: CHORE_THEME.textMuted,
   },

@@ -507,10 +507,10 @@ export default function ShoppingScreen() {
                 <View style={styles.newItemQtyRow}>
                   <Text style={styles.newItemQtyText}>{newItemQty}</Text>
                   <View style={styles.newItemQtyControls}>
-                    <TouchableOpacity onPress={() => setNewItemQty((q) => Math.max(1, q - 1))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity onPress={() => setNewItemQty((q) => q + 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Ionicons name="chevron-up" size={16} color="#636e72" />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setNewItemQty((q) => q + 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity onPress={() => setNewItemQty((q) => Math.max(1, q - 1))} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Ionicons name="chevron-down" size={16} color="#636e72" />
                     </TouchableOpacity>
                   </View>
