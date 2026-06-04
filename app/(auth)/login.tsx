@@ -1,22 +1,22 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ImageBackground,
-  SafeAreaView,
-  useWindowDimensions,
-} from 'react-native';
-import { useState } from 'react';
-import { Link, router } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from '@/src/firebase/auth';
 import { PALETTE } from '@/src/theme/palette';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, router } from 'expo-router';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import {
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { z } from 'zod';
 const bg = require('@/assets/images/phoneBG.png');
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -24,6 +24,24 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+function getAuthErrorMessage(err: any): string {
+  switch (err?.code) {
+    case 'auth/network-request-failed':
+      return 'Network error. Check your internet connection and try again.';
+    case 'auth/invalid-credential':
+    case 'auth/invalid-email':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Incorrect email or password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    default:
+      return err?.message ?? 'Login failed. Please try again.';
+  }
+}
 
 export default function LoginScreen() {
   const [authError, setAuthError] = useState('');
@@ -45,7 +63,7 @@ export default function LoginScreen() {
       console.log('[Login] signIn succeeded — waiting for AuthGate redirect');
     } catch (err: any) {
       console.error('[Login] signIn error:', err.code, err.message);
-      setAuthError(err.message ?? 'Login failed');
+      setAuthError(getAuthErrorMessage(err));
     }
   }
 
