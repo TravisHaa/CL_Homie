@@ -4,11 +4,13 @@ import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, Style
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { deleteUser } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { GridBackground } from '@/src/components/GridBackground';
 import { ImageCropModal } from '@/src/components/ImageCropModal';
 import { useAuthStore } from '@/src/store/authStore';
+import { signOut } from '@/src/firebase/auth';
 import { db, storage } from '@/src/firebase/config';
 import HeaderSvg from '@/assets/images/header.svg';
 
@@ -17,8 +19,11 @@ export default function MyAccountScreen() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const setUserProfile = useAuthStore((s) => s.setUserProfile);
+  const setFirebaseUser = useAuthStore((s) => s.setFirebaseUser);
   const [uploading, setUploading] = useState(false);
   const [cropUri, setCropUri] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   async function pickAvatar() {
     if (!firebaseUser?.uid) return;
@@ -59,6 +64,56 @@ export default function MyAccountScreen() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handleLogOut() {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      setFirebaseUser(null);
+      setUserProfile(null);
+      router.replace('/(auth)/signup');
+    } catch (e: any) {
+      Alert.alert('Log out failed', e?.message ?? 'Could not log out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!firebaseUser) return;
+    setIsDeletingAccount(true);
+    try {
+      await deleteUser(firebaseUser);
+      setFirebaseUser(null);
+      setUserProfile(null);
+      router.replace('/(auth)/signup');
+    } catch (e: any) {
+      const needsFreshLogin = e?.code === 'auth/requires-recent-login';
+      Alert.alert(
+        'Delete account failed',
+        needsFreshLogin
+          ? 'For your security, please log out and log back in before deleting your account.'
+          : e?.message ?? 'Could not delete your account. Please try again.'
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
+
+  function confirmDeleteAccount() {
+    const message = 'This permanently deletes your login account. This action cannot be undone.';
+
+    if (Platform.OS === 'web') {
+      const confirmed = globalThis.confirm?.(`Delete account?\n\n${message}`);
+      if (confirmed) void handleDeleteAccount();
+      return;
+    }
+
+    Alert.alert('Delete account?', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete Account', style: 'destructive', onPress: handleDeleteAccount },
+    ]);
   }
 
   return (
@@ -116,6 +171,49 @@ export default function MyAccountScreen() {
               <Text style={styles.rowLabel}>Email</Text>
               <Text style={styles.rowValue}>{firebaseUser?.email ?? '—'}</Text>
             </View>
+          </View>
+
+          <View style={styles.accountActions}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.logOutButton,
+                pressed && styles.actionButtonPressed,
+                (isSigningOut || isDeletingAccount) && styles.actionButtonDisabled,
+              ]}
+              onPress={handleLogOut}
+              disabled={isSigningOut || isDeletingAccount}
+              accessibilityRole="button"
+              accessibilityLabel="Log out"
+            >
+              {isSigningOut ? (
+                <ActivityIndicator color="#2E0800" />
+              ) : (
+                <>
+                  <Ionicons name="log-out-outline" size={22} color="#2E0800" />
+                  <Text style={styles.logOutButtonText}>Log Out</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                styles.deleteButton,
+                pressed && styles.actionButtonPressed,
+                (isSigningOut || isDeletingAccount) && styles.actionButtonDisabled,
+              ]}
+              onPress={confirmDeleteAccount}
+              disabled={isSigningOut || isDeletingAccount}
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+            >
+              {isDeletingAccount ? (
+                <ActivityIndicator color="#D00A0A" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Delete Account</Text>
+              )}
+            </Pressable>
           </View>
 
         </ScrollView>
@@ -211,5 +309,44 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#EDE8E0',
+  },
+  accountActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 32,
+  },
+  actionButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionButtonPressed: {
+    opacity: 0.75,
+  },
+  actionButtonDisabled: {
+    opacity: 0.55,
+  },
+  logOutButton: {
+    borderColor: '#2E0800',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  logOutButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 16,
+    color: '#2E0800',
+  },
+  deleteButton: {
+    borderColor: '#D00A0A',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  deleteButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 16,
+    color: '#D00A0A',
   },
 });

@@ -4,20 +4,20 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import HomeIcon from '@/assets/images/HomeIcon.svg';
-import PantryIcon from '@/assets/images/PantryIcon.svg';
+import ChoresIcon from '@/assets/images/ChoresIcon.svg';
 import ShoppingIcon from '@/assets/images/ShoppingIcon.svg';
 
 const TABS: { name: string; title: string; Icon: React.FC<{ width: number; height: number; color?: string }> }[] = [
   { name: 'index', title: 'Home', Icon: HomeIcon },
   { name: 'calendar', title: 'Calendar', Icon: CalendarIcon },
-  { name: 'pantry', title: 'Pantry', Icon: PantryIcon },
+  { name: 'chores', title: 'Chores', Icon: ChoresIcon },
   { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
+const HIDDEN = ['pantry', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
 const TAB_ACTIVE: Record<string, string> = {
   index: '#A7572D',
-  pantry: '#1B8F63',
+  chores: '#1B8F63',
   shopping: '#C15B2A',
   settings: '#6557C8',
 };
@@ -69,7 +69,7 @@ export default function TabLayout() {
             title,
             tabBarIcon: ({ color, focused }) => (
               <View style={[
-                { alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 20 },
+                styles.tabIconShell,
                 focused && { backgroundColor: '#FEF3ED' },
               ]}>
                 <Icon width={24} height={24} color={color} />
@@ -84,3 +84,13 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIconShell: {
+    width: 76,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 27,
+  },
+});

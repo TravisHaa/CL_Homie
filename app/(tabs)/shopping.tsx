@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
   Modal,
   TextInput,
 } from 'react-native';
@@ -16,6 +17,7 @@ import AddButtonSvg from '@/assets/images/Add-Button.svg';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
+import { usePantry } from '@/src/hooks/usePantry';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
 import { ShoppingItemRow } from '@/src/components/shopping/ShoppingItemRow';
@@ -47,6 +49,7 @@ function DashedRule({ style }: { style?: object }) {
 export default function ShoppingScreen() {
   const { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked, deleteShoppingItem, updateShoppingItem } =
     useShoppingList();
+  const { addPantryItem } = usePantry();
   const { memberMap } = useHouseStore();
   const currentUserId = useAuthStore((s) => s.userProfile?.id);
   const formRef = useRef<BottomSheet>(null);
@@ -82,6 +85,7 @@ export default function ShoppingScreen() {
   const [boughtExpiry, setBoughtExpiry] = useState<Date | null>(null);
   const [boughtExpiryPickerOpen, setBoughtExpiryPickerOpen] = useState(false);
   const [boughtExpiryCalMonth, setBoughtExpiryCalMonth] = useState(() => new Date());
+  const [isConfirmingBought, setIsConfirmingBought] = useState(false);
 
   const openBoughtModal = (item: import('@/src/types').ShoppingItem) => {
     setBoughtItem(item);
@@ -91,6 +95,36 @@ export default function ShoppingScreen() {
     setBoughtExpiry(null);
     setBoughtExpiryPickerOpen(false);
     setBoughtExpiryCalMonth(new Date());
+    setIsConfirmingBought(false);
+  };
+
+  const confirmBoughtItem = async () => {
+    if (!boughtItem || isConfirmingBought) return;
+
+    if (!boughtExpiry) {
+      Alert.alert('Expiration date needed', 'Choose an expiration date before adding this item to the pantry.');
+      return;
+    }
+
+    setIsConfirmingBought(true);
+    try {
+      await addPantryItem({
+        name: boughtItem.name,
+        quantity: boughtItem.quantity,
+        unit: boughtItem.unit,
+        category: boughtItem.category,
+        isShared: true,
+        expirationDate: boughtExpiry,
+        barcode: null,
+      });
+      await toggleShoppingItem(boughtItem.id, boughtItem.isChecked);
+      if (boughtCost) await updateShoppingItem(boughtItem.id, { price: boughtCost });
+      setBoughtItem(null);
+    } catch (e: any) {
+      Alert.alert('Could not confirm purchase', e?.message ?? 'Please try again.');
+    } finally {
+      setIsConfirmingBought(false);
+    }
   };
 
   // Edit item modal
@@ -1021,16 +1055,20 @@ export default function ShoppingScreen() {
                 <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalPrimaryBtn, { backgroundColor: '#3D6B5E' }]}
-                onPress={async () => {
-                  if (!boughtItem) return;
-                  await toggleShoppingItem(boughtItem.id, boughtItem.isChecked);
-                  if (boughtCost) await updateShoppingItem(boughtItem.id, { price: boughtCost });
-                  setBoughtItem(null);
-                }}
+                style={[
+                  styles.modalPrimaryBtn,
+                  { backgroundColor: '#3D6B5E' },
+                  isConfirmingBought && { opacity: 0.65 },
+                ]}
+                onPress={confirmBoughtItem}
+                disabled={isConfirmingBought}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalPrimaryBtnText}>Confirm purchase</Text>
+                {isConfirmingBought ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalPrimaryBtnText}>Confirm purchase</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
