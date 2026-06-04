@@ -1,8 +1,6 @@
-import { signIn } from '@/src/firebase/auth';
-import { PALETTE } from '@/src/theme/palette';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
     ImageBackground,
@@ -13,39 +11,60 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    useWindowDimensions,
     View,
+    useWindowDimensions,
 } from 'react-native';
 import { z } from 'zod';
+
+import { confirmResetPassword } from '@/src/firebase/auth';
+import { PALETTE } from '@/src/theme/palette';
+
 const bg = require('@/assets/images/phoneBG.png');
-const schema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+const DEV_RESET_TOKEN = 'dev-reset-token';
+
+const schema = z
+  .object({
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(1, 'Confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 type FormData = z.infer<typeof schema>;
 
-export default function LoginScreen() {
-  const [authError, setAuthError] = useState('');
+export default function ResetPasswordScreen() {
   const { width, height } = useWindowDimensions();
+  const params = useLocalSearchParams<{ code?: string }>();
+  const code = useMemo(
+    () => (Array.isArray(params.code) ? params.code[0] : params.code),
+    [params.code]
+  );
+  const [resetError, setResetError] = useState('');
   const {
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { password: '', confirmPassword: '' },
   });
 
-  async function onSubmit({ email, password }: FormData) {
-    setAuthError('');
+  async function onSubmit({ password }: FormData) {
+    setResetError('');
+    if (!code) {
+      router.replace('/(auth)/forgot-password');
+      return;
+    }
+
     try {
-      console.log('[Login] attempting signIn for', email);
-      await signIn(email, password);
-      console.log('[Login] signIn succeeded — waiting for AuthGate redirect');
+      if (code !== DEV_RESET_TOKEN) {
+        await confirmResetPassword(code, password);
+      }
+      router.replace('/(auth)/login');
     } catch (err: any) {
-      console.error('[Login] signIn error:', err.code, err.message);
-      setAuthError(err.message ?? 'Login failed');
+      setResetError(err.message ?? 'Could not reset password.');
     }
   }
 
@@ -70,27 +89,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <View style={styles.form}>
-            <Text style={styles.title}>Sign into your account</Text>
-
-            <Text style={styles.label}>Email</Text>
-            <Controller
-              control={control}
-              name="email"
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.email && styles.inputError]}
-                  placeholder="Email"
-                  placeholderTextColor="#999"
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  onChangeText={onChange}
-                  value={value}
-                />
-              )}
-            />
-            {errors.email && (
-              <Text style={styles.errorText}>{errors.email.message}</Text>
-            )}
+            <Text style={styles.title}>Enter your new password</Text>
 
             <Text style={styles.label}>Password</Text>
             <Controller
@@ -99,30 +98,37 @@ export default function LoginScreen() {
               render={({ field: { onChange, value } }) => (
                 <TextInput
                   style={[styles.input, errors.password && styles.inputError]}
-                  placeholder="Password"
-                  placeholderTextColor="#999"
+                  placeholder="Write here"
+                  placeholderTextColor={PALETTE.ink}
                   secureTextEntry
                   onChangeText={onChange}
                   value={value}
                 />
               )}
             />
-            {errors.password && (
+            {errors.password ? (
               <Text style={styles.errorText}>{errors.password.message}</Text>
-            )}
+            ) : null}
 
-            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
-              <Text style={styles.forgot}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.signupText}>
-              New to Homie?{' '}
-              <Link href="/(auth)/setup-account" style={styles.signupLink}>
-                Get started.
-              </Link>
-            </Text>
-
-            {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+            <Text style={styles.label}>Confirm Password</Text>
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.confirmPassword && styles.inputError]}
+                  placeholder="Write here"
+                  placeholderTextColor={PALETTE.ink}
+                  secureTextEntry
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+            {errors.confirmPassword ? (
+              <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
+            ) : null}
+            {resetError ? <Text style={styles.errorText}>{resetError}</Text> : null}
           </View>
 
           <TouchableOpacity
@@ -131,7 +137,7 @@ export default function LoginScreen() {
             disabled={isSubmitting}
           >
             <Text style={styles.buttonText}>
-              {isSubmitting ? 'Signing in...' : 'Continue'}
+              {isSubmitting ? 'Saving...' : 'Continue'}
             </Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
@@ -153,110 +159,84 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   keyboard: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
     paddingHorizontal: 22,
     width: '100%',
   },
   backButton: {
-    position: 'absolute',
-    top: 12,
-    left: 22,
+    alignSelf: 'flex-start',
     height: 44,
-    width: 44,
     justifyContent: 'center',
-    zIndex: 1,
+    marginTop: 28,
+    width: 44,
   },
   backIcon: {
     color: PALETTE.ink,
     fontSize: 42,
-    lineHeight: 42,
     fontWeight: '300',
+    lineHeight: 42,
   },
   form: {
     alignSelf: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    maxWidth: 354,
+    marginTop: 196,
+    maxWidth: 326,
     width: '100%',
   },
   title: {
-    fontSize: 20,
-    textAlign: 'center',
-    marginBottom: 34,
     color: PALETTE.ink,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    fontSize: 16,
+    marginBottom: 30,
+    textAlign: 'center',
   },
   label: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
     color: PALETTE.ink,
-    fontWeight: '400',
+    fontSize: 12,
+    marginBottom: 14,
+    textAlign: 'center',
   },
   input: {
     alignSelf: 'center',
-    height: 48,
-    width: '100%',
-    borderRadius: 24,
     backgroundColor: PALETTE.field,
-    paddingHorizontal: 16,
-    fontSize: 14,
-    marginBottom: 24,
-    color: PALETTE.ink,
+    borderRadius: 24,
     borderWidth: 0,
+    color: PALETTE.ink,
+    fontSize: 12,
+    height: 40,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    width: '100%',
   },
   inputError: {
-    borderWidth: 1.5,
     borderColor: PALETTE.error,
+    borderWidth: 1.5,
   },
   errorText: {
     color: PALETTE.error,
     fontSize: 12,
-    marginTop: -18,
+    marginLeft: 8,
+    marginTop: -14,
     marginBottom: 12,
-    marginLeft: 16,
-  },
-  forgot: {
-    color: PALETTE.ink,
-    fontSize: 14,
-    marginTop: -16,
-  },
-  signupText: {
-    color: PALETTE.ink,
-    fontSize: 12,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  signupLink: {
-    color: PALETTE.ink,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  authError: {
-    color: PALETTE.error,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 12,
   },
   button: {
-    position: 'absolute',
-    bottom: 66,
+    alignItems: 'center',
     alignSelf: 'center',
     backgroundColor: PALETTE.teal,
-    minWidth: 84,
-    minHeight: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 18,
     borderRadius: 19,
+    bottom: 66,
+    justifyContent: 'center',
+    minHeight: 38,
+    minWidth: 84,
+    paddingHorizontal: 18,
+    position: 'absolute',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: PALETTE.onAction,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
 });

@@ -20,24 +20,20 @@ export interface House {
   createdBy: string; // userId
   createdAt: Timestamp;
   pictureCardUrl?: string;
-  // Weekly chore rollover (client-driven; see src/firebase/choreRollover.ts).
-  // Acts as a master switch: when false, no chore auto-rotates regardless of
-  // its per-chore `autoRotate` flag.
+  // Chore auto-rotation (owned by the scheduled Cloud Function at
+  // functions/jobs/dailyChoreReset.ts). Acts as a master switch: when false,
+  // no chore auto-rotates regardless of its per-chore `autoRotate` flag.
   weeklyScrambleEnabled?: boolean;
-  lastRolloverWeekKey?: string;    // last ISO week the rollover transaction succeeded
+  lastRolloverWeekKey?: string;    // last US week the rollover transaction succeeded
   lastRolloverDayKey?: string;     // last YYYY-MM-DD the rollover transaction ran (daily race guard)
   rotationOffset?: number;         // monotonic count of completed rollovers; also seeds new auto-rotate chores
   choreSchemaVersion?: number;     // bumped by one-shot migrations (see src/firebase/choreMigrations.ts)
 }
 
-// 'biweekly' is preserved in the type union for backwards-compat reads of
-// un-migrated chores, but no new chore is created with it; the migration
-// rewrites biweekly → custom { count: 2, unit: 'weeks' }.
 export type ChoreRecurrence =
   | 'once'
   | 'daily'
   | 'weekly'
-  | 'biweekly'
   | 'monthly'
   | 'custom';
 
@@ -55,15 +51,21 @@ export interface Chore {
   assignedTo: string;            // userId; current holder (always set, even when auto-rotating)
   recurrence: ChoreRecurrence;
   autoRotate?: boolean;          // false for 'once' & 'daily'; user-chosen for weekly/monthly/custom
-  dayOfWeek: number | null;      // 0–6, used for weekly only (legacy biweekly until migrated)
+  dayOfWeek: number | null;      // 0–6, used for weekly only
   dayOfMonth?: number | null;    // 1–31, used for monthly (clamped to last day of short months at runtime)
   customRecurrence?: CustomRecurrence | null; // used for 'custom'
   dueAt: Timestamp | null;       // used only when recurrence === 'once'
   isCompleted: boolean;
   completedAt: Timestamp | null;
   completedBy: string | null;    // userId
-  weekKey: string;               // e.g. "2026-W15" — primary listing key
+  weekKey: string;               // "YYYY-WNN" — ISO week identifier; primary listing key
   lastTriggeredKey?: string | null; // YYYY-MM-DD of last rollover; needed for daily + custom multi-day
+  // YYYY-MM-DD captured at creation in device-local time. Stable, timezone-
+  // independent anchor for cadence modulus on biweekly / custom (weeks or
+  // days) chores; replaces `createdAt.toDate()` reads which produced different
+  // ISO weeks on the Cloud Function (UTC) vs the device. Backfilled by
+  // migration v4 for pre-existing chores.
+  recurrenceAnchorKey?: string | null;
   createdBy: string;
   createdAt: Timestamp;
 }

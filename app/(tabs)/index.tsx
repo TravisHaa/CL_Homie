@@ -2,9 +2,7 @@ import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
-import { isChoreDueOn } from '@/src/utils/choreSchedule';
-import { getWeekKey } from '@/src/utils/weekKey';
-import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
+import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -214,11 +212,9 @@ export default function HomeScreen() {
   const { items: allShopping = [], isLoading: shoppingLoading } =
     useShoppingList();
 
-  const weekKey = getWeekKey();
   const now = new Date();
 
   const chores = allChores;
-  const doneCount = chores.filter((c) => c.isCompleted).length;
 
   const events = allEvents
     .filter((e) => e.startTime.toDate() > now)
