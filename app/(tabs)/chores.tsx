@@ -2,6 +2,9 @@ import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
 import { ProgressRing } from '@/src/components/chores/ProgressRing';
+import { GridBackground } from '@/src/components/GridBackground';
+import HeaderSvg from '@/assets/images/header.svg';
+import AddButtonSvg from '@/assets/images/Add-Button.svg';
 import { useChores } from '@/src/hooks/useChores';
 import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore } from '@/src/types';
@@ -112,7 +115,13 @@ export default function ChoresScreen() {
   const streak = computeStreak(chores);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <GridBackground />
+      <View style={{ width: '100%', overflow: 'hidden' }}>
+        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
+        <Text style={styles.headerTitle}>Chores</Text>
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -216,11 +225,11 @@ export default function ChoresScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => sheetRef.current?.present()}
-        activeOpacity={0.85}
+        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="Add chore"
       >
-        <Ionicons name="add" size={28} color={CHORE_THEME.text} />
+        <AddButtonSvg width={64} height={64} />
       </TouchableOpacity>
 
       <ChoreForm ref={sheetRef} onSubmit={addChore} />
@@ -230,7 +239,8 @@ export default function ChoresScreen() {
         onUpdate={updateChore}
         onDelete={deleteChore}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -238,6 +248,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: CHORE_THEME.bg,
+  },
+  headerTitle: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 22,
+    color: '#2E0800',
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 96 },
@@ -368,18 +388,7 @@ const styles = StyleSheet.create({
   // ── FAB ─────────────────────────────────────────────────────────────────────
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2E0800',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    bottom: 110,
+    right: 20,
   },
 });
