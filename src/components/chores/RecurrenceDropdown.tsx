@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     fontSize: 14,
-    color: CHORE_THEME.text,
-    fontWeight: '600',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_600SemiBold',
   },
   menu: {
     position: 'absolute',
@@ -153,11 +153,11 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 14,
-    color: CHORE_THEME.textMuted,
-    fontWeight: '500',
+    color: '#7A6652',
+    fontFamily: 'AlbertSans_500Medium',
   },
   menuItemTextSelected: {
-    color: CHORE_THEME.text,
-    fontWeight: '700',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_700Bold',
   },
 });

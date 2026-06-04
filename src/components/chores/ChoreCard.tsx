@@ -204,12 +204,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontWeight: '700',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_600SemiBold',
+    color: '#2D1A0E',
     marginBottom: 4,
   },
   titleDone: {
-    color: CHORE_THEME.textMuted,
+    color: '#7A6652',
   },
   assigneeRow: {
     flexDirection: 'row',
@@ -225,12 +225,13 @@ const styles = StyleSheet.create({
   },
   assigneeInitial: {
     fontSize: 8,
-    fontWeight: '800',
+    fontFamily: 'AlbertSans_800ExtraBold',
     color: '#FFFFFF',
   },
   assigneeText: {
     fontSize: 11,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
     flexShrink: 1,
   },
   statusPill: {
@@ -247,8 +248,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontFamily: 'AlbertSans_700Bold',
   },
   statusTextActive: {
     color: CHORE_THEME.onAccent,

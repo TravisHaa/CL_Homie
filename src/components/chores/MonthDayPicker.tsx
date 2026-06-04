@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     fontSize: 14,
-    color: CHORE_THEME.text,
-    fontWeight: '600',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_600SemiBold',
   },
   menu: {
     position: 'absolute',
@@ -148,8 +148,8 @@ const styles = StyleSheet.create({
     width: CELL_SIZE,
     textAlign: 'center',
     fontSize: 11,
-    fontWeight: '700',
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_700Bold',
+    color: '#7A6652',
     marginBottom: 4,
   },
   grid: {
@@ -175,15 +175,17 @@ const styles = StyleSheet.create({
   },
   cellText: {
     fontSize: 13,
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#2D1A0E',
   },
   cellTextSelected: {
     color: CHORE_THEME.onAccent,
-    fontWeight: '700',
+    fontFamily: 'AlbertSans_700Bold',
   },
   hint: {
     fontSize: 11,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
     marginTop: 6,
     maxWidth: CELL_SIZE * 7,
   },

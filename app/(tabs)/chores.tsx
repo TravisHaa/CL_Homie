@@ -1,4 +1,3 @@
-import { GridBackground } from '@/src/components/GridBackground';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
@@ -241,7 +240,7 @@ const styles = StyleSheet.create({
     backgroundColor: CHORE_THEME.bg,
   },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 96 },
+  scrollContent: { padding: 16, paddingBottom: 160 },
 
   // ── Hero card ───────────────────────────────────────────────────────────────
   heroCard: {
@@ -264,10 +263,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: CHORE_THEME.text,
-    letterSpacing: -0.2,
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 24,
+    color: '#2E0800',
   },
   heroRefresh: {
     position: 'absolute',
@@ -282,12 +280,13 @@ const styles = StyleSheet.create({
   },
   percentText: {
     fontSize: 28,
-    fontWeight: '800',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_600SemiBold',
+    color: '#2E0800',
   },
   percentLabel: {
     fontSize: 11,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
     marginTop: 2,
   },
   statsRow: {
@@ -315,22 +314,21 @@ const styles = StyleSheet.create({
   statBody: { flex: 1 },
   statLabel: {
     fontSize: 10,
-    color: CHORE_THEME.textMuted,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontFamily: 'AlbertSans_600SemiBold',
+    color: '#7A6652',
   },
   statValue: {
     fontSize: 13,
-    fontWeight: '800',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_700Bold',
+    color: '#2D1A0E',
     marginTop: 1,
   },
 
   // ── Sections ────────────────────────────────────────────────────────────────
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: CHORE_THEME.text,
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 18,
+    color: '#2E0800',
     marginBottom: 10,
     marginLeft: 2,
   },
@@ -339,7 +337,8 @@ const styles = StyleSheet.create({
   },
   sectionInline: {
     fontSize: 12,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
     paddingVertical: 8,
     marginLeft: 2,
   },
@@ -354,13 +353,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: CHORE_THEME.text,
+    fontFamily: 'GowunBatang_700Bold',
+    color: '#2E0800',
     marginTop: 6,
   },
   emptyBody: {
     fontSize: 13,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
   },
   loader: {
     marginTop: 40,
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   // ── FAB ─────────────────────────────────────────────────────────────────────
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 110,
     right: 24,
     width: 52,
     height: 52,

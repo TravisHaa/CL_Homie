@@ -28,14 +28,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: '700',
-    color: CHORE_THEME.text,
+    fontFamily: 'GowunBatang_700Bold',
+    color: '#2E0800',
     marginTop: 12,
     textAlign: 'center',
   },
   body: {
     fontSize: 14,
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#7A6652',
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 20,

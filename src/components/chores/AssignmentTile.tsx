@@ -68,18 +68,18 @@ const styles = StyleSheet.create({
   },
   initial: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'AlbertSans_700Bold',
     color: CHORE_THEME.onAccent,
   },
   label: {
     fontSize: 12,
-    color: CHORE_THEME.textMuted,
+    color: '#7A6652',
     marginTop: 4,
-    fontWeight: '500',
+    fontFamily: 'AlbertSans_500Medium',
     textAlign: 'center',
   },
   labelSelected: {
-    color: CHORE_THEME.text,
-    fontWeight: '700',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_700Bold',
   },
 });

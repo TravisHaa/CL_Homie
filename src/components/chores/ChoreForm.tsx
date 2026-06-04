@@ -369,6 +369,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                         border: 'none',
                         background: 'transparent',
                         fontSize: 16,
+                        fontFamily: 'AlbertSans_400Regular',
                         color: CHORE_THEME.text,
                         outline: 'none',
                         padding: 0,
@@ -498,8 +499,8 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 22,
-    fontWeight: '800',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_800ExtraBold',
+    color: '#2E0800',
   },
   headerDivider: {
     height: 1,
@@ -509,8 +510,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontWeight: '700',
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_700Bold',
+    color: '#7A6652',
     marginBottom: 8,
     marginTop: 18,
     textTransform: 'uppercase',
@@ -518,8 +519,8 @@ const styles = StyleSheet.create({
   },
   subLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: CHORE_THEME.textMuted,
+    fontFamily: 'AlbertSans_600SemiBold',
+    color: '#7A6652',
     marginBottom: 8,
   },
   input: {
@@ -529,7 +530,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#2D1A0E',
     backgroundColor: CHORE_THEME.cardBg,
   },
   settingsCard: {
@@ -560,8 +562,8 @@ const styles = StyleSheet.create({
   },
   dayChipText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_600SemiBold',
+    color: '#2D1A0E',
   },
   dayChipTextActive: {
     color: CHORE_THEME.onAccent,
@@ -584,16 +586,16 @@ const styles = StyleSheet.create({
   },
   stepperButtonText: {
     fontSize: 20,
-    fontWeight: '700',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_700Bold',
+    color: '#2D1A0E',
     lineHeight: 22,
   },
   stepperValue: {
     minWidth: 36,
     textAlign: 'center',
     fontSize: 18,
-    fontWeight: '700',
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_700Bold',
+    color: '#2D1A0E',
   },
   unitGroup: {
     flexDirection: 'row',
@@ -614,12 +616,12 @@ const styles = StyleSheet.create({
   },
   unitChipText: {
     fontSize: 14,
-    color: CHORE_THEME.text,
-    fontWeight: '500',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_500Medium',
   },
   unitChipTextActive: {
     color: CHORE_THEME.onAccent,
-    fontWeight: '700',
+    fontFamily: 'AlbertSans_700Bold',
   },
   datePickerContainer: {
     flexDirection: 'row',
@@ -637,7 +639,8 @@ const styles = StyleSheet.create({
   },
   dateButtonText: {
     fontSize: 16,
-    color: CHORE_THEME.text,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#2D1A0E',
   },
   clearButton: {
     paddingVertical: 8,
@@ -649,8 +652,8 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     fontSize: 14,
-    color: CHORE_THEME.text,
-    fontWeight: '600',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_600SemiBold',
   },
   assignmentRow: {
     flexDirection: 'row',
@@ -672,8 +675,8 @@ const styles = StyleSheet.create({
     backgroundColor: CHORE_THEME.cardBg,
   },
   outlineButtonText: {
-    color: CHORE_THEME.text,
-    fontWeight: '600',
+    color: '#2D1A0E',
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
   },
   primaryButton: {
@@ -689,6 +692,6 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: CHORE_THEME.onAccent,
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'AlbertSans_700Bold',
   },
 });
