@@ -1,13 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    BottomSheetBackdrop,
-    BottomSheetBackdropProps,
-    BottomSheetModal,
-    BottomSheetView,
-} from '@gorhom/bottom-sheet';
 import { format } from 'date-fns';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     Platform,
@@ -17,11 +12,13 @@ import {
     Text,
     View,
 } from 'react-native';
+import DraggableFlatList, {
+    RenderItemParams,
+    ScaleDecorator,
+} from 'react-native-draggable-flatlist';
 
-import { setWeeklyScrambleEnabled } from '@/src/firebase/house';
-import { useChores } from '@/src/hooks/useChores';
+import { setMemberOrder, setWeeklyScrambleEnabled } from '@/src/firebase/house';
 import { useHouseStore } from '@/src/store/houseStore';
-import { recurrenceLabel } from '@/src/utils/choreSchedule';
 import { nextMondayDate } from '@/src/utils/weekKey';
 
 const S = {
@@ -30,6 +27,8 @@ const S = {
   textStrong: '#1A1A1A',
   textSoft: '#7A6652',
   pillBg: '#F7F4F0',
+  saveBg: '#2B1B15',
+  saveText: '#FFFFFF',
 };
 
 function initialOf(name: string | undefined | null): string {
@@ -38,50 +37,53 @@ function initialOf(name: string | undefined | null): string {
   return trimmed.length > 0 ? trimmed[0].toUpperCase() : '?';
 }
 
+interface MemberItem {
+  id: string;
+  name: string;
+  color: string;
+  avatarUrl?: string | null;
+}
+
 export function RotationCard() {
   const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
   const setHouse = useHouseStore((s) => s.setHouse);
-  const { chores } = useChores();
 
-  const [showAll, setShowAll] = useState(false);
+  const memberIds = house?.memberIds ?? [];
+
+  const [editing, setEditing] = useState(false);
+  const [localOrder, setLocalOrder] = useState<string[]>(memberIds);
+  const [saving, setSaving] = useState(false);
   const [savingToggle, setSavingToggle] = useState(false);
-  const sheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['30%'], []);
+
+  // Reset local edit state whenever the house identity changes (e.g. user
+  // switches houses mid-edit). Also keep `localOrder` in sync with the
+  // canonical order when not editing, so external mutations (another device
+  // saving a new order) flow through.
+  useEffect(() => {
+    if (!editing) {
+      setLocalOrder(memberIds);
+    }
+    // Intentionally key on the joined ids string + editing flag so this
+    // resyncs whenever the upstream order really changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberIds.join('|'), editing]);
+
+  useEffect(() => {
+    // House switch — abandon any in-flight edit.
+    setEditing(false);
+  }, [house?.id]);
 
   const enabled = !!house?.weeklyScrambleEnabled;
-  const memberIds = house?.memberIds ?? [];
-  const sortedMembers = useMemo(() => [...memberIds].sort(), [memberIds]);
-
-  // Show only chores opted into auto-rotate — the per-chore flag is now the
-  // source of truth for what's part of "the rotation". Recurring chores with
-  // a pinned assignee are intentionally hidden here.
-  const recurringChores = useMemo(
-    () => chores.filter((c) => c.autoRotate === true),
-    [chores]
-  );
-
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
-    ),
-    []
-  );
-
-  const openSheet = useCallback(() => {
-    sheetRef.current?.present();
-  }, []);
 
   const handleToggle = useCallback(
     async (next: boolean) => {
       if (!house || savingToggle) return;
-      // Optimistic update so the UI reflects the change immediately.
       setHouse({ ...house, weeklyScrambleEnabled: next });
       setSavingToggle(true);
       try {
         await setWeeklyScrambleEnabled(house.id, next);
       } catch (err) {
-        // Revert on failure.
         setHouse({ ...house, weeklyScrambleEnabled: !next });
         const message =
           (err as { message?: string })?.message ?? 'Could not update rotation setting.';
@@ -97,128 +99,197 @@ export function RotationCard() {
     [house, savingToggle, setHouse]
   );
 
+  const startEditing = useCallback(() => {
+    setLocalOrder(memberIds);
+    setEditing(true);
+  }, [memberIds]);
+
+  const cancelEditing = useCallback(() => {
+    setLocalOrder(memberIds);
+    setEditing(false);
+  }, [memberIds]);
+
+  const handleSave = useCallback(async () => {
+    if (!house || saving) return;
+    // No-op if nothing changed.
+    if (localOrder.join('|') === memberIds.join('|')) {
+      setEditing(false);
+      return;
+    }
+    const previous = memberIds;
+    setHouse({ ...house, memberIds: localOrder });
+    setSaving(true);
+    try {
+      await setMemberOrder(house.id, localOrder, previous);
+      setEditing(false);
+    } catch (err) {
+      // Revert optimistic update on failure.
+      setHouse({ ...house, memberIds: previous });
+      const message =
+        (err as { message?: string })?.message ?? 'Could not save rotation order.';
+      if (Platform.OS === 'web') {
+        globalThis.alert?.(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [house, localOrder, memberIds, saving, setHouse]);
+
   if (!house) return null;
 
-  const pillLabel = enabled ? `Next Rotation: ${format(nextMondayDate(), 'MMM d')}` : 'Auto-rotate off';
+  const pillLabel = enabled
+    ? `Next Rotation: ${format(nextMondayDate(), 'MMM d')}`
+    : 'Auto-rotate off';
+
+  const items: MemberItem[] = localOrder.map((id) => {
+    const m = memberMap[id];
+    return {
+      id,
+      name: m?.displayName ?? '',
+      color: m?.color ?? S.cardBorder,
+      avatarUrl: m?.avatarUrl,
+    };
+  });
+
+  const canEdit = memberIds.length > 1;
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <Text style={styles.heading}>Current Rotation</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit rotation settings"
-          onPress={openSheet}
-          hitSlop={8}
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-        >
-          <Ionicons name="pencil" size={16} color={S.textStrong} />
-        </Pressable>
-      </View>
-
-      <View style={styles.pill}>
-        <Text style={styles.pillText}>{pillLabel}</Text>
-      </View>
-
-      {sortedMembers.length > 0 && (
-        <View style={[styles.avatarsRow, !enabled && styles.dimmed]}>
-          {sortedMembers.map((id, idx) => {
-            const m = memberMap[id];
-            const color = m?.color ?? S.cardBorder;
-            const name = m?.displayName ?? '';
-            return (
-              <View key={id} style={styles.avatarGroup}>
-                <View style={styles.avatarColumn}>
-                  {m?.avatarUrl ? (
-                    <Image source={{ uri: m.avatarUrl }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatar, { backgroundColor: color }]}>
-                      <Text style={styles.avatarText}>{initialOf(name)}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.avatarName} numberOfLines={1}>
-                    {name}
-                  </Text>
-                </View>
-                {idx < sortedMembers.length - 1 && (
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={S.textSoft}
-                    style={styles.arrow}
-                  />
-                )}
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={showAll ? 'Hide recurring chores' : 'See all recurring chores'}
-        onPress={() => setShowAll((v) => !v)}
-        style={({ pressed }) => [styles.expandRow, pressed && styles.pressed]}
-      >
-        <Text style={styles.expandText}>See all recurring chores</Text>
-        <Ionicons
-          name={showAll ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={S.textStrong}
-        />
-      </Pressable>
-
-      {showAll && (
-        <View style={styles.choreList}>
-          {recurringChores.length === 0 ? (
-            <Text style={styles.emptyText}>No recurring chores yet.</Text>
+    <>
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>Current Rotation</Text>
+          {editing ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel rotation edits"
+              onPress={cancelEditing}
+              hitSlop={8}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
           ) : (
-            recurringChores.map((chore) => {
-              const assignee = memberMap[chore.assignedTo];
-              const dotColor = assignee?.color ?? S.cardBorder;
-              return (
-                <View key={chore.id} style={styles.choreRow}>
-                  <Text style={styles.choreTitle}>{chore.title}</Text>
-                  <Text style={styles.choreMeta}>{recurrenceLabel(chore)}</Text>
-                  <View style={styles.assigneeRow}>
-                    <View style={[styles.dot, { backgroundColor: dotColor }]} />
-                    <Text style={styles.assigneeText}>
-                      Currently assigned to {assignee?.displayName ?? '—'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })
+            canEdit && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit rotation order"
+                onPress={startEditing}
+                hitSlop={8}
+                style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="create-outline" size={18} color={S.textStrong} />
+              </Pressable>
+            )
           )}
         </View>
-      )}
 
-      <BottomSheetModal
-        ref={sheetRef}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.sheetHandle}
-      >
-        <BottomSheetView style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Rotation settings</Text>
-          <View style={styles.sheetRow}>
+        {!editing && (
+          <View style={styles.pill}>
+            <Text style={styles.pillText}>{pillLabel}</Text>
+          </View>
+        )}
+
+        {editing ? (
+          items.length > 0 && (
+            <View style={styles.draggableWrap}>
+              <DraggableFlatList
+                horizontal
+                data={items}
+                keyExtractor={(item) => item.id}
+                onDragEnd={({ data }) => setLocalOrder(data.map((d) => d.id))}
+                activationDistance={8}
+                contentContainerStyle={styles.draggableContent}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item, drag, isActive }: RenderItemParams<MemberItem>) => (
+                  <ScaleDecorator>
+                    <Pressable
+                      onLongPress={drag}
+                      delayLongPress={150}
+                      disabled={isActive}
+                      style={[styles.dragCard, isActive && styles.dragCardActive]}
+                    >
+                      {item.avatarUrl ? (
+                        <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
+                      ) : (
+                        <View style={[styles.avatar, { backgroundColor: item.color }]}>
+                          <Text style={styles.avatarText}>{initialOf(item.name)}</Text>
+                        </View>
+                      )}
+                      <Text style={styles.avatarName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </Pressable>
+                  </ScaleDecorator>
+                )}
+              />
+            </View>
+          )
+        ) : (
+          items.length > 0 && (
+            <View style={[styles.avatarsRow, !enabled && styles.dimmed]}>
+              {items.map((item, idx) => (
+                <View key={item.id} style={styles.avatarGroup}>
+                  <View style={styles.avatarColumn}>
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, { backgroundColor: item.color }]}>
+                        <Text style={styles.avatarText}>{initialOf(item.name)}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.avatarName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                  </View>
+                  {idx < items.length - 1 && (
+                    <Ionicons
+                      name="arrow-forward"
+                      size={16}
+                      color={S.textSoft}
+                      style={styles.arrow}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+          )
+        )}
+      </View>
+
+      {editing && (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save rotation order"
+            onPress={handleSave}
+            disabled={saving}
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && !saving && styles.saveButtonPressed,
+              saving && styles.saveButtonDisabled,
+            ]}
+          >
+            {saving ? (
+              <ActivityIndicator color={S.saveText} />
+            ) : (
+              <Text style={styles.saveButtonText}>Save</Text>
+            )}
+          </Pressable>
+
+          <View style={styles.autoRotateRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sheetRowTitle}>Auto-rotate weekly</Text>
-              <Text style={styles.sheetRowSubtitle}>
-                Master switch — chores opted into auto-rotate will shuffle on their cycle. Off pins
-                everything to its current assignee.
+              <Text style={styles.autoRotateTitle}>Auto-rotate weekly</Text>
+              <Text style={styles.autoRotateSubtitle}>
+                Chores opted into auto-rotate shuffle on their cycle. Off pins everything to its current assignee.
               </Text>
             </View>
-            <Switch
-              value={enabled}
-              onValueChange={handleToggle}
-              disabled={savingToggle}
-            />
+            <Switch value={enabled} onValueChange={handleToggle} disabled={savingToggle} />
           </View>
-        </BottomSheetView>
-      </BottomSheetModal>
-    </View>
+        </>
+      )}
+    </>
   );
 }
 
@@ -248,6 +319,12 @@ const styles = StyleSheet.create({
     color: S.textStrong,
   },
   iconButton: { padding: 4 },
+  cancelButton: { paddingHorizontal: 4, paddingVertical: 2 },
+  cancelText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 13,
+    color: S.textSoft,
+  },
   pressed: { opacity: 0.7 },
   pill: {
     alignSelf: 'flex-start',
@@ -268,7 +345,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     flexWrap: 'wrap',
-    marginBottom: 14,
   },
   dimmed: { opacity: 0.5 },
   avatarGroup: {
@@ -299,79 +375,64 @@ const styles = StyleSheet.create({
     color: S.textSoft,
   },
   arrow: { marginHorizontal: 2 },
-  expandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: S.pillBg,
+  draggableWrap: {
+    marginHorizontal: -4,
+  },
+  draggableContent: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    gap: 10,
+  },
+  dragCard: {
+    width: 76,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    backgroundColor: S.cardBg,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: S.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  expandText: {
-    fontFamily: 'AlbertSans_600SemiBold',
-    fontSize: 13,
-    color: S.textStrong,
-  },
-  choreList: { marginTop: 10, gap: 8 },
-  choreRow: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: S.cardBorder,
-    backgroundColor: S.pillBg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  choreTitle: {
-    fontFamily: 'AlbertSans_600SemiBold',
-    fontSize: 14,
-    color: S.textStrong,
-  },
-  choreMeta: {
-    fontFamily: 'AlbertSans_400Regular',
-    fontSize: 12,
-    color: S.textSoft,
-    marginTop: 2,
-  },
-  assigneeRow: {
-    marginTop: 6,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    marginRight: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  assigneeText: {
-    fontFamily: 'AlbertSans_400Regular',
-    fontSize: 12,
-    color: S.textSoft,
+  dragCardActive: {
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  emptyText: {
-    fontFamily: 'AlbertSans_400Regular',
-    fontSize: 13,
-    color: S.textSoft,
+  saveButton: {
+    marginTop: 16,
+    backgroundColor: S.saveBg,
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
   },
-  sheetBackground: { backgroundColor: '#FFFBF5' },
-  sheetHandle: { backgroundColor: S.cardBorder },
-  sheetContent: { padding: 20 },
-  sheetTitle: {
-    fontFamily: 'GowunBatang_700Bold',
-    fontSize: 18,
-    color: S.textStrong,
-    marginBottom: 14,
+  saveButtonPressed: { opacity: 0.85 },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 15,
+    color: S.saveText,
   },
-  sheetRow: {
+  autoRotateRow: {
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 4,
   },
-  sheetRowTitle: {
+  autoRotateTitle: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
     color: S.textStrong,
   },
-  sheetRowSubtitle: {
+  autoRotateSubtitle: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 12,
     color: S.textSoft,

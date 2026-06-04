@@ -34,21 +34,21 @@
  */
 
 import {
-  differenceInCalendarDays,
-  format,
-  getDaysInMonth,
-  getISOWeek,
-  getISOWeekYear,
-  isSameDay,
-  setISOWeek,
-  setISOWeekYear,
-  startOfISOWeek,
+    differenceInCalendarDays,
+    format,
+    getDaysInMonth,
+    getISOWeek,
+    getISOWeekYear,
+    isSameDay,
+    setISOWeek,
+    setISOWeekYear,
+    startOfISOWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import {
-  Firestore,
-  Timestamp,
-  getFirestore,
+    Firestore,
+    Timestamp,
+    getFirestore,
 } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
@@ -355,14 +355,14 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
 
 function nextAssignee(
   currentAssignee: string,
-  sortedMembers: string[],
+  orderedMembers: string[],
   cadenceShift: number
 ): string {
-  if (sortedMembers.length === 0) return currentAssignee;
-  const idx = sortedMembers.indexOf(currentAssignee);
-  if (idx === -1) return sortedMembers[0];
-  const next = (idx + cadenceShift) % sortedMembers.length;
-  return sortedMembers[next];
+  if (orderedMembers.length === 0) return currentAssignee;
+  const idx = orderedMembers.indexOf(currentAssignee);
+  if (idx === -1) return orderedMembers[0];
+  const next = (idx + cadenceShift) % orderedMembers.length;
+  return orderedMembers[next];
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +425,10 @@ async function rolloverHouse(
     // from `functions:shell` and repeated tests actually do work.
 
     const memberIds = house.memberIds ?? [];
-    const sortedMembers = [...memberIds].sort();
+    // The order of `house.memberIds` is user-controlled (see Rotation Schedule
+    // edit mode) and is the source of truth for rotation direction. Do NOT
+    // sort it here — that would silently override the user's chosen sequence.
+    const orderedMembers = memberIds;
     const masterSwitchOn = house.weeklyScrambleEnabled !== false;
 
     let rolled = 0;
@@ -513,20 +516,20 @@ async function rolloverHouse(
         const shouldRotate =
           chore.autoRotate === true &&
           masterSwitchOn &&
-          sortedMembers.length > 1 &&
+          orderedMembers.length > 1 &&
           !isFirstAdvance;
 
         if (shouldRotate) {
           update.assignedTo = nextAssignee(
             chore.assignedTo,
-            sortedMembers,
+            orderedMembers,
             decision.shift
           );
         } else if (
-          sortedMembers.length > 0 &&
-          !sortedMembers.includes(chore.assignedTo)
+          orderedMembers.length > 0 &&
+          !orderedMembers.includes(chore.assignedTo)
         ) {
-          update.assignedTo = sortedMembers[0];
+          update.assignedTo = orderedMembers[0];
         }
 
         cadenceAdvanced += 1;

@@ -1,13 +1,13 @@
 import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  deleteField,
-  getDocs,
-  query,
-  updateDoc,
-  where,
-  writeBatch,
+    arrayRemove,
+    arrayUnion,
+    collection,
+    deleteField,
+    getDocs,
+    query,
+    updateDoc,
+    where,
+    writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
 import { houseDoc, userDoc } from './firestore';
@@ -27,6 +27,26 @@ export async function setWeeklyScrambleEnabled(
   enabled: boolean
 ): Promise<void> {
   await updateDoc(houseDoc(houseId), { weeklyScrambleEnabled: enabled });
+}
+
+export async function setMemberOrder(
+  houseId: string,
+  memberIds: string[],
+  currentMemberIds: string[]
+): Promise<void> {
+  // Defensive: refuse to write if the candidate order doesn't match the
+  // current member set exactly. Reordering must never add or remove members;
+  // those flows live in join/leaveHouse.
+  if (memberIds.length !== currentMemberIds.length) {
+    throw new Error('Member set changed; refresh and try again.');
+  }
+  const a = new Set(memberIds);
+  for (const id of currentMemberIds) {
+    if (!a.has(id)) {
+      throw new Error('Member set changed; refresh and try again.');
+    }
+  }
+  await updateDoc(houseDoc(houseId), { memberIds });
 }
 
 export async function joinHouseByInviteCode({

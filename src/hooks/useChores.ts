@@ -91,10 +91,10 @@ export function useChores() {
     // successive creations stagger across members.
     let assignedTo = input.assignedTo ?? '';
     if (autoRotate && house) {
-      const sortedMembers = [...(house.memberIds ?? [])].sort();
-      if (sortedMembers.length > 0) {
-        const offset = (house.rotationOffset ?? 0) % sortedMembers.length;
-        assignedTo = sortedMembers[offset];
+      const orderedMembers = house.memberIds ?? [];
+      if (orderedMembers.length > 0) {
+        const offset = (house.rotationOffset ?? 0) % orderedMembers.length;
+        assignedTo = orderedMembers[offset];
       }
     }
     if (!assignedTo) {
