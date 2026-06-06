@@ -248,14 +248,18 @@ The `EXPO_PUBLIC_GOOGLE_VISION_API_KEY` and `EXPO_PUBLIC_GOOGLE_OAUTH_WEB_CLIENT
 ### 5. Run on web
 
 ```bash
-npm start
+npm run web
 ```
 
-When the Expo dev server starts, press **`w`** to open the app in your browser. It will be available at `http://localhost:8081`.
+The app will open in your browser at `http://localhost:8081`.
 
-The app automatically displays in a phone-sized frame (Samsung Galaxy S20 Ultra dimensions) centered on a dark background — no browser dev tools or device emulation needed.
+It automatically displays in a phone-sized frame (Samsung Galaxy S20 Ultra dimensions) centered on a dark background — no browser dev tools or device emulation needed.
 
-### 6. Push notifications (one-time setup, physical device only)
+---
+
+## Optional Setup
+
+### Push notifications (physical device only)
 
 Push notifications require an EAS project ID. This is a **one-time step** — once it's in `app.json` you never run it again.
 
@@ -279,8 +283,6 @@ Then test on a real device (push tokens don't work in simulators or on web):
 2. Log in — the app will request notification permission automatically
 3. Check Firestore: `users/{uid}/devices/{deviceId}` should have a non-null `expoPushToken`
 4. Create a calendar event and assign it to a roommate → they'll receive a push: **"[your name] added you to an event"**
-
-> **Note:** Without the EAS project ID the app still runs normally — push registration is silently skipped with a console warning. You only need this setup when testing notifications specifically.
 
 ---
 
