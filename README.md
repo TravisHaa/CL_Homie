@@ -189,23 +189,42 @@ flowchart TD
 ### 1. Prerequisites
 
 - Node.js 18+
-- Expo CLI (`npm install -g expo-cli`)
 - A Firebase project (free Spark tier is fine)
 
-### 2. Clone and install
+### 2. Clone and switch to the demo branch
+
+> **Important:** Run from the `PhoneDemo` branch, not `main`. `main` is the raw development branch and may be unstable.
 
 ```bash
 git clone https://github.com/TravisHaa/CL_Homie.git
 cd CL_Homie
+git checkout PhoneDemo
 npm install
 ```
 
 ### 3. Firebase setup
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) and create a project
-2. Enable **Authentication** → Sign-in method → **Email/Password**
-3. Enable **Firestore Database** (start in test mode for development)
-4. Go to Project Settings → Your apps → add a **Web app** → copy the config
+The app requires a Firebase project for authentication and data storage. Firebase has a free tier (Spark plan) that is more than enough to run Homie.
+
+**Create a Firebase project:**
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and sign in with a Google account
+2. Click **Add project**, give it any name (e.g. `homie-local`), and follow the prompts
+3. Inside the project, go to **Build → Authentication** → **Sign-in method** → enable **Email/Password**
+4. Go to **Build → Firestore Database** → click **Create database** → choose **Start in test mode**
+5. Go to **Project Settings** (gear icon) → **Your apps** → click **Add app** → choose the **Web** platform (`</>`)
+6. Register the app (any nickname) — Firebase will show you a config object like this:
+
+```js
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+};
+```
 
 ### 4. Configure environment variables
 
@@ -213,24 +232,28 @@ npm install
 cp .env.example .env
 ```
 
-Open `.env` and fill in your Firebase values:
+Open `.env` and paste in the values from your Firebase config:
 
 ```
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
+EXPO_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
 ```
 
-### 5. Run the app
+The `EXPO_PUBLIC_GOOGLE_VISION_API_KEY` and `EXPO_PUBLIC_GOOGLE_OAUTH_WEB_CLIENT_ID` fields are optional — leave them blank and the core app works fine.
+
+### 5. Run on web
 
 ```bash
-npx expo start --web      # browser at localhost:8081
-npx expo start --ios      # requires Xcode
-npx expo start --android  # requires Android Studio
+npm start
 ```
+
+When the Expo dev server starts, press **`w`** to open the app in your browser. It will be available at `http://localhost:8081`.
+
+The app automatically displays in a phone-sized frame (Samsung Galaxy S20 Ultra dimensions) centered on a dark background — no browser dev tools or device emulation needed.
 
 ### 6. Push notifications (one-time setup, physical device only)
 
