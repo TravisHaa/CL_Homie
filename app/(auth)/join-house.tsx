@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -37,7 +36,6 @@ const joinSchema = z.object({
 });
 
 export default function JoinHouseScreen() {
-  const { width, height } = useWindowDimensions();
   const { firebaseUser, userProfile } = useAuthStore();
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -148,7 +146,7 @@ export default function JoinHouseScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

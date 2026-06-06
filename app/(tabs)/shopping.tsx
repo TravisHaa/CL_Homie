@@ -1,5 +1,5 @@
 import { GridBackground } from '@/src/components/GridBackground';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AddButtonSvg from '@/assets/images/Add-Button.svg';
-import BottomSheet from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
 import { ShoppingItemRow } from '@/src/components/shopping/ShoppingItemRow';
-import { AddShoppingItemForm } from '@/src/components/shopping/AddShoppingItemForm';
 import { SHOPPING_CATEGORIES } from '@/src/utils/categories';
-import type { AddItemInput } from '@/src/hooks/useShoppingList';
 import type { ShoppingCategory } from '@/src/utils/categories';
 
 // ─── design tokens ────────────────────────────────────────────────────────────
@@ -49,7 +46,6 @@ export default function ShoppingScreen() {
     useShoppingList();
   const { memberMap } = useHouseStore();
   const currentUserId = useAuthStore((s) => s.userProfile?.id);
-  const formRef = useRef<BottomSheet>(null);
   const [cartExpanded, setCartExpanded] = useState(true);
   const [activeCategory, setActiveCategory] = useState<ShoppingCategory | null>(null);
   const [foodGroupActive, setFoodGroupActive] = useState(false);
@@ -173,11 +169,6 @@ export default function ShoppingScreen() {
   const handleCategoryPill = (cat: ShoppingCategory) => {
     setActiveCategory((prev) => (prev === cat ? null : cat));
     setFoodGroupActive(false);
-  };
-
-  const handleAddItem = async (data: AddItemInput) => {
-    await addShoppingItem(data);
-    formRef.current?.close();
   };
 
   const buildCalendarDays = (year: number, month: number) => {
@@ -430,8 +421,6 @@ export default function ShoppingScreen() {
       >
         <AddButtonSvg width={64} height={64} />
       </TouchableOpacity>
-
-      <AddShoppingItemForm ref={formRef} onSubmit={handleAddItem} />
 
       {/* ── Add new item modal ───────────────────────────────────────────── */}
       <Modal

@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -34,7 +33,6 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export default function ResetPasswordScreen() {
-  const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams<{ code?: string }>();
   const code = useMemo(
     () => (Array.isArray(params.code) ? params.code[0] : params.code),
@@ -70,7 +68,7 @@ export default function ResetPasswordScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

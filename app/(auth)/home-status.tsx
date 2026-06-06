@@ -9,7 +9,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 
 import { useAuthStore } from '@/src/store/authStore';
@@ -19,7 +18,6 @@ import { PALETTE } from '@/src/theme/palette';
 const bg = require('@/assets/images/phoneBG.png');
 
 export default function HomeStatusScreen() {
-  const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams<{
     mode?: string;
     houseName?: string;
@@ -43,7 +41,7 @@ export default function HomeStatusScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

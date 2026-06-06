@@ -6,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 
@@ -15,12 +14,10 @@ import { PALETTE } from '@/src/theme/palette';
 const bg = require('@/assets/images/phoneBG.png');
 
 export default function SignupScreen() {
-  const { width, height } = useWindowDimensions();
-
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

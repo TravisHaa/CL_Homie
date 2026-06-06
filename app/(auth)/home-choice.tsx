@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -18,8 +17,6 @@ import { PALETTE } from '@/src/theme/palette';
 const bg = require('@/assets/images/phoneBG.png');
 
 export default function HomeChoiceScreen() {
-  const { width, height } = useWindowDimensions();
-
   async function backToSignUp() {
     await signOut();
     router.replace('/(auth)/setup-account');
@@ -28,7 +25,7 @@ export default function HomeChoiceScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

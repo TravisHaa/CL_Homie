@@ -1,10 +1,12 @@
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 const GRID_COLOR = '#EDEAC2';
 const SPACING = 32;
 
 export function GridBackground() {
-  const { width, height } = useWindowDimensions();
+  const { width: _width, height: _height } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? 412 : _width;
+  const height = Platform.OS === 'web' ? 915 : _height;
   const hLines = Math.ceil(height / SPACING) + 1;
   const vLines = Math.ceil(width / SPACING) + 1;
   return (

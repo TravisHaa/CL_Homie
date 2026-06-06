@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -38,7 +37,6 @@ function getResetCode(value: string) {
 }
 
 export default function ResetCodeScreen() {
-  const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = Array.isArray(params.email) ? params.email[0] : params.email;
   const [message, setMessage] = useState('');
@@ -98,7 +96,7 @@ export default function ResetCodeScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

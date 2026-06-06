@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
@@ -27,7 +26,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function ForgotPasswordScreen() {
-  const { width, height } = useWindowDimensions();
   const [resetError, setResetError] = useState('');
   const {
     control,
@@ -54,7 +52,7 @@ export default function ForgotPasswordScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -37,7 +36,6 @@ const createSchema = z.object({
 });
 
 export default function CreateHouseScreen() {
-  const { width, height } = useWindowDimensions();
   const { firebaseUser, userProfile } = useAuthStore();
   const currentUser = firebaseUser ?? auth.currentUser;
   const [displayNameInput, setDisplayNameInput] = useState(
@@ -162,7 +160,7 @@ export default function CreateHouseScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.background, { width, height }]}
+      style={styles.background}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

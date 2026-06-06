@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { useState, useCallback } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Defs, FeColorMatrix, FeTurbulence, Filter, Rect, Svg } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHouseStore } from '@/src/store/houseStore';
@@ -17,7 +17,8 @@ export function HomeHeader() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { width } = useWindowDimensions();
+  const { width: _width } = useWindowDimensions();
+  const width = Platform.OS === 'web' ? 412 : _width;
   const [headerHeight, setHeaderHeight] = useState(0);
   const onLayout = useCallback((e: any) => setHeaderHeight(e.nativeEvent.layout.height), []);
   const members = Object.entries(memberMap).map(([id, info]) => ({ id, ...info }));

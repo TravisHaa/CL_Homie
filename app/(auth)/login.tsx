@@ -8,7 +8,6 @@ import {
   Platform,
   ImageBackground,
   SafeAreaView,
-  useWindowDimensions,
 } from 'react-native';
 import { useState } from 'react';
 import { Link, router } from 'expo-router';
@@ -27,7 +26,6 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const [authError, setAuthError] = useState('');
-  const { width, height } = useWindowDimensions();
   const {
     control,
     handleSubmit,
@@ -52,7 +50,7 @@ export default function LoginScreen() {
   return (
     <ImageBackground
       source={bg}
-      style={[styles.container, { width, height }]}
+      style={styles.container}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
     >

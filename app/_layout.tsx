@@ -13,9 +13,12 @@ import { GowunBatang_400Regular, GowunBatang_700Bold } from '@expo-google-fonts/
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+
+const PHONE_W = 412;
+const PHONE_H = 915;
 
 import { migrateChoreSchema } from '@/src/firebase/choreMigrations';
 import { useAuthListener } from '@/src/hooks/useAuth';
@@ -50,14 +53,37 @@ export default function RootLayout() {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
 
+  const { height: windowHeight } = useWindowDimensions();
+  const scale = Platform.OS === 'web' ? Math.min(1, (windowHeight - 32) / PHONE_H) : 1;
+  const frameWidth = Math.round(PHONE_W * scale);
+  const frameHeight = Math.round(PHONE_H * scale);
+
   if (!loaded) return null;
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
-        <BottomSheetModalProvider>
-          <AuthGate />
-        </BottomSheetModalProvider>
+        {Platform.OS === 'web' ? (
+          <View style={styles.webOuter}>
+            <View style={{ width: frameWidth, height: frameHeight, overflow: 'hidden', borderRadius: 40 }}>
+              <View style={{
+                width: PHONE_W,
+                height: PHONE_H,
+                transform: [{ scale }],
+                // @ts-ignore — web-only
+                transformOrigin: 'top left',
+              }}>
+                <BottomSheetModalProvider>
+                  <AuthGate />
+                </BottomSheetModalProvider>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <BottomSheetModalProvider>
+            <AuthGate />
+          </BottomSheetModalProvider>
+        )}
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
@@ -65,6 +91,12 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  webOuter: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 function AuthGate() {
