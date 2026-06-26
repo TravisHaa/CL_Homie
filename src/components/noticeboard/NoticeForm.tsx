@@ -13,6 +13,7 @@ import {
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
+import HeaderSvg from '@/assets/images/header.svg';
 
 const TAGS = ['House', 'Chore', 'Shopping', 'Event'] as const;
 type Tag = typeof TAGS[number];
@@ -72,101 +73,132 @@ export const NoticeForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref
       <BottomSheetScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
+          <HeaderSvg width="100%" height={76} preserveAspectRatio="xMidYMid slice" style={styles.headerBg} pointerEvents="none" />
           <Text style={styles.headerTitle}>New Notice</Text>
           <TouchableOpacity
+            style={styles.closeButton}
             onPress={() => (ref as React.RefObject<BottomSheetModal>).current?.dismiss()}
-            hitSlop={10}
+            hitSlop={6}
+            accessibilityLabel="Close notice form"
+            accessibilityRole="button"
           >
-            <Ionicons name="close" size={22} color="#2D1A0E" />
+            <Ionicons name="close" size={30} color="#2E0800" />
           </TouchableOpacity>
         </View>
 
-        {/* Title */}
-        <Text style={styles.label}>Title</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Type here..."
-          placeholderTextColor="#B0A090"
-          value={title}
-          onChangeText={setTitle}
-        />
+        <View style={styles.formBody}>
+          {/* Title */}
+          <Text style={styles.label}>Title</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Type here..."
+            placeholderTextColor="#B9ABA2"
+            value={title}
+            onChangeText={setTitle}
+          />
 
-        {/* Notes */}
-        <Text style={styles.label}>Additional Notes (Optional)</Text>
-        <TextInput
-          style={[styles.input, styles.notesInput]}
-          placeholder="Type here..."
-          placeholderTextColor="#B0A090"
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          textAlignVertical="top"
-        />
+          {/* Notes */}
+          <Text style={styles.label}>Additional Notes (Optional)</Text>
+          <TextInput
+            style={[styles.input, styles.notesInput]}
+            placeholder="Type here..."
+            placeholderTextColor="#B9ABA2"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            textAlignVertical="top"
+          />
 
-        {/* Tags */}
-        <Text style={styles.label}>Tag (Optional)</Text>
-        <View style={styles.tagRow}>
-          {TAGS.map((t) => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.tagPill, tag === t && styles.tagPillActive]}
-              onPress={() => setTag(tag === t ? null : t)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.tagText, tag === t && styles.tagTextActive]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
+          {/* Tags */}
+          <Text style={styles.label}>Tag (Optional)</Text>
+          <View style={styles.tagRow}>
+            {TAGS.map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tagPill, tag === t && styles.tagPillActive]}
+                onPress={() => setTag(tag === t ? null : t)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.tagText, tag === t && styles.tagTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Submit */}
+          <TouchableOpacity
+            style={[styles.submitBtn, (!title.trim() || submitting) && styles.submitBtnDisabled]}
+            onPress={handleSubmit}
+            activeOpacity={0.8}
+            disabled={!title.trim() || submitting}
+          >
+            <Text style={styles.submitBtnText}>{submitting ? 'Sending...' : 'Send Notice'}</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Submit */}
-        <TouchableOpacity
-          style={[styles.submitBtn, (!title.trim() || submitting) && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          activeOpacity={0.8}
-          disabled={!title.trim() || submitting}
-        >
-          <Text style={styles.submitBtnText}>{submitting ? 'Sending…' : 'Send Notice'}</Text>
-        </TouchableOpacity>
       </BottomSheetScrollView>
     </BottomSheetModal>
   );
 });
 
 const styles = StyleSheet.create({
-  sheet: { backgroundColor: '#FFFBF5' },
-  content: { paddingHorizontal: 24, paddingBottom: 40 },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  content: { paddingBottom: 40 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    marginBottom: 8,
+    minHeight: 76,
+    paddingLeft: 28,
+    paddingRight: 20,
+    overflow: 'hidden',
+  },
+  headerBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   headerTitle: {
-    fontFamily: 'AlbertSans_700Bold',
-    fontSize: 22,
-    color: '#2D1A0E',
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 26,
+    color: '#2E0800',
+  },
+  closeButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formBody: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 28,
+    paddingTop: 22,
   },
   label: {
     fontFamily: 'AlbertSans_600SemiBold',
-    fontSize: 14,
-    color: '#2D1A0E',
+    fontSize: 16,
+    color: '#2E0800',
     marginBottom: 8,
-    marginTop: 16,
+    marginTop: 18,
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#DFE6E9',
-    borderRadius: 12,
+    borderWidth: 1.25,
+    borderColor: '#4A170E',
+    borderRadius: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     fontFamily: 'AlbertSans_400Regular',
-    fontSize: 14,
-    color: '#2D1A0E',
+    fontSize: 16,
+    color: '#2E0800',
     backgroundColor: '#fff',
+    minHeight: 42,
   },
   notesInput: {
-    height: 100,
+    height: 84,
     paddingTop: 12,
   },
   tagRow: {
@@ -175,29 +207,35 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tagPill: {
-    borderWidth: 1.5,
-    borderColor: '#2D1A0E',
+    borderWidth: 1.25,
+    borderColor: '#4A170E',
     borderRadius: 999,
-    paddingHorizontal: 18,
+    minHeight: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 8,
   },
   tagPillActive: {
-    backgroundColor: '#2D1A0E',
+    backgroundColor: '#4A170E',
   },
   tagText: {
     fontFamily: 'AlbertSans_500Medium',
-    fontSize: 14,
-    color: '#2D1A0E',
+    fontSize: 16,
+    color: '#2E0800',
   },
   tagTextActive: {
     color: '#fff',
   },
   submitBtn: {
-    marginTop: 32,
-    backgroundColor: '#2D1A0E',
+    alignSelf: 'center',
+    marginTop: 46,
+    backgroundColor: '#4A170E',
     borderRadius: 999,
-    paddingVertical: 16,
+    minHeight: 52,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   submitBtnDisabled: { opacity: 0.45 },
   submitBtnText: {

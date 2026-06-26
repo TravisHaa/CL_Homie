@@ -136,15 +136,17 @@ const styles = StyleSheet.create({
     right: 0,
   },
   filterBarContent: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 6,
     flexDirection: 'row',
     alignItems: 'center',
   },
   filterPill: {
     backgroundColor: '#FFFFFF',
     borderRadius: 999,
-    paddingHorizontal: 18,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
   filterPillActive: {
