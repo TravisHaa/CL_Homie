@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   Keyboard,
   Modal,
   ScrollView,
@@ -15,7 +16,6 @@ import { addDays, format } from 'date-fns';
 import { Calendar } from 'react-native-calendars';
 import type { AddPantryItemInput } from '@/src/hooks/usePantry';
 import type { PantryItem } from '@/src/types';
-import BgTexture from '@/assets/images/Bg-texture.svg';
 
 interface Props {
   visible: boolean;
@@ -140,7 +140,11 @@ export function ManualAddModal({ visible, onClose, onAdd, onUpdate, editItem }: 
       >
         <TouchableOpacity style={styles.card} activeOpacity={1}>
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#F5EDE3', borderRadius: 24 }]} />
-          <BgTexture width="100%" height="100%" style={[StyleSheet.absoluteFillObject, { borderRadius: 24 }]} preserveAspectRatio="xMidYMid slice" />
+          <Image
+            source={require('@/assets/images/Bg-texture-asset.jpg')}
+            style={[StyleSheet.absoluteFillObject, { borderRadius: 24 }]}
+            resizeMode="cover"
+          />
 
           {successInfo ? (
             /* ── Success screen ── */

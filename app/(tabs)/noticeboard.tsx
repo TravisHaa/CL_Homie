@@ -5,9 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import { GridBackground } from '@/src/components/GridBackground';
-import HeaderSvg from '@/assets/images/header.svg';
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import { NoticeForm, type NewNoticeInput } from '@/src/components/noticeboard/NoticeForm';
 import { NoticeCard } from '@/src/components/noticeboard/NoticeCard';
 
@@ -42,7 +42,7 @@ export default function NoticeBoardScreen() {
         <View style={styles.safe}>
           <GridBackground />
           <View style={{ width: '100%', overflow: 'hidden' }}>
-            <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
+            <HeaderImage height={117} pointerEvents="none" />
             <Pressable style={styles.backButton} onPress={() => router.push('/(tabs)')} hitSlop={10}>
               <Ionicons name="chevron-back" size={22} color="#2E0800" />
             </Pressable>
@@ -100,7 +100,7 @@ export default function NoticeBoardScreen() {
               accessibilityRole="button"
               onPress={() => formRef.current?.present()}
             >
-              <AddButtonSvg width={64} height={64} />
+              <AddButtonIcon size={64} />
             </TouchableOpacity>
           </SafeAreaView>
         </View>

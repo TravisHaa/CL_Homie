@@ -10,16 +10,24 @@ import ShoppingIcon from '@/assets/images/ShoppingIcon.svg';
 const TABS: { name: string; title: string; Icon: React.FC<{ width: number; height: number; color?: string }> }[] = [
   { name: 'index', title: 'Home', Icon: HomeIcon },
   { name: 'calendar', title: 'Calendar', Icon: CalendarIcon },
-  { name: 'pantry', title: 'Pantry', Icon: PantryIcon },
+  { name: 'chores', title: 'Chores', Icon: PantryIcon },
   { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
+const HIDDEN = ['pantry', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
 const TAB_ACTIVE: Record<string, string> = {
   index: '#A7572D',
+  chores: '#1B8F63',
   pantry: '#1B8F63',
   shopping: '#C15B2A',
   settings: '#6557C8',
+};
+
+const ICON_SIZE = 21;
+const ACTIVE_PILL = {
+  width: 76,
+  height: 52,
+  borderRadius: 26,
 };
 
 export default function TabLayout() {
@@ -39,8 +47,8 @@ export default function TabLayout() {
             position: 'absolute',
             backgroundColor: 'transparent',
             paddingBottom: insets.bottom,
-            height: 90 + insets.bottom,
-            paddingHorizontal: 30,
+            height: 84 + insets.bottom,
+            paddingHorizontal: 26,
           },
           tabBarShowLabel: false,
           tabBarBackground: () => (
@@ -52,9 +60,10 @@ export default function TabLayout() {
             />
           ),
           tabBarItemStyle: {
-            paddingTop: 21,
-            paddingBottom: 18,
+            paddingTop: 12,
+            paddingBottom: 12,
             alignItems: 'center',
+            justifyContent: 'center',
             margin: 0,
           },
           headerShown: false,
@@ -69,10 +78,10 @@ export default function TabLayout() {
             title,
             tabBarIcon: ({ color, focused }) => (
               <View style={[
-                { alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20 },
+                styles.iconWrap,
                 focused && { backgroundColor: '#FEF3ED' },
               ]}>
-                <Icon width={24} height={24} color={color} />
+                <Icon width={ICON_SIZE} height={ICON_SIZE} color={color} />
               </View>
             ),
           }}
@@ -84,3 +93,11 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    ...ACTIVE_PILL,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

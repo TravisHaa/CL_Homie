@@ -6,7 +6,7 @@ import { useChores } from "@/src/hooks/useChores";
 import { useHouseStore } from "@/src/store/houseStore";
 import type { CalendarEvent, Chore } from "@/src/types";
 import { Ionicons } from "@expo/vector-icons";
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import {
   addDays,
@@ -58,50 +58,63 @@ function CalendarChoreCard({ chore }: { chore: Chore }) {
   const assignee = memberMap[chore.assignedTo];
   return (
     <View style={choreStyles.card}>
-      <View style={choreStyles.topRow}>
-        <Text style={choreStyles.title} numberOfLines={2}>{chore.title}</Text>
-        <View style={[choreStyles.pill, chore.isCompleted && choreStyles.pillDone]}>
-          <Text style={[choreStyles.pillTxt, chore.isCompleted && choreStyles.pillTxtDone]}>
-            {chore.isCompleted ? "Done" : "Pending"}
-          </Text>
-        </View>
+      <View style={choreStyles.iconBubble}>
+        <Ionicons name="sparkles-outline" size={22} color="#3B1F0E" />
       </View>
-      {assignee && (
-        <View style={choreStyles.assigneeRow}>
-          <View style={[choreStyles.avatar, { backgroundColor: assignee.color ?? '#6B5E52' }]}>
-            <Text style={choreStyles.avatarInitial}>
-              {assignee.displayName.charAt(0).toUpperCase()}
+
+      <View style={choreStyles.body}>
+        <Text style={choreStyles.title} numberOfLines={2}>{chore.title}</Text>
+        {assignee && (
+          <View style={choreStyles.assigneeRow}>
+            <View style={[choreStyles.avatar, { backgroundColor: assignee.color ?? '#7B6258' }]}>
+              <Text style={choreStyles.avatarInitial}>
+                {assignee.displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={choreStyles.assigneeTxt} numberOfLines={1}>
+              Assigned to {assignee.displayName}
             </Text>
           </View>
-          <Text style={choreStyles.assigneeTxt}>Assigned to {assignee.displayName}</Text>
-        </View>
-      )}
+        )}
+      </View>
+
+      <View style={[choreStyles.pill, chore.isCompleted && choreStyles.pillDone]}>
+        <Text style={[choreStyles.pillTxt, chore.isCompleted && choreStyles.pillTxtDone]}>
+          {chore.isCompleted ? "Done" : "Pending"}
+        </Text>
+      </View>
     </View>
   );
 }
 
 const choreStyles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 32,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    paddingVertical: 18,
+    gap: 14,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 },
-  title: { flex: 1, fontSize: 15, fontFamily: 'AlbertSans_600SemiBold', color: '#2D1A0E' },
-  pill: { backgroundColor: '#F5D9B0', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  pillDone: { backgroundColor: '#D4E8D0' },
-  pillTxt: { fontSize: 12, fontFamily: 'AlbertSans_600SemiBold', color: '#8A5A1A' },
+  iconBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0E8',
+  },
+  body: { flex: 1, minWidth: 0, gap: 8 },
+  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#32180E' },
+  pill: { backgroundColor: '#AFCCD8', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
+  pillDone: { backgroundColor: '#BFD9C4' },
+  pillTxt: { fontSize: 14, fontFamily: 'AlbertSans_600SemiBold', color: '#FFFFFF' },
   pillTxtDone: { color: '#3A6E45' },
-  assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  avatar: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  assigneeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avatar: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   avatarInitial: { color: '#fff', fontSize: 11, fontFamily: 'AlbertSans_700Bold' },
-  assigneeTxt: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: '#9E9380' },
+  assigneeTxt: { flex: 1, fontSize: 14, fontFamily: 'AlbertSans_400Regular', color: '#8A7068' },
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -298,14 +311,17 @@ export default function CalendarScreen() {
 
           {/* ── Section row: Add + Filter ────────────────────────────── */}
           <View style={styles.sectionRow}>
-            <Text style={styles.addBtn}>Events</Text>
+            <Text style={styles.addBtn}>Today's Events</Text>
 
             <View ref={filterBtnRef} collapsable={false}>
-              <TouchableOpacity style={styles.filterBtn} onPress={openFilter} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={openFilter}
+                activeOpacity={0.7}
+                accessibilityLabel="Filter calendar items"
+                accessibilityRole="button"
+              >
                 <Ionicons name="options-outline" size={16} color={C.text} />
-                <Text style={styles.filterBtnTxt}>
-                  {filter === 'all' ? 'Filter' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -345,7 +361,7 @@ export default function CalendarScreen() {
           accessibilityLabel="Add event"
           accessibilityRole="button"
         >
-          <AddButtonSvg width={64} height={64} />
+          <AddButtonIcon size={64} />
         </TouchableOpacity>
 
         <EventForm ref={formRef} onSubmit={addEvent} onUpdate={updateEvent} event={selectedEvent} />
@@ -439,25 +455,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 14,
+    marginTop: 22,
+    marginBottom: 16,
   },
-  addBtn: { fontSize: 15, fontWeight: "700", color: C.text },
+  addBtn: { fontSize: 22, fontFamily: "GowunBatang_700Bold", color: "#3B1F0E" },
   filterBtn: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    justifyContent: "center",
     backgroundColor: '#fff',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
-  filterBtnTxt: { fontSize: 13, fontWeight: "600", color: C.text },
 
   // Events list
   listSection: {},

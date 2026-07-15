@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
@@ -428,7 +428,7 @@ export default function ShoppingScreen() {
         onPress={() => setFabMenuOpen((v) => !v)}
         activeOpacity={0.85}
       >
-        <AddButtonSvg width={64} height={64} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       <AddShoppingItemForm ref={formRef} onSubmit={handleAddItem} />

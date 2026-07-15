@@ -13,7 +13,7 @@ import {
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import HeaderSvg from '@/assets/images/header.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 
 const TAGS = ['House', 'Chore', 'Shopping', 'Event'] as const;
 type Tag = typeof TAGS[number];
@@ -73,7 +73,7 @@ export const NoticeForm = forwardRef<BottomSheetModal, Props>(({ onSubmit }, ref
       <BottomSheetScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <HeaderSvg width="100%" height={76} preserveAspectRatio="xMidYMid slice" style={styles.headerBg} pointerEvents="none" />
+          <HeaderImage height={76} style={styles.headerBg} pointerEvents="none" />
           <Text style={styles.headerTitle}>New Notice</Text>
           <TouchableOpacity
             style={styles.closeButton}

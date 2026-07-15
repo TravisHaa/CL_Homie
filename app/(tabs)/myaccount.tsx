@@ -11,7 +11,7 @@ import { ImageCropModal } from '@/src/components/ImageCropModal';
 import { useAuthStore } from '@/src/store/authStore';
 import { signOut } from '@/src/firebase/auth';
 import { db, storage } from '@/src/firebase/config';
-import HeaderSvg from '@/assets/images/header.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 
 export default function MyAccountScreen() {
   const router = useRouter();
@@ -78,7 +78,7 @@ export default function MyAccountScreen() {
 
       {/* Header */}
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
+        <HeaderImage height={117} pointerEvents="none" />
         <Pressable style={styles.backBtn} onPress={() => router.push('/(tabs)/settings')} hitSlop={12}>
           <Ionicons name="chevron-back" size={22} color="#2E0800" />
         </Pressable>

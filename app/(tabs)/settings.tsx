@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import HeaderSvg from '@/assets/images/header.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import { GridBackground } from '@/src/components/GridBackground';
 import { houseDoc } from '@/src/firebase/firestore';
 import { leaveHouse } from '@/src/firebase/house';
@@ -136,7 +136,7 @@ export default function SettingsScreen() {
     <View style={styles.safe}>
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" />
+        <HeaderImage height={117} />
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>

@@ -18,7 +18,7 @@ import RecentActivitySvg from '@/assets/images/recent activity.svg';
 import RecentActivityIcon from '@/assets/images/Recent Activity icon.svg';
 import { Ionicons } from '@expo/vector-icons';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
-import HeaderSvg from '@/assets/images/header.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import NoticeBoardIcon from '@/assets/images/Notice-board-icon.svg';
 import HomeSettingIcon from '@/assets/images/home-setting-icon.svg';
 import ButtonStickerSvg from '@/assets/images/button-sticker.svg';
@@ -32,7 +32,7 @@ import { db, storage } from '@/src/firebase/config';
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
   // Sunset-kitchen palette: warm walls + saturated fridge magnets.
-  fridgeBg: "#FCF5EE",
+  fridgeBg: "#F8F1E8",
   noteCream: "#FFF0D9",
   noteAlt: "#FFE8C6",
   noteText: "#3A2A1E",
@@ -337,7 +337,7 @@ export default function HomeScreen() {
     <View style={styles.safe}>
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" />
+        <HeaderImage height={117} />
         <View style={styles.headerTextBlock}>
           <Text style={styles.headerHouseName}>{house?.name ?? ''}</Text>
           <Text style={styles.headerUserName}>{userProfile?.displayName ?? ''}</Text>
