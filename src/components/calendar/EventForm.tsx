@@ -17,12 +17,15 @@ import {
   BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Calendar } from 'react-native-calendars';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addHours } from 'date-fns';
 import type { NewEventInput } from '@/src/hooks/useCalendarEvents';
 import type { CalendarEvent } from '@/src/types';
 import { useHouseStore } from '@/src/store/houseStore';
+import PartyIcon from '@/assets/images/party-icon.svg';
+import { AssignmentTile } from '@/src/components/chores/AssignmentTile';
+import { RecurrenceDropdown } from '@/src/components/chores/RecurrenceDropdown';
+import { CHORE_THEME } from '@/src/theme/chores';
 
 // ── Scroll picker constants ───────────────────────────────────────────
 const ITEM_H  = 44;
@@ -97,22 +100,22 @@ function TimePickerRow({ value, onChange }: { value: Date; onChange: (d: Date) =
 }
 
 const pickerStyles = StyleSheet.create({
-  wrap: { backgroundColor: '#FDFAF7', borderWidth: 1, borderColor: '#E8DDD0', borderRadius: 12, marginBottom: 8, overflow: 'hidden' },
-  highlight: { position: 'absolute', top: ITEM_H * 2, left: 0, right: 0, height: ITEM_H, backgroundColor: '#F0E8DC', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#D8C8B8' },
-  sep: { width: 1, height: ITEM_H * VISIBLE, backgroundColor: '#E8DDD0', marginHorizontal: 6, alignSelf: 'stretch' },
-  colon: { fontSize: 17, fontWeight: '700', color: '#2D1A0E', paddingHorizontal: 2 },
+  wrap: { backgroundColor: CHORE_THEME.cardBg, borderWidth: 1, borderColor: CHORE_THEME.hairline, borderRadius: 14, overflow: 'hidden' },
+  highlight: { position: 'absolute', top: ITEM_H * 2, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(78, 123, 120, 0.1)', borderTopWidth: 1, borderBottomWidth: 1, borderColor: CHORE_THEME.hairline },
+  sep: { width: 1, height: ITEM_H * VISIBLE, backgroundColor: CHORE_THEME.hairline, marginHorizontal: 6, alignSelf: 'stretch' },
+  colon: { fontFamily: 'AlbertSans_700Bold', fontSize: 17, color: CHORE_THEME.text, paddingHorizontal: 2 },
 });
 
 // ── Recurrence ────────────────────────────────────────────────────────
 
 type RecurrenceOption = 'none' | 'daily' | 'weekly' | 'monthly';
 
-const RECURRENCE_LABELS: Record<RecurrenceOption, string> = {
-  none: 'Does not repeat',
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-};
+const RECURRENCE_OPTIONS: { label: string; value: RecurrenceOption }[] = [
+  { label: 'Does not repeat', value: 'none' },
+  { label: 'Daily', value: 'daily' },
+  { label: 'Weekly', value: 'weekly' },
+  { label: 'Monthly', value: 'monthly' },
+];
 
 // ── EventForm ─────────────────────────────────────────────────────────
 
@@ -130,7 +133,6 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [assignedTo, setAssignedTo]         = useState<string[]>([]);
     const [recurrence, setRecurrence]         = useState<RecurrenceOption>('none');
-    const [showRecurrence, setShowRecurrence] = useState(false);
     const [error, setError]                   = useState('');
     const [submitting, setSubmitting]         = useState(false);
 
@@ -151,7 +153,7 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     const reset = () => {
       setTitle(''); setDescription('');
       setStartDate(new Date()); setShowDatePicker(false);
-      setAssignedTo([]); setRecurrence('none'); setShowRecurrence(false); setError('');
+      setAssignedTo([]); setRecurrence('none'); setError('');
     };
 
     const dismiss = () => (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
@@ -194,58 +196,57 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={['98%']}
+        snapPoints={['90%']}
+        enableDynamicSizing={false}
         backdropComponent={renderBackdrop}
-        keyboardBehavior="extend"
+        keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
         onDismiss={reset}
-        handleComponent={null}
-        backgroundStyle={styles.sheetBg}
+        backgroundStyle={styles.sheetBackground}
+        handleIndicatorStyle={styles.handle}
       >
-        {/* ── Gradient header ───────────────────────────────────── */}
-        <LinearGradient
-          colors={['#F5DDD0', '#EDD0E8', '#D0D4F0', '#C8E0F5']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+        <BottomSheetScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
         >
+          {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.heading}>
-              🎉  {event ? 'Edit Event' : 'New Event'}
-            </Text>
+            <View style={styles.headingRow}>
+              <PartyIcon width={24} height={24} />
+              <Text style={styles.heading}>{event ? 'Edit Event' : 'New Event'}</Text>
+            </View>
             <TouchableOpacity onPress={dismiss} hitSlop={12} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color="#3B1F0E" />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
-
-        {/* Dotted divider */}
-        <View style={styles.dottedDivider} />
-
-        <BottomSheetScrollView contentContainerStyle={styles.container}>
+          <View style={styles.headerDivider} />
 
           {/* Event Name */}
           <Text style={styles.label}>Event Name</Text>
           <TextInput
             style={styles.input}
-            placeholder="Type here..."
-            placeholderTextColor="#C8BFB0"
+            placeholder="e.g. House warming party"
+            placeholderTextColor={CHORE_THEME.textMuted}
             value={title}
             onChangeText={setTitle}
           />
 
           {/* Event Date */}
-          <Text style={[styles.label, { marginTop: 8 }]}>Event Date</Text>
+          <Text style={styles.label}>Event Date</Text>
           <TouchableOpacity
             style={styles.datePill}
             onPress={() => setShowDatePicker(true)}
             activeOpacity={0.75}
           >
-            <Ionicons name="calendar-outline" size={15} color="#3B1F0E" />
+            <Ionicons name="calendar-outline" size={17} color={CHORE_THEME.text} />
             <Text style={styles.datePillTxt}>{format(startDate, "EEEE, MMM. d")}</Text>
           </TouchableOpacity>
 
           {/* Time picker (always visible) */}
+          <Text style={styles.label}>Event Time</Text>
           <TimePickerRow value={startDate} onChange={setStartDate} />
 
           {/* Calendar modal */}
@@ -282,56 +283,30 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
           </Modal>
 
           {/* Recurrence */}
-          <Text style={[styles.label, { marginTop: 8 }]}>Recurrence</Text>
-          <TouchableOpacity
-            style={styles.recurrencePill}
-            onPress={() => setShowRecurrence((p) => !p)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.recurrenceTxt}>{RECURRENCE_LABELS[recurrence]}</Text>
-            <Ionicons name={showRecurrence ? 'chevron-up' : 'chevron-down'} size={14} color="#9E9380" />
-          </TouchableOpacity>
-          {showRecurrence && (
-            <View style={styles.recurrenceDropdown}>
-              {(Object.entries(RECURRENCE_LABELS) as [RecurrenceOption, string][]).map(([key, label], i, arr) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.recurrenceOption,
-                    recurrence === key && styles.recurrenceOptionSelected,
-                    i < arr.length - 1 && styles.recurrenceOptionBorder,
-                  ]}
-                  onPress={() => { setRecurrence(key); setShowRecurrence(false); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.recurrenceOptionTxt, recurrence === key && styles.recurrenceOptionTxtSelected]}>
-                    {label}
-                  </Text>
-                  {recurrence === key && <Ionicons name="checkmark" size={15} color="#4E7B78" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <Text style={styles.label}>Recurrence</Text>
+          <RecurrenceDropdown
+            value={recurrence}
+            options={RECURRENCE_OPTIONS}
+            onChange={setRecurrence}
+          />
 
           {/* Assign To */}
           {memberIds.length > 0 && (
             <>
-              <Text style={[styles.label, { marginTop: 8 }]}>Assign To</Text>
-              <View style={styles.chipRow}>
+              <Text style={styles.label}>Assignment</Text>
+              <View style={styles.assignmentRow}>
                 {memberIds.map((uid) => {
                   const member = memberMap[uid];
                   const selected = assignedTo.includes(uid);
                   return (
-                    <TouchableOpacity
+                    <AssignmentTile
                       key={uid}
-                      style={[styles.chip, selected && { backgroundColor: member.color, borderColor: member.color }]}
+                      label={member.displayName}
+                      initial={member.displayName.trim().charAt(0).toUpperCase() || '?'}
+                      color={member.color}
+                      selected={selected}
                       onPress={() => toggleAssignee(uid)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.chipTxt, selected && styles.chipTxtSelected]}>
-                        {member.displayName}
-                      </Text>
-                    </TouchableOpacity>
+                    />
                   );
                 })}
               </View>
@@ -339,11 +314,11 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
           )}
 
           {/* Description */}
-          <Text style={[styles.label, { marginTop: 8 }]}>Description (Optional)</Text>
+          <Text style={styles.label}>Description (Optional)</Text>
           <TextInput
             style={[styles.input, styles.multiline]}
-            placeholder="Type here..."
-            placeholderTextColor="#C8BFB0"
+            placeholder="Add event details"
+            placeholderTextColor={CHORE_THEME.textMuted}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -352,19 +327,18 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
           />
 
           {!!error && <Text style={styles.error}>{error}</Text>}
-
         </BottomSheetScrollView>
 
-        {/* Fixed save button — always visible at the bottom */}
+        {/* Save action stays reachable while the form body scrolls. */}
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.saveBtn, submitting && styles.saveBtnDisabled]}
+            style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
             onPress={handleSubmit}
             disabled={submitting}
             activeOpacity={0.8}
           >
-            <Text style={styles.saveBtnTxt}>
-              {submitting ? 'Saving…' : event ? 'Save Event' : 'Save Event'}
+            <Text style={styles.primaryButtonText}>
+              {submitting ? 'Saving…' : 'Save'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -376,32 +350,47 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
 EventForm.displayName = 'EventForm';
 
 const styles = StyleSheet.create({
-  sheetBg: { backgroundColor: '#FDFAF7', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sheetBackground: { backgroundColor: CHORE_THEME.bg },
+  handle: { backgroundColor: CHORE_THEME.hairline },
 
   // Header
-  headerGradient: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heading: { fontSize: 22, fontWeight: '700', color: '#3B1F0E' },
-
-  // Dotted divider
-  dottedDivider: { height: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#C4B5E0', marginHorizontal: 0 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heading: { fontFamily: 'GowunBatang_700Bold', fontSize: 22, color: CHORE_THEME.text },
+  headerDivider: { height: 1, backgroundColor: CHORE_THEME.hairline, marginTop: 10, marginBottom: 4 },
 
   // Form
-  container: { padding: 20, paddingBottom: 8 },
-  footer: { paddingHorizontal: 20, paddingBottom: 32, paddingTop: 8, backgroundColor: '#FDFAF7' },
-  label: { fontSize: 14, fontWeight: '700', color: '#3B1F0E', marginBottom: 8 },
+  scrollView: { flex: 1 },
+  container: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 },
+  footer: {
+    backgroundColor: CHORE_THEME.bg,
+    borderTopWidth: 1,
+    borderTopColor: CHORE_THEME.hairline,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  label: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 12,
+    color: CHORE_THEME.textMuted,
+    marginBottom: 8,
+    marginTop: 18,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
   // Text inputs
   input: {
-    borderWidth: 1.5,
-    borderColor: '#D8CFC5',
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    fontFamily: 'AlbertSans_400Regular',
+    borderWidth: 1,
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#3B1F0E',
-    backgroundColor: '#fff',
-    marginBottom: 4,
+    color: CHORE_THEME.text,
+    backgroundColor: CHORE_THEME.cardBg,
   },
   multiline: { height: 100 },
 
@@ -410,85 +399,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#EDE0D4',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  datePillTxt: { fontSize: 14, fontWeight: '600', color: '#3B1F0E' },
-
-  // Recurrence pill
-  recurrencePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#EDE0D4',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 4,
-  },
-  recurrenceTxt: { fontSize: 14, fontWeight: '500', color: '#3B1F0E' },
-  recurrenceDropdown: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#D8CFC5',
-    marginBottom: 8,
-    overflow: 'hidden',
+    borderColor: CHORE_THEME.hairline,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: CHORE_THEME.cardBg,
   },
-  recurrenceOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  recurrenceOptionBorder: { borderBottomWidth: 1, borderBottomColor: '#F0E8DC' },
-  recurrenceOptionSelected: { backgroundColor: '#F5F0EC' },
-  recurrenceOptionTxt: { fontSize: 14, color: '#3B1F0E' },
-  recurrenceOptionTxtSelected: { fontWeight: '700', color: '#4E7B78' },
+  datePillTxt: { flex: 1, fontFamily: 'AlbertSans_400Regular', fontSize: 14, color: CHORE_THEME.text },
 
-  // Assignee chips
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: '#D8CFC5', backgroundColor: '#fff' },
-  chipTxt: { fontSize: 13, fontWeight: '500', color: '#9E9380' },
-  chipTxtSelected: { color: '#fff', fontWeight: '600' },
+  // Assignment
+  assignmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 
   // Error
-  error: { color: '#E17055', fontSize: 13, marginBottom: 8, marginTop: 4 },
+  error: { fontFamily: 'AlbertSans_500Medium', color: CHORE_THEME.danger, fontSize: 13, marginTop: 12 },
 
   // Calendar modal
   calOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
   calCard: {
     backgroundColor: '#FDFAF7',
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    width: '90%',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 10,
+    width: '100%',
+    maxWidth: 360,
   },
 
   // Save button
-  saveBtn: {
-    backgroundColor: '#2D1A0E',
-    borderRadius: 28,
-    paddingVertical: 15,
+  primaryButton: {
+    backgroundColor: CHORE_THEME.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 20,
-    marginHorizontal: 20,
   },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryButtonDisabled: { opacity: 0.5 },
+  primaryButtonText: { fontFamily: 'AlbertSans_700Bold', color: CHORE_THEME.onAccent, fontSize: 15 },
 });

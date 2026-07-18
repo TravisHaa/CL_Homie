@@ -5,6 +5,7 @@ import { useCalendarEvents } from "@/src/hooks/useCalendarEvents";
 import { useChores } from "@/src/hooks/useChores";
 import { useHouseStore } from "@/src/store/houseStore";
 import type { CalendarEvent, Chore } from "@/src/types";
+import { isChoreDueOn } from "@/src/utils/choreSchedule";
 import { Ionicons } from "@expo/vector-icons";
 import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
@@ -13,13 +14,15 @@ import {
   addMonths,
   addWeeks,
   endOfMonth,
-  endOfWeek,
+  endOfDay,
   format,
+  isAfter,
+  isSameDay,
   isToday,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -130,6 +133,7 @@ export default function CalendarScreen() {
   const [filterPos, setFilterPos] = useState({ top: 0, right: 0 });
   const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()));
   const [weekStart, setWeekStart]   = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   // Month derived
@@ -138,14 +142,7 @@ export default function CalendarScreen() {
   const gridDays   = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 
   // Week derived
-  const weekEnd  = endOfWeek(weekStart, { weekStartsOn: 0 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  const weekEvents = events.filter((e) => {
-    const d = e.startTime.toDate();
-    return d >= weekStart && d <= weekEnd;
-  });
-  const visibleEvents = viewMode === "week" ? weekEvents : events;
 
   // Nav
   const navBack = () => {
@@ -153,10 +150,12 @@ export default function CalendarScreen() {
       const next = addWeeks(weekStart, -1);
       setWeekStart(next);
       setMonthStart(startOfMonth(next));
+      setSelectedDate(addWeeks(selectedDate, -1));
     } else {
       const next = addMonths(monthStart, -1);
       setMonthStart(next);
       setWeekStart(startOfWeek(next, { weekStartsOn: 0 }));
+      setSelectedDate(addMonths(selectedDate, -1));
     }
   };
   const navForward = () => {
@@ -164,10 +163,12 @@ export default function CalendarScreen() {
       const next = addWeeks(weekStart, 1);
       setWeekStart(next);
       setMonthStart(startOfMonth(next));
+      setSelectedDate(addWeeks(selectedDate, 1));
     } else {
       const next = addMonths(monthStart, 1);
       setMonthStart(next);
       setWeekStart(startOfWeek(next, { weekStartsOn: 0 }));
+      setSelectedDate(addMonths(selectedDate, 1));
     }
   };
   const navLabel   = viewMode === "week" ? format(weekStart, "MMMM") : format(monthStart, "MMMM");
@@ -181,16 +182,37 @@ export default function CalendarScreen() {
     });
   };
 
-  // Unified filtered list
+  // Selected-day items + calendar events in the following seven days.
   type ListItem = { kind: 'event'; data: CalendarEvent } | { kind: 'chore'; data: Chore };
-  const filteredItems: ListItem[] = (() => {
-    const ev: ListItem[] = visibleEvents.map((d) => ({ kind: 'event', data: d }));
-    const ch: ListItem[] = chores.map((d) => ({ kind: 'chore', data: d }));
+  const selectedDayEvents = useMemo(
+    () => events.filter((event) => isSameDay(event.startTime.toDate(), selectedDate)),
+    [events, selectedDate]
+  );
+  const selectedDayChores = useMemo(
+    () => chores.filter((chore) => isChoreDueOn(chore, selectedDate)),
+    [chores, selectedDate]
+  );
+  const selectedItems: ListItem[] = useMemo(() => {
+    const ev: ListItem[] = selectedDayEvents.map((data) => ({ kind: 'event', data }));
+    const ch: ListItem[] = selectedDayChores.map((data) => ({ kind: 'chore', data }));
     if (filter === 'events') return ev;
     if (filter === 'chores') return ch;
-    if (filter === 'all')    return [...ev, ...ch];
+    if (filter === 'all') return [...ev, ...ch];
     return [];
-  })();
+  }, [filter, selectedDayChores, selectedDayEvents]);
+  const upcomingEvents = useMemo(() => {
+    if (filter === 'chores' || filter === 'others') return [];
+    const selectedDayEnd = endOfDay(selectedDate);
+    const upcomingEnd = endOfDay(addDays(selectedDate, 7));
+    return events.filter((event) => {
+      const start = event.startTime.toDate();
+      return isAfter(start, selectedDayEnd) && start <= upcomingEnd;
+    });
+  }, [events, filter, selectedDate]);
+
+  const selectedSectionTitle = isToday(selectedDate)
+    ? "Today's Events"
+    : `${format(selectedDate, "MMM d")} Events`;
 
   const isLoading = eventsLoading || choresLoading;
 
@@ -221,14 +243,14 @@ export default function CalendarScreen() {
             <View style={styles.toggle}>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnActive]}
-                onPress={() => { setWeekStart(startOfWeek(monthStart, { weekStartsOn: 0 })); setViewMode("week"); }}
+                onPress={() => { setWeekStart(startOfWeek(selectedDate, { weekStartsOn: 0 })); setViewMode("week"); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.toggleTxt, viewMode === "week" && styles.toggleTxtActive]}>Week</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnActive]}
-                onPress={() => { setMonthStart(startOfMonth(weekStart)); setViewMode("month"); }}
+                onPress={() => { setMonthStart(startOfMonth(selectedDate)); setViewMode("month"); }}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.toggleTxt, viewMode === "month" && styles.toggleTxtActive]}>Month</Text>
@@ -237,24 +259,43 @@ export default function CalendarScreen() {
           </View>
 
           {/* ── Centered date label ──────────────────────────────────── */}
-          <Text style={styles.dateLabel}>{format(new Date(), "MMMM d, yyyy")}</Text>
+          <Text style={styles.dateLabel}>{format(selectedDate, "MMMM d, yyyy")}</Text>
 
           {viewMode === "week" ? (
             /* ── Week pill strip ──────────────────────────────────── */
             <View style={styles.pillRow}>
               {weekDays.map((day) => {
                 const dayKey = format(day, "yyyy-MM-dd");
-                const today  = isToday(day);
+                const today = isToday(day);
+                const selected = isSameDay(day, selectedDate);
                 const dayEvts = events.filter((e) => format(e.startTime.toDate(), "yyyy-MM-dd") === dayKey);
                 return (
-                  <View key={dayKey} style={[styles.pill, today && styles.pillToday]}>
-                    <Text style={[styles.pillDayName, today && styles.pillDayNameToday]}>
+                  <Pressable
+                    key={dayKey}
+                    onPress={() => setSelectedDate(day)}
+                    style={[
+                      styles.pill,
+                      today && !selected && styles.pillCurrentDay,
+                      selected && styles.pillToday,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${format(day, "MMMM d")}`}
+                  >
+                    <Text
+                      style={[
+                        styles.pillDayName,
+                        today && !selected && styles.pillDayNameCurrent,
+                        selected && styles.pillDayNameToday,
+                      ]}
+                    >
                       {format(day, "EEE")}
                     </Text>
-                    <Text style={[styles.pillDayNum, today && styles.pillDayNumToday]}>
-                      {format(day, "d")}
-                    </Text>
-                    {today && (
+                    <View style={styles.pillDayNumCircle}>
+                      <Text style={[styles.pillDayNum, today && !selected && styles.pillDayNumCurrent, selected && styles.pillDayNumToday]}>
+                        {format(day, "d")}
+                      </Text>
+                    </View>
+                    {selected && (
                       <View style={styles.pillDots}>
                         {dayEvts.length > 0
                           ? dayEvts.slice(0, 3).map((e) => (
@@ -264,7 +305,7 @@ export default function CalendarScreen() {
                         }
                       </View>
                     )}
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -285,13 +326,30 @@ export default function CalendarScreen() {
                       const dayKey   = format(day, "yyyy-MM-dd");
                       const inMonth  = day >= monthStart && day <= monthEnd;
                       const today    = isToday(day);
+                      const selected = isSameDay(day, selectedDate);
                       const dayEvts  = inMonth
                         ? events.filter((e) => format(e.startTime.toDate(), "yyyy-MM-dd") === dayKey)
                         : [];
                       return (
-                        <View key={dayKey} style={styles.dayCell}>
-                          <View style={[styles.dayNumCircle, today && styles.dayNumCircleToday]}>
-                            <Text style={[styles.dayNum, !inMonth && styles.dayNumFaint, today && styles.dayNumToday]}>
+                        <Pressable
+                          key={dayKey}
+                          style={styles.dayCell}
+                          onPress={() => {
+                            setSelectedDate(day);
+                            setWeekStart(startOfWeek(day, { weekStartsOn: 0 }));
+                            if (!inMonth) setMonthStart(startOfMonth(day));
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select ${format(day, "MMMM d")}`}
+                        >
+                          <View
+                            style={[
+                              styles.dayNumCircle,
+                              today && styles.dayNumCircleCurrentDay,
+                              selected && styles.dayNumCircleToday,
+                            ]}
+                          >
+                            <Text style={[styles.dayNum, !inMonth && styles.dayNumFaint, selected && styles.dayNumToday]}>
                               {format(day, "d")}
                             </Text>
                           </View>
@@ -300,7 +358,7 @@ export default function CalendarScreen() {
                               <View key={e.id} style={[styles.dot, { backgroundColor: e.color }]} />
                             ))}
                           </View>
-                        </View>
+                        </Pressable>
                       );
                     })}
                   </View>
@@ -311,7 +369,7 @@ export default function CalendarScreen() {
 
           {/* ── Section row: Add + Filter ────────────────────────────── */}
           <View style={styles.sectionRow}>
-            <Text style={styles.addBtn}>Today's Events</Text>
+            <Text style={styles.addBtn}>{selectedSectionTitle}</Text>
 
             <View ref={filterBtnRef} collapsable={false}>
               <TouchableOpacity
@@ -326,14 +384,14 @@ export default function CalendarScreen() {
             </View>
           </View>
 
-          {/* ── Filtered list ────────────────────────────────────────── */}
+          {/* ── Items scheduled for the selected day ────────────────── */}
           <View style={styles.listSection}>
             {isLoading ? (
               <ActivityIndicator style={styles.listLoader} color={C.text} />
-            ) : filteredItems.length === 0 ? (
-              <Text style={styles.empty}>Nothing to show</Text>
+            ) : selectedItems.length === 0 ? (
+              <Text style={styles.empty}>Nothing scheduled for this day</Text>
             ) : (
-              filteredItems.map((item, i) =>
+              selectedItems.map((item) =>
                 item.kind === 'event' ? (
                   <View key={`e-${item.data.id}`} style={styles.row}>
                     <EventCard
@@ -349,6 +407,29 @@ export default function CalendarScreen() {
               )
             )}
           </View>
+
+          {(filter === 'all' || filter === 'events') && (
+            <View style={styles.upcomingSection}>
+              <View style={styles.upcomingHeader}>
+                <Text style={styles.upcomingTitle}>Upcoming</Text>
+                <Text style={styles.upcomingRange}>Next 7 days</Text>
+              </View>
+              {isLoading ? (
+                <ActivityIndicator style={styles.upcomingLoader} color={C.text} />
+              ) : upcomingEvents.length === 0 ? (
+                <Text style={styles.upcomingEmpty}>No upcoming events</Text>
+              ) : (
+                upcomingEvents.map((event) => (
+                  <View key={`upcoming-${event.id}`} style={styles.row}>
+                    <EventCard
+                      event={event}
+                      onPress={() => { setSelectedEvent(event); formRef.current?.present(); }}
+                    />
+                  </View>
+                ))
+              )}
+            </View>
+          )}
 
           <View style={styles.bottomPad} />
         </ScrollView>
@@ -429,10 +510,14 @@ const styles = StyleSheet.create({
   // Week pill strip
   pillRow: { flexDirection: "row", alignItems: "flex-end", gap: 5, marginBottom: 28 },
   pill: { flex: 1, backgroundColor: C.pill, borderRadius: 28, paddingTop: 10, paddingBottom: 12, alignItems: "center", gap: 4 },
+  pillCurrentDay: { backgroundColor: 'rgba(78, 123, 120, 0.22)' },
   pillToday: { backgroundColor: C.today, paddingTop: 14, paddingBottom: 14 },
   pillDayName: { fontSize: 10, fontWeight: "600", color: C.pillText, opacity: 0.85 },
+  pillDayNameCurrent: { color: C.today, opacity: 1 },
   pillDayNameToday: { fontSize: 11, fontWeight: "700", opacity: 1 },
+  pillDayNumCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   pillDayNum: { fontSize: 15, fontWeight: "700", color: C.pillText },
+  pillDayNumCurrent: { color: C.today },
   pillDayNumToday: { fontSize: 20, fontWeight: "800" },
   pillDots: { flexDirection: "row", gap: 3, marginTop: 2 },
   pillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
@@ -443,6 +528,7 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: "row" },
   dayCell: { flex: 1, alignItems: "center", paddingVertical: 5 },
   dayNumCircle: { width: 30, height: 30, borderRadius: 15, justifyContent: "center", alignItems: "center" },
+  dayNumCircleCurrentDay: { backgroundColor: 'rgba(78, 123, 120, 0.2)'},
   dayNumCircleToday: { backgroundColor: C.today },
   dayNum: { fontSize: 14, fontWeight: "500", color: C.text },
   dayNumFaint: { color: C.faint },
@@ -474,6 +560,17 @@ const styles = StyleSheet.create({
   listLoader: { marginTop: 48 },
   empty: { color: C.muted, marginTop: 32, textAlign: "center" },
   row: { marginBottom: 12 },
+  upcomingSection: { marginTop: 24 },
+  upcomingHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  upcomingTitle: { fontSize: 22, fontFamily: 'GowunBatang_700Bold', color: C.text },
+  upcomingRange: { fontSize: 13, fontFamily: 'AlbertSans_500Medium', color: C.muted },
+  upcomingLoader: { marginVertical: 16 },
+  upcomingEmpty: { color: C.muted, marginBottom: 12 },
 
   // Filter popup
   filterPopup: {
