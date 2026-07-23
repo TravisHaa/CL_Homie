@@ -240,7 +240,7 @@ export default function ChoresScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => sheetRef.current?.present()}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel="Add chore"
       >

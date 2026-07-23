@@ -35,9 +35,9 @@ const C = {
   fridgeBg: "#F8F1E8",
   noteCream: "#FFF0D9",
   noteAlt: "#FFE8C6",
-  noteText: "#3A2A1E",
-  noteMeta: "#7D5B42",
-  noteLabel: "#B38762",
+  noteText: "#2E0800",
+  noteMeta: "#2E0800",
+  noteLabel: "#2E0800",
   noteLines: "#F4D9BA",
   noteMargin: "#F19B8E",
   headerPlate: "#FFEFD2",
@@ -544,7 +544,7 @@ export default function HomeScreen() {
                   >
                     {notif ? (
                       <>
-                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2D1A0E', lineHeight: 16 }}>
+                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2E0800', lineHeight: 16 }}>
                           <Text style={{ fontFamily: 'AlbertSans_700Bold' }}>{notif.boldText}</Text>
                           {notif.message}
                         </Text>
@@ -556,7 +556,7 @@ export default function HomeScreen() {
                               <Text style={{ fontFamily: 'AlbertSans_700Bold', fontSize: 8, color: '#fff' }}>{notif.avatarInitial}</Text>
                             </View>
                           )}
-                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#7A6652' }}>{notif.timeAgo}</Text>
+                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#2E0800' }}>{notif.timeAgo}</Text>
                         </View>
                       </>
                     ) : null}
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   houseName: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#3A3835",
+    color: "#2E0800",
     letterSpacing: -0.5,
   },
   houseDate: {

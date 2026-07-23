@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import HomeIcon from '@/assets/images/HomeIcon.svg';
 import PantryIcon from '@/assets/images/PantryIcon.svg';
@@ -15,40 +14,36 @@ const TABS: { name: string; title: string; Icon: React.FC<{ width: number; heigh
 ];
 
 const HIDDEN = ['pantry', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
-const TAB_ACTIVE: Record<string, string> = {
-  index: '#A7572D',
-  chores: '#1B8F63',
-  pantry: '#1B8F63',
-  shopping: '#C15B2A',
-  settings: '#6557C8',
+const NAV_ICON_COLOR = '#2E0800';
+
+const ICON_SIZE = 19;
+// Increase this number to move every nav icon and the active bubble lower.
+const ICON_VERTICAL_OFFSET = 0;
+const ACTIVE_PILL = {
+  width: 72,
+  height: 54,
+  borderRadius: 27,
 };
 
-const ICON_SIZE = 21;
-const ACTIVE_PILL = {
-  width: 76,
-  height: 52,
-  borderRadius: 26,
-};
+const TAB_BAR_HEIGHT = 80;
 
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
   return (
     <Tabs
       safeAreaInsets={{ bottom: 0 }}
-      screenOptions={({ route }) => {
-        const tabActive = TAB_ACTIVE[route.name] ?? TAB_ACTIVE.index;
+      screenOptions={() => {
         return {
-          tabBarActiveTintColor: tabActive,
-          tabBarInactiveTintColor: '#B38D71',
+          tabBarActiveTintColor: NAV_ICON_COLOR,
+          tabBarInactiveTintColor: NAV_ICON_COLOR,
           tabBarStyle: {
             borderTopWidth: 0,
             elevation: 0,
             shadowOpacity: 0,
             position: 'absolute',
             backgroundColor: 'transparent',
-            paddingBottom: insets.bottom,
-            height: 84 + insets.bottom,
-            paddingHorizontal: 26,
+            paddingBottom: 0,
+            height: TAB_BAR_HEIGHT,
+            paddingHorizontal: 34,
           },
           tabBarShowLabel: false,
           tabBarBackground: () => (
@@ -60,11 +55,17 @@ export default function TabLayout() {
             />
           ),
           tabBarItemStyle: {
-            paddingTop: 12,
-            paddingBottom: 12,
+            height: TAB_BAR_HEIGHT,
+            paddingTop: 20,
+            paddingBottom: 20,
             alignItems: 'center',
             justifyContent: 'center',
             margin: 0,
+          },
+          tabBarIconStyle: {
+            margin: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
           },
           headerShown: false,
         };
@@ -99,5 +100,6 @@ const styles = StyleSheet.create({
     ...ACTIVE_PILL,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ translateY: ICON_VERTICAL_OFFSET }],
   },
 });
