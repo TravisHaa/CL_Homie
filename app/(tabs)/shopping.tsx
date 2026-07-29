@@ -72,7 +72,7 @@ export default function ShoppingScreen() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
-  const [newItemDeadline, setNewItemDeadline] = useState<'2' | '4' | '6' | null>('2');
+  const [newItemDeadline, setNewItemDeadline] = useState<'asap' | '2' | '4' | '6' | null>('2');
   const [newItemPickDayOpen, setNewItemPickDayOpen] = useState(false);
   const [newItemCalMonth, setNewItemCalMonth] = useState(() => new Date());
   const [newItemSelectedDate, setNewItemSelectedDate] = useState<Date | null>(null);
@@ -111,10 +111,10 @@ export default function ShoppingScreen() {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price ?? '');
-    setEditDeadline('2');
-    setEditAssignee('anyone');
+    setEditDeadline(item.isAsap ? 'asap' : null);
+    setEditAssignee(item.assignedTo ?? 'anyone');
     setEditPickDayOpen(false);
-    setEditSelectedDate(null);
+    setEditSelectedDate(item.isAsap || !item.neededBy ? null : item.neededBy.toDate());
   };
 
   const closeNewItemModal = () => {
@@ -598,7 +598,7 @@ export default function ShoppingScreen() {
                   </TouchableOpacity>
                 </View>
                 <View style={[styles.newItemPills, { flexWrap: 'wrap', marginBottom: newItemPickDayOpen ? 12 : 20 }]}>
-                  {(['2', '4', '6'] as const).map((d) => (
+                  {([['asap', 'ASAP'], ['2', 'in 2 days'], ['4', 'in 4 days'], ['6', 'in 6 days']] as const).map(([d, label]) => (
                     <TouchableOpacity
                       key={d}
                       style={[styles.newItemPill, newItemDeadline === d && styles.newItemPillActive]}
@@ -610,7 +610,7 @@ export default function ShoppingScreen() {
                       activeOpacity={0.75}
                     >
                       <Text style={[styles.newItemPillText, newItemDeadline === d && styles.newItemPillTextActive]}>
-                        in {d} days
+                        {label}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -689,7 +689,7 @@ export default function ShoppingScreen() {
                         amenities: 'cleaning',
                         furnishing: 'frozen',
                       };
-                      const neededByDate = newItemSelectedDate ?? (newItemDeadline
+                      const neededByDate = newItemSelectedDate ?? (newItemDeadline && newItemDeadline !== 'asap'
                         ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(newItemDeadline)); return d; })()
                         : null);
                       await addShoppingItem({
@@ -700,6 +700,7 @@ export default function ShoppingScreen() {
                         price: newItemPrice,
                         assignedTo: newItemAssignee === 'you' ? currentUserId : newItemAssignee,
                         neededBy: neededByDate,
+                        isAsap: newItemDeadline === 'asap',
                       });
                       setNewItemStep(3);
                     }}
@@ -725,9 +726,15 @@ export default function ShoppingScreen() {
                     <View>
                       <Text style={styles.confirmItemName}>{newItemName || 'Item'}</Text>
                       <View style={styles.confirmMeta}>
-                        {newItemDeadline && (
+                        {(newItemDeadline || newItemSelectedDate) && (
                           <View style={styles.confirmDeadlinePill}>
-                            <Text style={styles.confirmDeadlinePillText}>{newItemDeadline} days</Text>
+                            <Text style={styles.confirmDeadlinePillText}>
+                              {newItemDeadline === 'asap'
+                                ? 'ASAP'
+                                : newItemSelectedDate
+                                  ? `by ${newItemSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                  : `${newItemDeadline} days`}
+                            </Text>
                           </View>
                         )}
                         {newItemPrice ? (
@@ -748,7 +755,7 @@ export default function ShoppingScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.modalPrimaryBtn, { flex: 0, marginTop: 20 }]}
+                  style={[styles.confirmReturnButton, { marginTop: 20 }]}
                   onPress={() => setNewItemModalOpen(false)}
                   activeOpacity={0.8}
                 >
@@ -934,7 +941,19 @@ export default function ShoppingScreen() {
                   for (const item of selectedItems) {
                     const name = keepPriceAndName ? item.name : (recurringOverrides[item.id]?.name ?? item.name);
                     const price = keepPriceAndName ? item.price : (recurringOverrides[item.id]?.price ?? item.price);
-                    await addShoppingItem({ name, category: 'other', quantity: 1, unit: 'unit', price, assignedTo: recurringAssignee === 'you' ? currentUserId : recurringAssignee });
+                    const neededBy = recurringSelectedDate ?? (recurringDeadline && recurringDeadline !== 'asap'
+                      ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(recurringDeadline)); return d; })()
+                      : null);
+                    await addShoppingItem({
+                      name,
+                      category: 'other',
+                      quantity: 1,
+                      unit: 'unit',
+                      price,
+                      assignedTo: recurringAssignee === 'you' ? currentUserId : recurringAssignee,
+                      neededBy,
+                      isAsap: recurringDeadline === 'asap',
+                    });
                   }
                   setRecurringStep(2);
                 }}
@@ -1002,7 +1021,7 @@ export default function ShoppingScreen() {
                   </View>
                   <View style={styles.modalDivider} />
                   <TouchableOpacity
-                    style={[styles.modalPrimaryBtn, { flex: 0, backgroundColor: '#3D6B5E' }]}
+                    style={[styles.confirmReturnButton, { backgroundColor: '#3D6B5E' }]}
                     onPress={() => { setRecurringStep2Open(false); setRecurringStep(1); }}
                     activeOpacity={0.8}
                   >
@@ -1264,7 +1283,16 @@ export default function ShoppingScreen() {
                 style={styles.modalPrimaryBtn}
                 onPress={async () => {
                   if (!editingItem) return;
-                  await updateShoppingItem(editingItem.id, { name: editName, price: editPrice });
+                  const neededBy = editSelectedDate ?? (editDeadline && editDeadline !== 'asap'
+                    ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(editDeadline)); return d; })()
+                    : null);
+                  await updateShoppingItem(editingItem.id, {
+                    name: editName,
+                    price: editPrice,
+                    assignedTo: editAssignee === 'you' ? currentUserId : editAssignee,
+                    neededBy,
+                    isAsap: editDeadline === 'asap',
+                  });
                   setEditingItem(null);
                 }}
                 activeOpacity={0.8}
@@ -2207,5 +2235,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmReturnButton: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 999,
+    backgroundColor: '#2D1A0E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    flexGrow: 0,
+    flexShrink: 0,
   },
 });

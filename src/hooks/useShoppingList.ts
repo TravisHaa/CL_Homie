@@ -23,6 +23,7 @@ export interface AddItemInput {
   price?: string;
   assignedTo?: string;
   neededBy?: Date | null;
+  isAsap?: boolean;
 }
 
 export function useShoppingList() {
@@ -63,6 +64,7 @@ export function useShoppingList() {
         price: input.price ?? '',
         assignedTo: input.assignedTo ?? 'anyone',
         neededBy: input.neededBy ? Timestamp.fromDate(input.neededBy) : null,
+        isAsap: input.isAsap ?? false,
         isChecked: false,
         addedBy: userProfile.id,
         checkedBy: null,
@@ -126,9 +128,24 @@ export function useShoppingList() {
     }
   };
 
-  const updateShoppingItem = async (itemId: string, updates: { name?: string; price?: string }) => {
+  const updateShoppingItem = async (
+    itemId: string,
+    updates: {
+      name?: string;
+      price?: string;
+      assignedTo?: string;
+      neededBy?: Date | null;
+      isAsap?: boolean;
+    },
+  ) => {
     if (!houseId) throw new Error('No house connected. Join a house first.');
-    await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), updates);
+    const firestoreUpdates = {
+      ...updates,
+      ...(updates.neededBy !== undefined
+        ? { neededBy: updates.neededBy ? Timestamp.fromDate(updates.neededBy) : null }
+        : {}),
+    };
+    await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), firestoreUpdates);
   };
 
   const deleteShoppingItem = async (itemId: string) => {

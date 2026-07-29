@@ -110,6 +110,7 @@ export interface ShoppingItem {
   checkedBy: string | null;
   checkedAt: Timestamp | null;
   neededBy?: Timestamp | null;
+  isAsap?: boolean;
   createdAt: Timestamp;
 }
 
