@@ -69,7 +69,7 @@ export function useChores() {
 
   const addChore = async (
     input: Pick<Chore, 'title' | 'recurrence'> & {
-      assignedTo?: string;        // optional when autoRotate=true; we'll seed
+      assignedTo?: string;        // selected starting assignee for auto-rotate chores
       autoRotate?: boolean;
       dayOfWeek?: number | null;
       dayOfMonth?: number | null;
@@ -87,10 +87,10 @@ export function useChores() {
     // seeded assignee keeps today and rotation kicks in on the next reset.
     const autoRotate = !!input.autoRotate && input.recurrence !== 'once';
 
-    // Seed assignee for new auto-rotate chores using house.rotationOffset so
-    // successive creations stagger across members.
+    // Respect the user's selected starting assignee. The house rotation offset
+    // is only a fallback for older callers that do not provide one.
     let assignedTo = input.assignedTo ?? '';
-    if (autoRotate && house) {
+    if (autoRotate && !assignedTo && house) {
       const orderedMembers = house.memberIds ?? [];
       if (orderedMembers.length > 0) {
         const offset = (house.rotationOffset ?? 0) % orderedMembers.length;

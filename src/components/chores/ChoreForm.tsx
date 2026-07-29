@@ -98,8 +98,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showCustomBlock = recurrence === 'custom';
     const showDueDatePicker = recurrence === 'once';
     const supportsAutoRotate = recurrence !== 'once';
-    const requiresMemberPick = !supportsAutoRotate || !autoRotate;
-
     const toggleCustomDay = (idx: number) => {
       setCustomDays((prev) =>
         prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort()
@@ -128,8 +126,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         Alert.alert('No members', 'Join a house before adding chores.');
         return;
       }
-      if (requiresMemberPick && !assignedTo) {
-        Alert.alert('Pick a member', 'Choose who this chore goes to, or enable auto-rotate.');
+      if (!assignedTo) {
+        Alert.alert('Pick a member', 'Choose who should start with this chore.');
         return;
       }
       if (recurrence === 'custom') {
@@ -148,9 +146,9 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         title: title.trim(),
         recurrence,
         autoRotate: supportsAutoRotate ? autoRotate : false,
-        // When auto-rotate is on, leave assignedTo empty so useChores seeds it
-        // deterministically using house.rotationOffset.
-        assignedTo: requiresMemberPick ? assignedTo : undefined,
+        // For auto-rotate chores this is the starting person; the rollover
+        // function advances from them through the household rotation order.
+        assignedTo,
         dayOfWeek: recurrence === 'weekly' ? dayOfWeek : null,
         dayOfMonth: recurrence === 'monthly' ? dayOfMonth : null,
         customRecurrence:
@@ -376,11 +374,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           )}
 
           {/* Assignment */}
-          <Text style={styles.label}>Assignment</Text>
+          <Text style={styles.label}>{autoRotate ? 'Starts with' : 'Assignment'}</Text>
           <View style={styles.assignmentRow}>
             {memberIds.map((uid) => {
               const m = memberMap[uid];
-              const active = !autoRotate && assignedTo === uid;
+              const active = assignedTo === uid;
               return (
                 <AssignmentTile
                   key={uid}
@@ -388,10 +386,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                   initial={initialOf(m.displayName)}
                   color={m.color}
                   selected={active}
-                  onPress={() => {
-                    setAutoRotate(false);
-                    setAssignedTo(uid);
-                  }}
+                  onPress={() => setAssignedTo(uid)}
                 />
               );
             })}
@@ -404,6 +399,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
               />
             )}
           </View>
+          {autoRotate && (
+            <Text style={[styles.summary, { marginTop: 8 }]}>
+              {memberMap[assignedTo]?.displayName ?? 'The selected housemate'} starts, then this chore follows your rotation order.
+            </Text>
+          )}
 
           {/* Footer actions */}
           <View style={styles.footerRow}>
@@ -608,6 +608,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  summary: {
+    color: CHORE_THEME.textMuted,
+    fontSize: 13,
+    marginBottom: 8,
   },
   footerRow: {
     flexDirection: 'row',

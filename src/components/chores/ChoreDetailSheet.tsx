@@ -133,8 +133,6 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
     const showMonthlyDayPicker = recurrence === 'monthly';
     const showCustomBlock = recurrence === 'custom';
     const supportsAutoRotate = recurrence !== 'once';
-    const requiresMemberPick = !supportsAutoRotate || !autoRotate;
-
     const toggleCustomDay = (idx: number) => {
       setCustomDays((prev) =>
         prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort()
@@ -152,7 +150,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
     const isDirty =
       title.trim() !== chore.title ||
-      (requiresMemberPick && assignedTo !== chore.assignedTo) ||
+      assignedTo !== chore.assignedTo ||
       recurrence !== chore.recurrence ||
       (supportsAutoRotate && autoRotate !== !!chore.autoRotate) ||
       (showWeeklyDayPicker && dayOfWeek !== (chore.dayOfWeek ?? 0)) ||
@@ -182,7 +180,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
 
       const patch: ChoreUpdatePatch = {};
       if (trimmed !== chore.title) patch.title = trimmed;
-      if (requiresMemberPick && assignedTo && assignedTo !== chore.assignedTo) {
+      if (assignedTo && assignedTo !== chore.assignedTo) {
         patch.assignedTo = assignedTo;
       }
       if (recurrence !== chore.recurrence) {
@@ -469,11 +467,11 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           )}
 
           {/* Assignment */}
-          <Text style={styles.label}>Assignment</Text>
+          <Text style={styles.label}>{autoRotate ? 'Starts with' : 'Assignment'}</Text>
           <View style={styles.avatarRow}>
             {memberIds.map((uid) => {
               const m = memberMap[uid];
-              const active = !autoRotate && assignedTo === uid;
+              const active = assignedTo === uid;
               return (
                 <AssignmentTile
                   key={uid}
@@ -481,10 +479,7 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
                   initial={initialOf(m.displayName)}
                   color={m.color}
                   selected={active}
-                  onPress={() => {
-                    setAutoRotate(false);
-                    setAssignedTo(uid);
-                  }}
+                  onPress={() => setAssignedTo(uid)}
                 />
               );
             })}
@@ -497,9 +492,9 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
               />
             )}
           </View>
-          {!requiresMemberPick && (
+          {autoRotate && (
             <Text style={[styles.summary, { marginTop: 8 }]}>
-              Currently with {memberMap[chore.assignedTo]?.displayName ?? 'unassigned'}; will
+              Starts with {memberMap[assignedTo]?.displayName ?? 'unassigned'}; will
               {masterAutoRotate ? ' rotate ' : ' stay (master switch off) '}
               on the next cycle.
             </Text>
