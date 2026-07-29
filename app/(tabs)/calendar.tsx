@@ -295,16 +295,14 @@ export default function CalendarScreen() {
                         {format(day, "d")}
                       </Text>
                     </View>
-                    {selected && (
-                      <View style={styles.pillDots}>
-                        {dayEvts.length > 0
-                          ? dayEvts.slice(0, 3).map((e) => (
-                              <View key={e.id} style={[styles.pillDot, { backgroundColor: 'rgba(255,255,255,0.6)' }]} />
-                            ))
-                          : [0,1,2].map((i) => <View key={i} style={styles.pillDot} />)
-                        }
-                      </View>
-                    )}
+                    <View style={styles.pillDots}>
+                      {dayEvts.slice(0, 3).map((event) => (
+                        <View
+                          key={event.id}
+                          style={[styles.pillDot, { backgroundColor: event.color || C.text }]}
+                        />
+                      ))}
+                    </View>
                   </Pressable>
                 );
               })}
@@ -519,8 +517,8 @@ const styles = StyleSheet.create({
   pillDayNum: { fontSize: 15, fontWeight: "700", color: C.pillText },
   pillDayNumCurrent: { color: C.today },
   pillDayNumToday: { fontSize: 20, fontWeight: "800" },
-  pillDots: { flexDirection: "row", gap: 3, marginTop: 2 },
-  pillDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)' },
+  pillDots: { height: 6, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, marginTop: 2 },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Month grid
   dowRow: { flexDirection: "row", marginBottom: 6 },
