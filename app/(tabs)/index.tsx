@@ -949,6 +949,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: C.noteMeta,
     marginTop: 8,
+    marginLeft: 25,
   },
   pictureDateText: {
     fontFamily: 'AlbertSans_400Regular',
