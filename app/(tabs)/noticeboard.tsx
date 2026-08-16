@@ -43,7 +43,7 @@ export default function NoticeBoardScreen() {
           <GridBackground />
           <View style={{ width: '100%', overflow: 'hidden' }}>
             <HeaderImage height={117} pointerEvents="none" />
-            <Pressable style={styles.backButton} onPress={() => router.push('/(tabs)')} hitSlop={10}>
+            <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
               <Ionicons name="chevron-back" size={22} color="#2E0800" />
             </Pressable>
             <Text style={styles.headerTitle}>Notice Board</Text>

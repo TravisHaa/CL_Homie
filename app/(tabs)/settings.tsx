@@ -137,6 +137,9 @@ export default function SettingsScreen() {
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
         <HeaderImage height={117} />
+        <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2E0800" />
+        </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -300,6 +303,12 @@ const styles = StyleSheet.create({
   },
 
   // ── Header title ────────────────────────────────────────────────────────────
+  backButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 20,
+    zIndex: 10,
+  },
   headerTitle: {
     position: 'absolute',
     bottom: 16,

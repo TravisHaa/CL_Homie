@@ -123,6 +123,9 @@ export default function ChoresScreen() {
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
         <HeaderImage height={117} pointerEvents="none" />
+        <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2E0800" />
+        </Pressable>
         <Text style={styles.headerTitle}>Chores</Text>
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -263,6 +266,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: CHORE_THEME.bg,
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 20,
+    zIndex: 10,
   },
   headerTitle: {
     position: 'absolute',

@@ -300,6 +300,9 @@ export default function ShoppingScreen() {
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
+        <TouchableOpacity style={styles.homeBackButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2D3436" />
+        </TouchableOpacity>
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.headerTitle}>Shopping List</Text>
@@ -1393,6 +1396,12 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingBottom: 8,
     gap: 12,
+  },
+  homeBackButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
   },
   headerTop: {
     flexDirection: 'row',

@@ -23,6 +23,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Dimensions,
@@ -122,6 +123,7 @@ const choreStyles = StyleSheet.create({
 
 // ────────────────────────────────────────────────────────────────────
 export default function CalendarScreen() {
+  const router = useRouter();
   const { events, isLoading: eventsLoading, addEvent, updateEvent } = useCalendarEvents();
   const { chores, isLoading: choresLoading } = useChores();
   const formRef = useRef<BottomSheetModal>(null);
@@ -220,6 +222,9 @@ export default function CalendarScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <GridBackground />
       <View style={styles.screenContainer}>
+        <Pressable style={styles.homeBackButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color={C.text} />
+        </Pressable>
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
           {/* ── Page title ──────────────────────────────────────────── */}
@@ -474,6 +479,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   screenContainer: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 24 },
+  homeBackButton: { position: 'absolute', top: 20, left: 20, zIndex: 10 },
 
   // Page title
   header: { paddingTop: 64, marginBottom: 20 },
