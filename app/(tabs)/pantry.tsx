@@ -79,7 +79,7 @@ function PantryContent() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/shopping')} hitSlop={12}>
           <Ionicons name="close" size={22} color="#2E0800" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
