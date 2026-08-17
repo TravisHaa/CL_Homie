@@ -119,11 +119,12 @@ const RECURRENCE_LABELS: Record<RecurrenceOption, string> = {
 interface Props {
   onSubmit: (input: NewEventInput) => Promise<void>;
   onUpdate?: (id: string, updates: NewEventInput) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   event?: CalendarEvent | null;
 }
 
 export const EventForm = forwardRef<BottomSheetModal, Props>(
-  ({ onSubmit, onUpdate, event }, ref) => {
+  ({ onSubmit, onUpdate, onDelete, event }, ref) => {
     const [title, setTitle]             = useState('');
     const [description, setDescription] = useState('');
     const [startDate, setStartDate]     = useState<Date>(new Date());
@@ -183,6 +184,29 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
       }
     };
 
+    const handleDelete = () => {
+      if (!event || !onDelete) return;
+      Alert.alert('Delete event?', `"${event.title}" will be removed for everyone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              await onDelete(event.id);
+              reset();
+              dismiss();
+            } catch (err: any) {
+              Alert.alert('Could not delete event', err?.message ?? 'Unknown error');
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]);
+    };
+
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
@@ -213,9 +237,16 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
             <Text style={styles.heading}>
               🎉  {event ? 'Edit Event' : 'New Event'}
             </Text>
-            <TouchableOpacity onPress={dismiss} hitSlop={12} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#3B1F0E" />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {event && onDelete && (
+                <TouchableOpacity onPress={handleDelete} hitSlop={12} activeOpacity={0.7}>
+                  <Ionicons name="trash-outline" size={20} color="#3B1F0E" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={dismiss} hitSlop={12} activeOpacity={0.7}>
+                <Ionicons name="close" size={22} color="#3B1F0E" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -381,6 +412,7 @@ const styles = StyleSheet.create({
   // Header
   headerGradient: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   heading: { fontSize: 22, fontWeight: '700', color: '#3B1F0E' },
 
   // Dotted divider

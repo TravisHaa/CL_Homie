@@ -7,6 +7,7 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
+  runTransaction,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/src/firebase/config';
@@ -76,25 +77,35 @@ export function useShoppingList() {
 
   const toggleShoppingItem = async (itemId: string, currentValue: boolean, expirationDate?: Date) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
-    const beingChecked = !currentValue;
-    try {
-      await updateDoc(doc(db, 'houses', houseId, 'shoppingItems', itemId), {
-        isChecked: beingChecked,
-        checkedBy: beingChecked ? userProfile.id : null,
-        checkedAt: beingChecked ? serverTimestamp() : null,
-      });
+    const shoppingRef = doc(db, 'houses', houseId, 'shoppingItems', itemId);
+    const intendedChecked = !currentValue;
+    const FOOD_CATEGORIES = new Set(['food', 'produce', 'dairy', 'meat', 'snacks', 'beverages', 'condiments', 'grains']);
 
-      if (beingChecked) {
-        const cached = queryClient.getQueryData<ShoppingItem[]>(['shopping', houseId]) ?? [];
-        const shoppingItem = cached.find((i) => i.id === itemId);
-        const FOOD_CATEGORIES = new Set(['food', 'produce', 'dairy', 'meat', 'snacks', 'beverages', 'condiments', 'grains']);
-        if (shoppingItem && FOOD_CATEGORIES.has(shoppingItem.category.toLowerCase())) {
-          await addDoc(pantryCol(houseId), {
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(shoppingRef);
+        if (!snap.exists()) return;
+        const data = snap.data() as ShoppingItem;
+        const wasChecked = data.isChecked;
+
+        tx.update(shoppingRef, {
+          isChecked: intendedChecked,
+          checkedBy: intendedChecked ? userProfile.id : null,
+          checkedAt: intendedChecked ? serverTimestamp() : null,
+        });
+
+        // Gate the pantry-add on the server's own fresh `isChecked` (`wasChecked`),
+        // not the caller's possibly-stale `currentValue` — otherwise two
+        // roommates racing to check the same item can each capture a stale
+        // "unchecked" snapshot and both add a pantry entry for one purchase.
+        if (intendedChecked && !wasChecked && FOOD_CATEGORIES.has(data.category.toLowerCase())) {
+          const pantryRef = doc(pantryCol(houseId));
+          tx.set(pantryRef, {
             id: '',
-            name: shoppingItem.name,
-            quantity: shoppingItem.quantity,
-            unit: shoppingItem.unit,
-            category: shoppingItem.category,
+            name: data.name,
+            quantity: data.quantity,
+            unit: data.unit,
+            category: data.category,
             isShared: true,
             expirationDate: expirationDate ? Timestamp.fromDate(expirationDate) : null,
             expirationConfidence: 'manual' as const,
@@ -105,7 +116,7 @@ export function useShoppingList() {
             createdAt: Timestamp.now(),
           });
         }
-      }
+      });
     } catch (err) {
       throw err;
     }

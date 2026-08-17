@@ -89,6 +89,8 @@ export function useAuthListener() {
                 setHouse(null);
                 setMemberMap([]);
               }
+              console.log('[Auth] setIsLoading(false)');
+              setIsLoading(false);
             } else {
               console.log('[Auth] no profile doc — creating one');
               const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
@@ -102,12 +104,15 @@ export function useAuthListener() {
                 createdAt: serverTimestamp(),
               } as any);
               console.log('[Auth] profile doc created, waiting for snapshot re-fire');
-              return;
+              // Deliberately don't setIsLoading(false) here: userProfile is
+              // still null at this point, and the onSnapshot listener above
+              // will re-fire (now with snap.exists() === true) once the doc
+              // write lands — that re-fire is what flips isLoading, so the
+              // "isLoading === false implies userProfile is loaded" contract
+              // holds for every consumer, not just AuthGate's redirect.
             }
           } catch (err) {
             console.error('[Auth] profile snapshot error:', err);
-          } finally {
-            console.log('[Auth] setIsLoading(false)');
             setIsLoading(false);
           }
         },

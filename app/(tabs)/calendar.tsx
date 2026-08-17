@@ -106,7 +106,7 @@ const choreStyles = StyleSheet.create({
 
 // ────────────────────────────────────────────────────────────────────
 export default function CalendarScreen() {
-  const { events, isLoading: eventsLoading, addEvent, updateEvent } = useCalendarEvents();
+  const { events, isLoading: eventsLoading, addEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { chores, isLoading: choresLoading } = useChores();
   const formRef = useRef<BottomSheetModal>(null);
   const filterBtnRef = useRef<View>(null);
@@ -348,7 +348,7 @@ export default function CalendarScreen() {
           <AddButtonSvg width={64} height={64} />
         </TouchableOpacity>
 
-        <EventForm ref={formRef} onSubmit={addEvent} onUpdate={updateEvent} event={selectedEvent} />
+        <EventForm ref={formRef} onSubmit={addEvent} onUpdate={updateEvent} onDelete={deleteEvent} event={selectedEvent} />
       </View>
 
       {/* ── Filter popup ─────────────────────────────────────────────── */}

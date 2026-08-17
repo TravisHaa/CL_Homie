@@ -35,9 +35,10 @@ export async function lookupBarcode(barcode: string): Promise<LookupResult> {
     );
 
     if (!res.ok) {
-      const result: LookupResult = { status: 'not_found' };
-      sessionCache.set(barcode, result);
-      return result;
+      // HTTP-level failure (rate limit, transient 5xx, etc.) — not a
+      // confirmed "barcode doesn't exist" result, so don't cache it; leave
+      // it retryable like the network-error catch block below.
+      return { status: 'error' };
     }
 
     const data = await res.json();

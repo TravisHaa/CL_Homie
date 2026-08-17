@@ -13,7 +13,15 @@ export function useChores() {
   const house = useHouseStore((s) => s.house);
   const houseId = house?.id ?? null;
   const userProfile = useAuthStore((s) => s.userProfile);
-  const weekKey = getWeekKey();
+  // Prefer the week key the server's rollover last actually stamped chore
+  // docs with over recomputing locally: the rollover fires once at a single
+  // global instant (00:01 America/Los_Angeles), so a device whose local
+  // clock crosses the ISO-week boundary well before or after that instant
+  // would otherwise compute a `weekKey` that doesn't match what's on the
+  // documents yet, and every recurring chore would vanish from the query
+  // until the server catches up. Falls back to local computation for a
+  // brand-new house that hasn't had a rollover run yet.
+  const weekKey = house?.lastRolloverWeekKey ?? getWeekKey();
 
   const { data: chores = [], isLoading } = useQuery<Chore[]>({
     queryKey: ['chores', houseId, weekKey],
@@ -215,10 +223,16 @@ export function useChores() {
       const r = patch.recurrence;
       // Always reset shape-specific fields; the caller can re-set them in the
       // same patch and our spread above will win.
+      // Also reset the cadence-tracking fields the same way addChore seeds
+      // them on creation: otherwise a stale lastTriggeredKey defeats the
+      // "first advance keeps the seeded assignee" guard, and a stale
+      // recurrenceAnchorKey anchors custom cadences to an unrelated old date.
       const shapeReset: Record<string, unknown> = {
         dayOfWeek: null,
         dayOfMonth: null,
         customRecurrence: null,
+        lastTriggeredKey: null,
+        recurrenceAnchorKey: r === 'once' ? null : getDayKey(new Date()),
       };
       if (r === 'once') {
         shapeReset.autoRotate = false;

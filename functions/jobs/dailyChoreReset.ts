@@ -40,8 +40,6 @@ import {
     getISOWeek,
     getISOWeekYear,
     isSameDay,
-    setISOWeek,
-    setISOWeekYear,
     startOfISOWeek,
 } from 'date-fns';
 import { getApps, initializeApp } from 'firebase-admin/app';
@@ -128,24 +126,6 @@ function getWeekKey(date: Date): string {
   const week = getISOWeek(date);
   const year = getISOWeekYear(date);
   return `${year}-W${String(week).padStart(2, '0')}`;
-}
-
-/** Parse "2026-W15" into the Monday (00:00 local) of that ISO week. */
-function parseWeekKey(key: string): Date {
-  const match = /^(\d{4})-W(\d{1,2})$/.exec(key);
-  if (!match) throw new Error(`Invalid week key: ${key}`);
-  const year = Number(match[1]);
-  const week = Number(match[2]);
-  const anchor = setISOWeekYear(new Date(year, 5, 1), year);
-  const inWeek = setISOWeek(anchor, week);
-  return startOfISOWeek(inWeek);
-}
-
-/** Signed ISO-week difference: b - a. Same week → 0. */
-function weeksBetween(a: string, b: string): number {
-  const aMon = parseWeekKey(a);
-  const bMon = parseWeekKey(b);
-  return Math.round(differenceInCalendarDays(bMon, aMon) / 7);
 }
 
 /** Stable day identifier like "2026-05-04". */
@@ -275,14 +255,13 @@ function evaluateRoll(chore: Chore, now: Date): RollDecision | null {
       return { shift: 1, bumpWeekKey: chore.weekKey !== currentWeekKey };
     }
     case 'weekly': {
-      let weeksElapsed: number;
-      try {
-        weeksElapsed = weeksBetween(chore.weekKey, currentWeekKey);
-      } catch {
-        return { shift: 1, bumpWeekKey: true };
-      }
-      if (weeksElapsed <= 0) return null;
-      return { shift: weeksElapsed, bumpWeekKey: true };
+      // Gate on isChoreDueOn (chore.dayOfWeek), same as biweekly/monthly below —
+      // the daily visibility re-stamp resets `weekKey` every night, so gating
+      // on weeksBetween(weekKey, currentWeekKey) alone fires on every ISO-week
+      // boundary (every Monday) regardless of the chore's configured day.
+      if (!isChoreDueOn(chore, now)) return null;
+      if (lastDay && lastDay >= todayDayKey) return null;
+      return { shift: 1, bumpWeekKey: chore.weekKey !== currentWeekKey };
     }
     case 'biweekly': {
       // Legacy schema-v0 path. Migration v1 rewrites every biweekly chore to

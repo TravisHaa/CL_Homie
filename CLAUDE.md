@@ -14,84 +14,101 @@ npm run android
 npm run web
 ```
 
-There are no lint or test scripts configured yet.
+There are no lint or test scripts configured for the Expo app.
+
+### Cloud Functions (`functions/`)
+
+The Firebase Cloud Functions package is separate from the Expo app and has its own `package.json`:
+
+```bash
+cd functions
+npm run build        # tsc
+npm run build:watch
+npm run serve         # build + firebase emulators:start --only functions,firestore
+npm run shell         # build + firebase functions:shell
+npm run deploy        # firebase deploy --only functions
+npm run logs
+```
+
+**Known issue:** `functions/src/index.ts` re-exports `weeklyChoreReset` from `../jobs/weeklyChoreReset`, but the actual job file is `functions/jobs/dailyChoreReset.ts` and exports `dailyChoreReset`. This import is currently broken — `npm run build` in `functions/` will fail until the export name/path is fixed. Check this before assuming the scheduled chore-reset function deploys as-is.
 
 ## Implementation Status
 
-All core features are implemented on `main` with real Firestore integrations.
+All core features are implemented on `main`/`DemoReady` with real Firestore integrations. Feature set has grown well beyond the original four screens — chores, calendar, pantry, and shopping now share the app with house management, a noticeboard, account settings, and a rotation-schedule screen.
 
-| Feature | Screen | Hook | Components | Status |
-|---|---|---|---|---|
-| Home Dashboard | `app/(tabs)/index.tsx` | reads all 4 hooks | — | Done |
-| Chores | `app/(tabs)/chores.tsx` | `useChores` | `ChoreCard`, `ChoreForm` | Done (hidden tab) |
-| Calendar | `app/(tabs)/calendar.tsx` | `useCalendarEvents` | `EventCard`, `EventForm` | Done (hidden tab) |
-| Pantry | `app/(tabs)/pantry.tsx` | `usePantry` | `PantryItemCard`, `AddPantryItemForm` | Done |
-| Shopping | `app/(tabs)/shopping.tsx` | `useShoppingList` | `ShoppingItemRow`, `AddShoppingItemForm` | Done |
-| Auth | `app/(auth)/*.tsx` | `useAuth` | — | Done |
+| Feature | Screen(s) | Hook | Status |
+|---|---|---|---|
+| Home Dashboard | `app/(tabs)/index.tsx` | reads all feature hooks | Done |
+| Chores | `app/(tabs)/chores.tsx`, `app/rotation.tsx` | `useChores` | Done (hidden tab) |
+| Calendar | `app/(tabs)/calendar.tsx` | `useCalendarEvents`, `useGoogleCalendar` | Done (visible tab) |
+| Pantry | `app/(tabs)/pantry.tsx` | `usePantry` | Done, incl. barcode scanning (`BarcodeScannerModal`) |
+| Shopping | `app/(tabs)/shopping.tsx` | `useShoppingList` | Done |
+| House management | `app/(tabs)/house.tsx`, `app/(auth)/{home-choice,create-house,join-house,home-status}.tsx` | `useHouseStore`, `src/firebase/house.ts` | Done — create/join/switch/leave |
+| Noticeboard | `app/(tabs)/noticeboard.tsx` | local state (not yet wired to Firestore) | UI built, no persistence hook |
+| My Account | `app/(tabs)/myaccount.tsx` | `useAuthStore`, avatar upload via Firebase Storage | Done |
+| Settings | `app/(tabs)/settings.tsx` | `useAuthStore`, `useHouseStore`, `leaveHouse` | Done |
+| Auth | `app/(auth)/*.tsx` | `useAuth` | Done — includes password reset flow |
+| Push notifications | `src/hooks/useNotifications.ts`, `src/utils/pushNotifications.ts` | — | Done (device push tokens in `users/{uid}/devices`) |
+| Cloud Functions | `functions/jobs/dailyChoreReset.ts`, `functions/src/google-oauth.ts` | — | Implemented, but see the broken `index.ts` export noted above |
+| Google Calendar sync | `src/hooks/useGoogleCalendar.ts`, `src/utils/calendarSync.ts`, `functions/src/google-oauth.ts` | — | Implemented (OAuth token exchange lives server-side in Cloud Functions) |
 
-Not yet built: Firebase Cloud Functions (weekly chore reset, expiration alerts), push notifications, barcode scanning, Google Calendar sync.
-
-## Current State & Known Issues (as of 2026-04-14)
-
-**Branch:** `main` — actively being tested on `localhost:8081` via `npm run web`.
-
-### Temporary code in place — must be cleaned up
-
-1. **Join-house gate is commented out** in `app/_layout.tsx` (lines ~65-70). The block redirecting users without a `houseId` to `/(auth)/join-house` is commented out so login can be tested without needing a house. Restore it once auth flow is confirmed working.
-
-2. **Debug logs are still in** `src/hooks/useAuth.ts` and `app/_layout.tsx`. These `console.log('[Auth]...')` and `console.log('[AuthGate]...')` calls should be removed once the login redirect is confirmed working.
-
-### Auth flow investigation in progress
-
-The login redirect was broken — after a valid sign-in, the user stayed on the login screen. Root causes found and partially fixed:
-- `isLoading` could deadlock if Firestore profile snapshot threw a permission error (fixed with try/finally)
-- `houseStore` was never populated after login (fixed — `useAuthListener` now subscribes to house doc + members when profile has a `houseId`)
-- `Alert.alert` doesn't work on web — replaced with inline `authError` state in `login.tsx`
-- The Metro dev server was disconnecting, serving stale bundles. If the app looks wrong, **hard-refresh the browser (Cmd+Shift+R)** before debugging
-
-### What needs to happen next
-1. Confirm login redirect works (user should land on home tab after signing in)
-2. Test that all 4 tabs load real Firestore data once a house exists
-3. Remove debug logs from `useAuth.ts` and `_layout.tsx`
-4. Restore join-house gate in `_layout.tsx`
+`app/(tabs)/two.tsx` is leftover Expo Router template scaffolding (unused "Tab Two" demo screen) — not part of the product, safe to ignore or remove.
 
 ## Architecture
 
-### Routing (Expo Router v3 — file-based)
+### Routing (Expo Router v6 — file-based)
 
 ```
 app/
-  _layout.tsx          ← Root: QueryClientProvider + AuthGate
+  _layout.tsx           ← Root: fonts, QueryClientProvider, BottomSheetModalProvider, AuthGate
+  modal.tsx              ← Global modal route
+  rotation.tsx            ← Chore rotation schedule screen (top-level route, not a tab)
   (auth)/
     login.tsx
     signup.tsx
-    join-house.tsx     ← Create or join a house via 6-char invite code
+    forgot-password.tsx
+    reset-code.tsx
+    reset-password.tsx
+    setup-account.tsx
+    home-choice.tsx      ← Landing point for users with no house: choose create vs. join
+    create-house.tsx
+    join-house.tsx        ← Join a house via 6-char invite code
+    home-status.tsx        ← Confirmation screen, also reachable by members switching houses
   (tabs)/
-    _layout.tsx        ← Tab navigator (Home, Pantry, Shopping, Settings)
-    index.tsx          ← Home dashboard ("fridge magnet" aesthetic)
-    chores.tsx         ← Hidden tab (navigable from home)
-    calendar.tsx       ← Hidden tab (navigable from home)
-    pantry.tsx
-    shopping.tsx
-    settings.tsx
+    _layout.tsx          ← Tab navigator
+    index.tsx             ← Home dashboard ("fridge magnet" aesthetic) — visible
+    calendar.tsx           ← visible
+    pantry.tsx             ← visible
+    shopping.tsx            ← visible
+    chores.tsx              ← hidden, reached from home dashboard sticky notes
+    house.tsx                ← hidden, house switch/invite-code management
+    settings.tsx               ← hidden
+    noticeboard.tsx             ← hidden
+    myaccount.tsx                 ← hidden
+    two.tsx                       ← hidden, unused template scaffold
 ```
 
-`chores` and `calendar` tabs exist as files but are hidden from the tab bar in `(tabs)/_layout.tsx` (listed in `HIDDEN`). **Do not move them to `TABS`** — they are intentionally accessed via navigation from the home dashboard sticky notes only. The nav bar must stay at exactly 4 tabs: Home, Pantry, Shopping, Settings.
+`(tabs)/_layout.tsx` defines a `TABS` array (Home, Calendar, Pantry, Shopping — exactly 4 tabs shown in the bar) and a `HIDDEN` array (`chores`, `two`, `house`, `settings`, `noticeboard`, `myaccount`) rendered as `href: null` screens so they exist as routes but never appear in the tab bar. **When adding a new hidden screen, add its route name to `HIDDEN`, not `TABS`** — the nav bar must stay at exactly 4 tabs.
 
 ### Auth Flow
 
 `app/_layout.tsx` contains `AuthGate`, which listens to Zustand (`useAuthStore`) and redirects:
-- No Firebase user → `/(auth)/login`
-- Firebase user, no `houseId` on profile → `/(auth)/join-house` (**currently commented out for testing**)
-- Firebase user with `houseId` → `/(tabs)`
+- No Firebase user → `/(auth)/signup`
+- Firebase user, no `houseId` on profile → `/(auth)/home-choice` (unless already on one of the house-setup screens: `home-choice`, `join-house`, `create-house`, `home-status`)
+- Firebase user with `houseId` → `/(tabs)` (unless on `home-status`, `create-house`, or `join-house` — these stay reachable for house switching, e.g. from the house tab or settings)
+
+`AuthGate` also runs a one-shot chore schema migration (`migrateChoreSchema`, keyed by `houseId` via a ref so it only runs once per house per session) — the actual weekly/nightly chore rollover is owned by the scheduled Cloud Function, not the client.
 
 `src/hooks/useAuth.ts` → `useAuthListener()` bootstraps all auth state:
 1. `onAuthStateChanged` fires → sets `firebaseUser` in Zustand
 2. Attaches `onSnapshot` to `users/{uid}` profile doc (auto-creates if missing)
 3. If profile has `houseId`: also subscribes to `houses/{houseId}` doc (→ `setHouse`) and queries `users` where `houseId == profile.houseId` (→ `setMemberMap`)
-4. `setIsLoading(false)` is always called in a `finally` block — even on Firestore permission errors (error callback provided to `onSnapshot`)
+4. If `houseId` is cleared (leave/switch house), tears down the house/member listeners and wipes `houseStore` so stale data can't leak back in via a delayed snapshot
+5. `setIsLoading(false)` is always called in a `finally` block — even on Firestore permission errors (error callbacks are wired on every `onSnapshot`)
 
-**Important:** `houseStore` is populated entirely by `useAuthListener` — nothing else calls `setHouse` or `setMemberMap`. All feature hooks depend on `useHouseStore(s => s.house?.id)` being non-null to enable their Firestore queries.
+`useAuth.ts` still has `console.log('[Auth] ...')` calls throughout — useful for debugging the listener chain, but noisy; be aware they exist rather than assuming missing logs mean a step didn't run.
+
+**Important:** `houseStore` is populated entirely by `useAuthListener` — nothing else calls `setHouse` or `setMemberMap` directly except `src/firebase/house.ts` helpers that mutate Firestore (which then flow back through the listener). All feature hooks depend on `useHouseStore(s => s.house?.id)` being non-null to enable their Firestore queries.
 
 ### State Management
 
@@ -99,32 +116,35 @@ Two Zustand stores:
 - `src/store/authStore.ts` — `firebaseUser` (Firebase Auth object), `userProfile` (Firestore `User` doc), `isLoading`
 - `src/store/houseStore.ts` — `house` (Firestore `House` doc), `memberMap` (userId → `{displayName, color, avatarUrl}`)
 
-TanStack Query wraps Firestore `onSnapshot` listeners for feature data (chores, events, pantry, shopping).
+TanStack Query wraps Firestore `onSnapshot` listeners for feature data (chores, events, pantry, shopping). Pattern for all hooks: `queryFn: () => Promise.resolve([])` seeds the cache; a `useEffect` with `onSnapshot` calls `queryClient.setQueryData` as the live update path.
 
 Hook return shapes (use these exact destructured names — mismatching caused bugs before):
-- `useChores()` → `{ chores, isLoading, addChore, toggleChore }`
-- `useCalendarEvents()` → `{ events, isLoading, addEvent }` — also exports `NewEventInput` type
-- `usePantry()` → `{ items, expiringItems, isLoading, addPantryItem, deletePantryItem }` — also exports `daysUntilExpiry(item)` util and `AddPantryItemInput` type
-- `useShoppingList()` → `{ items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked }` — also exports `AddItemInput` type
-
-Pattern for all hooks: `queryFn: () => Promise.resolve([])` seeds the cache; a `useEffect` with `onSnapshot` calls `queryClient.setQueryData` as the live update path.
+- `useChores()` → `{ chores, isLoading, addChore, toggleChore, updateChore, deleteChore }`
+- `useCalendarEvents()` → `{ events, isLoading, addEvent, updateEvent }` — also exports `NewEventInput` type
+- `usePantry()` → `{ items, expiringItems, isLoading, addPantryItem, updatePantryItem, deletePantryItem }` — also exports `daysUntilExpiry(item)` util and `AddPantryItemInput` type
+- `useShoppingList()` → `{ items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked, deleteShoppingItem, updateShoppingItem }` — also exports `AddItemInput` type
+- `useGoogleCalendar()` — manages OAuth linking + sync state for Google Calendar; token exchange happens server-side via the `exchangeGoogleAuthCode` Cloud Function, never in the client
+- `useNotificationsRegistration()` (`src/hooks/useNotifications.ts`) — registers the device's Expo push token into `users/{uid}/devices/{deviceId}` on mount, called once from `AuthGate`
 
 ### Firebase / Firestore
 
 - `src/firebase/config.ts` — Firebase app init from `EXPO_PUBLIC_*` env vars
 - `src/firebase/auth.ts` — `signUp`, `signIn`, `signOut` helpers
 - `src/firebase/firestore.ts` — Typed collection refs using a generic `makeConverter<T>()` that strips `id` on write and injects `snapshot.id` on read. Always use these refs (never raw `collection(db, ...)`) to get typed documents.
+- `src/firebase/house.ts` — house lifecycle helpers: `joinHouseByInviteCode`, `leaveHouse`, `setMemberOrder` (roommate rotation order), `setWeeklyScrambleEnabled`
+- `src/firebase/choreMigrations.ts` — `migrateChoreSchema(houseId)`, versioned against `LATEST_CHORE_SCHEMA_VERSION` (currently `4`); run once per house on login, not on every chore write
 
-Collection refs: `usersCol()`, `housesCol()`, `choresCol(houseId)`, `eventsCol(houseId)`, `pantryCol(houseId)`, `shoppingCol(houseId)`, `predictionsCol()`
+Collection refs: `usersCol()`, `housesCol()`, `choresCol(houseId)`, `eventsCol(houseId)`, `pantryCol(houseId)`, `shoppingCol(houseId)`, `predictionsCol()`, `devicesCol(userId)` / `deviceDoc(userId, deviceId)`
 
 ### TypeScript Types
 
-All Firestore document shapes live in `src/types/index.ts`: `User`, `House`, `Chore`, `CalendarEvent`, `PantryItem`, `ShoppingItem`, `ExpirationPrediction`.
+All Firestore document shapes live in `src/types/index.ts`: `User`, `House`, `Chore` (+ `ChoreRecurrence`, `CustomRecurrence`), `CalendarEvent`, `PantryItem` (+ `ExpirationConfidence`), `ShoppingItem`, `DeviceToken` (+ `DevicePlatform`), `ExpirationPrediction`.
 
 ### Firestore Data Model
 
 ```
 /users/{userId}
+/users/{userId}/devices/{deviceId}    ← Expo push tokens, one per device
 /houses/{houseId}
 /houses/{houseId}/chores/{choreId}    ← weekKey field: "2026-W15" for weekly queries
 /houses/{houseId}/events/{eventId}    ← color denormalized from user at write time
@@ -135,15 +155,15 @@ All Firestore document shapes live in `src/types/index.ts`: `User`, `House`, `Ch
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` and fill in Firebase values. All client-side vars use the `EXPO_PUBLIC_` prefix (required by Expo to expose them in the bundle).
+Copy `.env.example` to `.env` and fill in Firebase values. All client-side vars use the `EXPO_PUBLIC_` prefix (required by Expo to expose them in the bundle). OpenAI and Google Calendar client-secret keys must only ever be set in the Cloud Functions environment (`firebase functions:config:set ...`), never in `.env` — see `.env.example` for the full list including `EXPO_PUBLIC_GOOGLE_VISION_API_KEY` (barcode/label lookups) and `EXPO_PUBLIC_GOOGLE_OAUTH_WEB_CLIENT_ID`.
 
 ### Parallel Feature Development (Git Worktrees)
 
-Feature branches (`feature/chores`, `feature/calendar`, `feature/pantry`, `feature/shopping`, `feature/home`) are meant to be checked out as git worktrees in sibling directories so multiple agents can work in parallel without conflicts. See `WORKTREES.md` for setup.
+There are many long-lived remote feature branches (`feature/*`, `fix/*`) beyond the ones originally scaffolded for parallel worktree development — check `git branch -a` before assuming a feature is unbuilt; it may already exist on an unmerged branch.
 
 ### Design System
 
-Homie uses **two distinct visual themes** applied per-screen. Never mix them — each screen belongs to exactly one theme. When building or modifying UI, identify the screen's theme first and follow its spec exclusively.
+Homie uses **two distinct visual themes** applied per-screen, plus a third specifically for the chore subsystem. Never mix them — each screen belongs to exactly one theme. When building or modifying UI, identify the screen's theme first and follow its spec exclusively.
 
 ---
 
@@ -251,7 +271,7 @@ thinRule: { height: 1, backgroundColor: '#E8E8E4', marginVertical: 8 }
 
 ---
 
-#### Theme C — Chore Tracker (`chores.tsx`, chore bottom sheets, home chore widget)
+#### Theme C — Chore Tracker (`chores.tsx`, `rotation.tsx`, chore bottom sheets, home chore widget)
 
 The chores subsystem matches the Figma "Chore Tracker" frame (file `5HytbjMjgLB2Gu7lSGXqk2`, node `794:1845`). Cream surfaces, espresso ink, teal as the single primary accent. Centerpiece is a circular completion dial showing `{pct}%` for the week.
 
@@ -264,7 +284,7 @@ import { CHORE_THEME } from '@/src/theme/chores';
 // .dueToday / .overdue / .danger (all derived from PALETTE)
 ```
 
-`CHORE_THEME` resolves to the values in `src/theme/palette.ts` (cream `#FCF5EE`, espresso `#2E0800`, teal `#4D797E`, terracotta `#E38C6E`, coral `#FF6237`). Nothing here is hand-picked.
+`CHORE_THEME` resolves to the values in `src/theme/palette.ts` (cream `#FCF5EE`, espresso `#2E0800`, teal `#4D797E`, terracotta `#E38C6E`, coral `#FF6237`). `PALETTE` doubles as the source of truth for the `(auth)` onboarding flow too — nothing in either theme is hand-picked per screen.
 
 **Centerpiece** — `src/components/chores/ProgressRing.tsx`. Pure-RN (no `react-native-svg` dep), implemented with two rotating half-discs over a track + an inner punch-out. Props: `size`, `stroke`, `progress`, `trackColor?`, `fillColor?`, `centerColor?`, `children`. `centerColor` MUST match whatever sits behind the ring (cream on the chores tab, `noteCream` on the home magnet note) or you'll see a colored disc in the middle.
 
@@ -276,12 +296,14 @@ import { CHORE_THEME } from '@/src/theme/chores';
 
 **Files in this theme**
 - `app/(tabs)/chores.tsx` — header, ProgressRing dial, member avatar row, FlatList
+- `app/rotation.tsx` — rotation schedule screen, uses `RotationCard` and `useChores`
 - `src/components/chores/{ChoreCard, ChoreForm, ChoreDetailSheet, ChoresEmptyState, AssignmentTile, RecurrenceDropdown, MonthDayPicker, ProgressRing}.tsx`
+- `src/components/settings/RotationCard.tsx`
 - The chore "Note" widget on `app/(tabs)/index.tsx` (Fridge Magnet wrapper stays; only the inner progress bar was swapped for a 56pt teal ProgressRing).
 
 ---
 
-#### Global Tokens (auth, settings, modals, calendar, pantry)
+#### Global Tokens (auth, settings, house, myaccount, calendar, pantry)
 
 ```
 APP_BG         #FFFBF5   // warm off-white
@@ -311,9 +333,9 @@ tabBar: { backgroundColor: '#FFFBF5', borderTopWidth: 0, shadowOpacity: 0 }
 | Screen | Theme |
 |---|---|
 | `index.tsx` | Fridge Magnet (chore widget restyled with `ProgressRing` from Theme C) |
-| `chores.tsx` | Chore Tracker |
+| `chores.tsx`, `rotation.tsx` | Chore Tracker |
 | `shopping.tsx` | Thermal Receipt |
-| `calendar.tsx` | Global (neutral) |
-| `pantry.tsx` | Global (neutral) |
-| `settings.tsx` | Global (neutral) |
-| `(auth)/*` | Global (neutral) |
+| `calendar.tsx`, `pantry.tsx` | Global (neutral) |
+| `house.tsx`, `settings.tsx`, `myaccount.tsx` | Global (neutral) |
+| `noticeboard.tsx` | Custom (grid background + Figma header SVG; not yet mapped to a documented theme) |
+| `(auth)/*` | Global (neutral), onboarding screens sourced from `PALETTE` |

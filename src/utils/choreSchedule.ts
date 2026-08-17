@@ -55,13 +55,23 @@ const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
  */
 export function isChoreDueOn(chore: Chore, date: Date): boolean {
   const dow = date.getDay();
-  switch (chore.recurrence) {
+  // Cast widens the switch to also accept the legacy schema-v0 'biweekly'
+  // value: pre-migration chores can still carry it until their house's first
+  // post-deploy login runs `migrateChoreSchema` v1, and the server's mirror
+  // of this function (dailyChoreReset.ts) already handles it explicitly.
+  switch (chore.recurrence as Chore['recurrence'] | 'biweekly') {
     case 'once':
       return chore.dueAt ? isSameDay(chore.dueAt.toDate(), date) : false;
     case 'daily':
       return true;
     case 'weekly':
       return chore.dayOfWeek === dow;
+    case 'biweekly': {
+      if (chore.dayOfWeek !== dow) return false;
+      const anchor = resolveAnchorDate(chore, date);
+      const cyclesSinceAnchor = weekIndex(date) - weekIndex(anchor);
+      return cyclesSinceAnchor >= 0 && cyclesSinceAnchor % 2 === 0;
+    }
     case 'monthly': {
       if (chore.dayOfMonth == null) return false;
       const target = clampDayOfMonth(date, chore.dayOfMonth);
@@ -159,7 +169,7 @@ export function computeCreationLastTriggeredKey(
  * Human-readable schedule string for display in lists / detail sheets.
  */
 export function recurrenceLabel(chore: Chore): string {
-  switch (chore.recurrence) {
+  switch (chore.recurrence as Chore['recurrence'] | 'biweekly') {
     case 'once':
       return 'One-time';
     case 'daily':
@@ -168,6 +178,10 @@ export function recurrenceLabel(chore: Chore): string {
       return chore.dayOfWeek != null
         ? `Every ${DAY_NAMES_LONG[chore.dayOfWeek]}`
         : 'Weekly';
+    case 'biweekly':
+      return chore.dayOfWeek != null
+        ? `Every other ${DAY_NAMES_LONG[chore.dayOfWeek]}`
+        : 'Biweekly';
     case 'monthly':
       return chore.dayOfMonth != null
         ? `Monthly on day ${chore.dayOfMonth}`

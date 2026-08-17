@@ -6,7 +6,7 @@ import { pantryCol } from '@/src/firebase/firestore';
 import { db } from '@/src/firebase/config';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
-import type { PantryItem } from '@/src/types';
+import type { ExpirationConfidence, PantryItem } from '@/src/types';
 
 export function daysUntilExpiry(item: PantryItem): number {
   if (!item.expirationDate) return Infinity;
@@ -21,6 +21,7 @@ export interface AddPantryItemInput {
   isShared: boolean;
   expirationDate: Date | null;
   barcode?: string | null;
+  expirationConfidence?: ExpirationConfidence;
 }
 
 export function usePantry() {
@@ -65,7 +66,7 @@ export function usePantry() {
         expirationDate: input.expirationDate
           ? Timestamp.fromDate(input.expirationDate)
           : null,
-        expirationConfidence: 'manual' as const,
+        expirationConfidence: input.expirationConfidence ?? (input.barcode ? 'scanned' : 'manual'),
         ownedBy: userProfile.id,
         addedBy: userProfile.id,
         barcode: input.barcode ?? null,

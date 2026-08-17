@@ -97,3 +97,23 @@ export async function removeEventFromDeviceCalendar(eventId: string): Promise<vo
     // ignore — event may have already been deleted by the user
   }
 }
+
+export async function updateEventOnDeviceCalendar(params: {
+  nativeEventId: string;
+  title: string;
+  description: string;
+  startDate: Date;
+  endDate: Date;
+}): Promise<void> {
+  try {
+    await Calendar.updateEventAsync(params.nativeEventId, {
+      title: params.title,
+      notes: params.description,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  } catch {
+    // ignore — event may have been deleted/modified out-of-band on the device
+  }
+}

@@ -1,13 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { onSnapshot, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { eventsCol, eventDoc } from '@/src/firebase/firestore';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
 import {
   getOrCreateHomieCalendar,
   addEventToDeviceCalendar,
+  updateEventOnDeviceCalendar,
+  removeEventFromDeviceCalendar,
 } from '@/src/utils/calendarSync';
+import { getOrCreateDeviceId } from '@/src/utils/deviceId';
 import { sendEventAssignedPush } from '@/src/utils/pushNotifications';
 import type { CalendarEvent } from '@/src/types';
 
@@ -22,7 +25,7 @@ export interface NewEventInput {
 async function syncEventForCurrentUser(params: {
   eventFirestoreId: string;
   houseId: string;
-  userId: string;
+  deviceKey: string;
   title: string;
   description: string;
   startDate: Date;
@@ -41,7 +44,7 @@ async function syncEventForCurrentUser(params: {
   if (!nativeId) return;
 
   await updateDoc(eventDoc(params.houseId, params.eventFirestoreId), {
-    [`deviceCalendarIds.${params.userId}`]: nativeId,
+    [`deviceCalendarIds.${params.deviceKey}`]: nativeId,
   });
 }
 
@@ -49,6 +52,11 @@ export function useCalendarEvents() {
   const houseId = useHouseStore((s) => s.house?.id ?? null);
   const userProfile = useAuthStore((s) => s.userProfile);
   const queryClient = useQueryClient();
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getOrCreateDeviceId().then(setDeviceId);
+  }, []);
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', houseId],
@@ -75,14 +83,20 @@ export function useCalendarEvents() {
     return unsub;
   }, [houseId, queryClient]);
 
-  // Reconciliation: sync any assigned events that haven't been written to the device calendar yet
+  // Reconciliation: sync any assigned events that haven't been written to
+  // this device's native calendar yet. This is the *only* place that syncs
+  // a newly-created event to the device calendar — addEvent used to also
+  // call syncEventForCurrentUser directly, which raced with this effect
+  // (both would fire for a self-assigned event) and could create two
+  // duplicate native calendar entries for the same event.
   useEffect(() => {
-    if (!events.length || !userProfile || !houseId) return;
+    if (!events.length || !userProfile || !houseId || !deviceId) return;
 
+    const deviceKey = `${userProfile.id}:${deviceId}`;
     const unsynced = events.filter(
       (e) =>
         e.assignedTo?.includes(userProfile.id) &&
-        !e.deviceCalendarIds?.[userProfile.id]
+        !e.deviceCalendarIds?.[deviceKey]
     );
     if (!unsynced.length) return;
 
@@ -91,7 +105,7 @@ export function useCalendarEvents() {
         await syncEventForCurrentUser({
           eventFirestoreId: event.id,
           houseId,
-          userId: userProfile.id,
+          deviceKey,
           title: event.title,
           description: event.description,
           startDate: event.startTime.toDate(),
@@ -99,12 +113,12 @@ export function useCalendarEvents() {
         });
       }
     })();
-  }, [events, userProfile?.id, houseId]);
+  }, [events, userProfile?.id, houseId, deviceId]);
 
   const addEvent = async (input: NewEventInput) => {
     if (!houseId || !userProfile) throw new Error('No house connected. Join a house first.');
 
-    const docRef = await addDoc(eventsCol(houseId), {
+    await addDoc(eventsCol(houseId), {
       id: '',
       title: input.title,
       description: input.description,
@@ -118,18 +132,9 @@ export function useCalendarEvents() {
       createdAt: serverTimestamp(),
     } as any);
 
-    // Immediately sync to device calendar if the current user is assigned
-    if (input.assignedTo.includes(userProfile.id)) {
-      await syncEventForCurrentUser({
-        eventFirestoreId: docRef.id,
-        houseId,
-        userId: userProfile.id,
-        title: input.title,
-        description: input.description,
-        startDate: input.startTime,
-        endDate: input.endTime,
-      });
-    }
+    // Device-calendar sync for the current user (and every other assignee on
+    // their own devices) happens via the reconciliation effect above once the
+    // onSnapshot listener picks up this new doc — no explicit sync call here.
 
     // Notify any other assigned roommates so their reconciliation effect fires
     const otherAssignees = input.assignedTo.filter((uid) => uid !== userProfile.id);
@@ -153,7 +158,36 @@ export function useCalendarEvents() {
       endTime: Timestamp.fromDate(updates.endTime),
       assignedTo: updates.assignedTo,
     });
+
+    // Keep this device's own already-synced native calendar entry (if any)
+    // in sync too — Firestore has no native updateEventAsync call otherwise,
+    // so an edit here previously left the device calendar showing stale data.
+    if (userProfile && deviceId) {
+      const deviceKey = `${userProfile.id}:${deviceId}`;
+      const existing = events.find((e) => e.id === id);
+      const nativeId = existing?.deviceCalendarIds?.[deviceKey];
+      if (nativeId) {
+        await updateEventOnDeviceCalendar({
+          nativeEventId: nativeId,
+          title: updates.title,
+          description: updates.description,
+          startDate: updates.startTime,
+          endDate: updates.endTime,
+        });
+      }
+    }
   };
 
-  return { events, isLoading, addEvent, updateEvent };
+  const deleteEvent = async (id: string) => {
+    if (!houseId) throw new Error('No house connected.');
+    const existing = events.find((e) => e.id === id);
+    if (existing?.deviceCalendarIds) {
+      for (const nativeId of Object.values(existing.deviceCalendarIds)) {
+        if (nativeId) await removeEventFromDeviceCalendar(nativeId);
+      }
+    }
+    await deleteDoc(eventDoc(houseId, id));
+  };
+
+  return { events, isLoading, addEvent, updateEvent, deleteEvent };
 }

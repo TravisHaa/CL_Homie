@@ -3,6 +3,7 @@ import {
     arrayUnion,
     collection,
     deleteField,
+    getDoc,
     getDocs,
     query,
     updateDoc,
@@ -10,14 +11,56 @@ import {
     writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
-import { houseDoc, userDoc } from './firestore';
+import { choresCol, houseDoc, userDoc } from './firestore';
+
+/**
+ * Reassign any chores in `houseId` currently pinned to `uid` to the first of
+ * `remainingMemberIds`, batched onto `batch`. Without this, a chore pinned to
+ * (auto-rotate off) a departed member keeps pointing at a uid that's no
+ * longer in `memberMap` until its next cadence advance — which for a
+ * monthly/long-custom chore could be weeks away.
+ */
+async function reassignDepartingMemberChores(
+  batch: ReturnType<typeof writeBatch>,
+  houseId: string,
+  uid: string,
+  remainingMemberIds: string[]
+): Promise<void> {
+  const staleChores = await getDocs(query(choresCol(houseId), where('assignedTo', '==', uid)));
+  const fallbackAssignee = remainingMemberIds[0] ?? '';
+  staleChores.forEach((choreDoc) => {
+    batch.update(choreDoc.ref, { assignedTo: fallbackAssignee });
+  });
+}
 
 export async function leaveHouse({ uid, houseId }: { uid: string; houseId: string }): Promise<void> {
+  const houseSnap = await getDoc(houseDoc(houseId));
+  const currentMemberIds = houseSnap.data()?.memberIds ?? [];
+  const remainingMemberIds = currentMemberIds.filter((id) => id !== uid);
+
   const batch = writeBatch(db);
-  batch.update(houseDoc(houseId), {
-    memberIds: arrayRemove(uid),
-    [`memberNames.${uid}`]: deleteField(),
-  });
+
+  if (remainingMemberIds.length === 0) {
+    // Last member leaving: firestore.rules forbids deleting a house doc
+    // outright (`allow delete: if false`), and client-side subcollection
+    // deletion is unbounded, so we can't fully clean up here. Instead,
+    // invalidate the invite code so the still-live one can't be used to
+    // rejoin and inherit this house's stale chores/pantry/shopping/calendar
+    // data — the doc is left orphaned (empty memberIds) for a server-side
+    // GC job, matching the "explicitly mark it archived" mitigation.
+    batch.update(houseDoc(houseId), {
+      memberIds: arrayRemove(uid),
+      inviteCode: '',
+      [`memberNames.${uid}`]: deleteField(),
+    });
+  } else {
+    batch.update(houseDoc(houseId), {
+      memberIds: arrayRemove(uid),
+      [`memberNames.${uid}`]: deleteField(),
+    });
+    await reassignDepartingMemberChores(batch, houseId, uid, remainingMemberIds);
+  }
+
   batch.update(userDoc(uid), { houseId: deleteField() });
   await batch.commit();
 }
@@ -72,10 +115,23 @@ export async function joinHouseByInviteCode({
 
   const batch = writeBatch(db);
   if (currentHouseId) {
-    batch.update(houseDoc(currentHouseId), {
-      memberIds: arrayRemove(uid),
-      [`memberNames.${uid}`]: deleteField(),
-    });
+    const oldHouseSnap = await getDoc(houseDoc(currentHouseId));
+    const oldRemainingMemberIds = (oldHouseSnap.data()?.memberIds ?? []).filter((id) => id !== uid);
+    if (oldRemainingMemberIds.length === 0) {
+      // Same last-member handling as leaveHouse: invalidate the invite code
+      // rather than deleting the doc (forbidden by firestore.rules).
+      batch.update(houseDoc(currentHouseId), {
+        memberIds: arrayRemove(uid),
+        inviteCode: '',
+        [`memberNames.${uid}`]: deleteField(),
+      });
+    } else {
+      batch.update(houseDoc(currentHouseId), {
+        memberIds: arrayRemove(uid),
+        [`memberNames.${uid}`]: deleteField(),
+      });
+      await reassignDepartingMemberChores(batch, currentHouseId, uid, oldRemainingMemberIds);
+    }
   }
   batch.update(houseDoc(newHouseId), {
     memberIds: arrayUnion(uid),

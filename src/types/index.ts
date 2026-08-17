@@ -75,7 +75,7 @@ export interface CalendarEvent {
   color: string; // denormalized from user.color at write time
   googleEventId: string | null;
   assignedTo: string[]; // userIds; empty array = no assignees
-  deviceCalendarIds: Record<string, string>; // { [userId]: nativeCalendarEventId }
+  deviceCalendarIds: Record<string, string>; // { [`${userId}:${deviceId}`]: nativeCalendarEventId } — keyed per-device so one account synced on multiple devices gets an entry on each
   createdAt: Timestamp;
 }
 
