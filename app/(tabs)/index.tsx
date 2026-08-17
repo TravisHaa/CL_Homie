@@ -489,7 +489,15 @@ export default function HomeScreen() {
                   {house?.pictureCardUrl ? (
                     <Image source={{ uri: house.pictureCardUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                   ) : (
-                    <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={32} color="#ffffff44" />
+                    <View style={styles.addImagePill}>
+                      <Text style={styles.addImageText}>{uploading ? 'Uploading…' : 'Add Image'}</Text>
+                      <View style={styles.addImageIconWrap}>
+                        <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={18} color="#FFFFFF" />
+                        {!uploading && (
+                          <Ionicons name="pencil" size={8} color="#FFFFFF" style={styles.addImagePencil} />
+                        )}
+                      </View>
+                    </View>
                   )}
                 </Pressable>
                 {house?.pictureCardUpdatedAt && (
@@ -597,6 +605,34 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 20,
     elevation: 20,
+  },
+  addImagePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  addImageText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  addImageIconWrap: {
+    position: 'relative',
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addImagePencil: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    transform: [{ rotate: '-12deg' }],
   },
   photoStars: {
     position: 'absolute',
