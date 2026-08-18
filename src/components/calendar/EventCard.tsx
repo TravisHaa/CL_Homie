@@ -1,7 +1,8 @@
 import { useHouseStore } from "@/src/store/houseStore";
 import type { CalendarEvent } from "@/src/types";
+import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 interface Props {
   event: CalendarEvent;
@@ -11,41 +12,51 @@ interface Props {
 export function EventCard({ event, onPress }: Props) {
   const memberMap = useHouseStore((s) => s.memberMap);
   const start = event.startTime.toDate();
-  const end = event.endTime.toDate();
-  const timeRange = `${format(start, "h:mm a")} – ${format(end, "h:mm a")}`;
+
+  const assignees = (event.assignedTo ?? [])
+    .map((uid) => memberMap[uid])
+    .filter(Boolean);
+
+  const firstAssignee = assignees[0];
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        { flex: 1 },
-        pressed && onPress && { opacity: 0.75 },
-      ]}
+      style={({ pressed }) => [{ flex: 1 }, pressed && onPress && { opacity: 0.75 }]}
     >
-      <View style={[styles.card, { borderLeftColor: event.color }]}>
-        <Text style={styles.title}>{event.title}</Text>
-        <Text style={styles.time}>{timeRange}</Text>
-        {!!event.description && (
-          <Text style={styles.desc}>{event.description}</Text>
-        )}
-        {event.assignedTo?.length > 0 && (
-          <View style={styles.assigneeRow}>
-            {event.assignedTo.map((uid) => {
-              const member = memberMap[uid];
-              if (!member) return null;
-              return (
-                <View
-                  key={uid}
-                  style={[styles.dot, { backgroundColor: member.color }]}
-                >
-                  <Text style={styles.initial}>
-                    {member.displayName.charAt(0).toUpperCase()}
+      <View style={styles.card}>
+        <View style={styles.iconBubble}>
+          <Ionicons name="calendar-outline" size={22} color="#3B1F0E" />
+        </View>
+
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+
+          {firstAssignee && (
+            <View style={styles.assigneeRow}>
+              {firstAssignee.avatarUrl ? (
+                <Image source={{ uri: firstAssignee.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#7B6258' }]}>
+                  <Text style={styles.avatarInitial}>
+                    {firstAssignee.displayName.charAt(0).toUpperCase()}
                   </Text>
                 </View>
-              );
-            })}
-          </View>
-        )}
+              )}
+              <Text style={styles.assigneeText} numberOfLines={1}>
+                Assigned to {assignees.map((m) => m!.displayName).join(", ")}
+              </Text>
+            </View>
+          )}
+
+          {!!event.description && (
+            <Text style={styles.desc} numberOfLines={1}>{event.description}</Text>
+          )}
+        </View>
+
+        <View style={styles.duePill}>
+          <Text style={styles.dueText}>Due {format(start, "M/d")}</Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -54,25 +65,40 @@ export function EventCard({ event, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    borderRadius: 32,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    gap: 14,
   },
-  title: { fontSize: 15, fontWeight: "600", color: "#2D3436" },
-  time: { fontSize: 12, color: "#636e72", marginTop: 2 },
-  desc: { fontSize: 12, color: "#636e72", marginTop: 4, fontStyle: "italic" },
-  assigneeRow: { flexDirection: "row", gap: 4, marginTop: 8 },
-  dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  iconBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0E8",
+  },
+  body: { flex: 1, minWidth: 0, gap: 8 },
+  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#2E0800' },
+  duePill: {
+    backgroundColor: "#AFCCD8",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  dueText: { fontSize: 14, fontFamily: 'AlbertSans_600SemiBold', color: "#FFFFFF" },
+  assigneeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-  initial: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  avatarInitial: { color: "#fff", fontSize: 11, fontFamily: 'AlbertSans_700Bold' },
+  assigneeText: { flex: 1, fontSize: 14, fontFamily: 'AlbertSans_400Regular', color: "#8A7068" },
+  desc: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380" },
 });
