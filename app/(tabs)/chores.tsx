@@ -1,7 +1,10 @@
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
 import { ProgressRing } from '@/src/components/chores/ProgressRing';
+import { GridBackground } from '@/src/components/GridBackground';
 import { useChores } from '@/src/hooks/useChores';
 import { CHORE_THEME } from '@/src/theme/chores';
 import type { Chore } from '@/src/types';
@@ -10,14 +13,17 @@ import { getDayKey } from '@/src/utils/weekKey';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { format, isToday } from 'date-fns';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -82,6 +88,7 @@ function computeStreak(chores: Chore[]): number {
 }
 
 export default function ChoresScreen() {
+  const router = useRouter();
   const { chores, isLoading, addChore, toggleChore, updateChore, deleteChore } = useChores();
   const sheetRef = useRef<BottomSheetModal>(null);
   const detailRef = useRef<BottomSheetModal>(null);
@@ -112,7 +119,16 @@ export default function ChoresScreen() {
   const streak = computeStreak(chores);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <GridBackground />
+      <View style={{ width: '100%', overflow: 'hidden' }}>
+        <HeaderImage height={117} pointerEvents="none" />
+        <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2E0800" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Chores</Text>
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -122,9 +138,22 @@ export default function ChoresScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
             <Text style={styles.heroTitle}>Home Chore Tracker</Text>
-            <View style={styles.heroRefresh}>
-              <Ionicons name="refresh-outline" size={18} color={CHORE_THEME.textMuted} />
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open rotation schedule"
+              // app/rotation.tsx lands later in this port; route-types
+              // regenerate once that file exists.
+              onPress={() => router.push('/rotation' as Parameters<typeof router.push>[0])}
+              hitSlop={8}
+              style={({ pressed }) => [styles.heroRefresh, pressed && { opacity: 0.6 }]}
+            >
+              <Image
+                source={require('@/assets/images/rotation-icon.png')}
+                style={styles.heroRefreshIcon}
+                resizeMode="contain"
+                accessible={false}
+              />
+            </Pressable>
           </View>
 
           <View style={styles.ringWrap}>
@@ -220,7 +249,7 @@ export default function ChoresScreen() {
         accessibilityRole="button"
         accessibilityLabel="Add chore"
       >
-        <Ionicons name="add" size={28} color={CHORE_THEME.text} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       <ChoreForm ref={sheetRef} onSubmit={addChore} />
@@ -230,7 +259,8 @@ export default function ChoresScreen() {
         onUpdate={updateChore}
         onDelete={deleteChore}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -238,6 +268,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: CHORE_THEME.bg,
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 20,
+    zIndex: 10,
+  },
+  headerTitle: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 22,
+    color: '#2E0800',
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 96 },
@@ -263,8 +309,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroTitle: {
+    fontFamily: 'GowunBatang_700Bold',
     fontSize: 17,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     letterSpacing: -0.2,
   },
@@ -274,17 +320,23 @@ const styles = StyleSheet.create({
     top: 0,
     padding: 4,
   },
+  heroRefreshIcon: {
+    width: 22,
+    height: 22,
+    tintColor: CHORE_THEME.textMuted,
+  },
   ringWrap: {
     alignItems: 'center',
     marginTop: 6,
     marginBottom: 14,
   },
   percentText: {
+    fontFamily: 'AlbertSans_800ExtraBold',
     fontSize: 28,
-    fontWeight: '800',
     color: CHORE_THEME.text,
   },
   percentLabel: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 11,
     color: CHORE_THEME.textMuted,
     marginTop: 2,
@@ -313,22 +365,22 @@ const styles = StyleSheet.create({
   },
   statBody: { flex: 1 },
   statLabel: {
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 10,
     color: CHORE_THEME.textMuted,
-    fontWeight: '600',
     letterSpacing: 0.2,
   },
   statValue: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 13,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     marginTop: 1,
   },
 
   // ── Sections ────────────────────────────────────────────────────────────────
   sectionLabel: {
+    fontFamily: 'GowunBatang_700Bold',
     fontSize: 14,
-    fontWeight: '800',
     color: CHORE_THEME.text,
     marginBottom: 10,
     marginLeft: 2,
@@ -337,6 +389,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   sectionInline: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 12,
     color: CHORE_THEME.textMuted,
     paddingVertical: 8,
@@ -352,12 +405,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emptyTitle: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 15,
-    fontWeight: '700',
     color: CHORE_THEME.text,
     marginTop: 6,
   },
   emptyBody: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
     color: CHORE_THEME.textMuted,
   },
@@ -368,18 +422,7 @@ const styles = StyleSheet.create({
   // ── FAB ─────────────────────────────────────────────────────────────────────
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2E0800',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    bottom: 110,
+    right: 20,
   },
 });
