@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { migrateChoreSchema } from '@/src/firebase/choreMigrations';
 import { useAuthListener } from '@/src/hooks/useAuth';
 import { useNotificationsRegistration } from '@/src/hooks/useNotifications';
+import { useNotificationResponse } from '@/src/hooks/useNotificationResponse';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -55,6 +56,7 @@ const styles = StyleSheet.create({
 function AuthGate() {
   useAuthListener();
   useNotificationsRegistration();
+  useNotificationResponse();
 
   const { firebaseUser, userProfile, isLoading } = useAuthStore();
   const segments = useSegments();

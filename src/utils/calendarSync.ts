@@ -90,6 +90,20 @@ export async function addEventToDeviceCalendar(params: {
   }
 }
 
+export async function updateEventInDeviceCalendar(
+  nativeId: string,
+  fields: { title?: string; notes?: string; startDate?: Date; endDate?: Date }
+): Promise<void> {
+  try {
+    await Calendar.updateEventAsync(nativeId, {
+      ...fields,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  } catch {
+    // ignore — event may have already been deleted on-device by the user
+  }
+}
+
 export async function removeEventFromDeviceCalendar(eventId: string): Promise<void> {
   try {
     await Calendar.deleteEventAsync(eventId);

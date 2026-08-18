@@ -1,15 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { onSnapshot, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import {
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  deleteField,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
 import { eventsCol, eventDoc } from '@/src/firebase/firestore';
 import { useHouseStore } from '@/src/store/houseStore';
 import { useAuthStore } from '@/src/store/authStore';
 import {
   getOrCreateHomieCalendar,
   addEventToDeviceCalendar,
+  updateEventInDeviceCalendar,
+  removeEventFromDeviceCalendar,
 } from '@/src/utils/calendarSync';
 import { sendEventAssignedPush } from '@/src/utils/pushNotifications';
 import type { CalendarEvent } from '@/src/types';
+
+// Shape we cache per event to detect when an already-synced device-calendar
+// entry needs an update.
+interface SyncedShape {
+  title: string;
+  description: string;
+  start: number;
+  end: number;
+}
 
 export interface NewEventInput {
   title: string;
@@ -50,6 +69,22 @@ export function useCalendarEvents() {
   const userProfile = useAuthStore((s) => s.userProfile);
   const queryClient = useQueryClient();
 
+  // Per-user device-calendar reconciliation state.
+  // NOTE: each device only stores its OWN native event id (in
+  // deviceCalendarIds[me]). Other assignees converge on their own device the
+  // next time their snapshot listener fires or the app foregrounds — there is
+  // no cross-device propagation here, only local edit/delete mirroring.
+  // Last-synced shape per eventId, so we can detect content edits.
+  const syncedShapes = useRef<Map<string, SyncedShape>>(new Map());
+  // Set of event ids that currently have deviceCalendarIds[me] — used to
+  // detect events deleted from Firestore (gone from `events`) so we can remove
+  // the orphaned native event.
+  const hadNativeIds = useRef<Set<string>>(new Set());
+  // Companion to hadNativeIds: eventId -> this user's native id, so a
+  // DELETE-DIFF (doc gone from `events`) can still resolve the native id to
+  // remove from the device calendar.
+  const nativeIdByEvent = useRef<Map<string, string>>(new Map());
+
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['events', houseId],
     queryFn: () => Promise.resolve([] as CalendarEvent[]),
@@ -75,28 +110,130 @@ export function useCalendarEvents() {
     return unsub;
   }, [houseId, queryClient]);
 
-  // Reconciliation: sync any assigned events that haven't been written to the device calendar yet
+  // Reconciliation: mirror this user's assigned events into their device
+  // calendar. Handles ADD / UPDATE / UNASSIGN / DELETE-DIFF for `me` only.
   useEffect(() => {
-    if (!events.length || !userProfile || !houseId) return;
+    if (!userProfile || !houseId) return;
+    const me = userProfile.id;
 
-    const unsynced = events.filter(
-      (e) =>
-        e.assignedTo?.includes(userProfile.id) &&
-        !e.deviceCalendarIds?.[userProfile.id]
-    );
-    if (!unsynced.length) return;
+    // DELETE-DIFF: ids that had a native event last run but no longer appear in
+    // `events` (the Firestore doc was deleted by another client).
+    // The doc is gone from Firestore, so its native id is no longer in
+    // `events`; we recover it from nativeIdByEvent (cached on the prior run).
+    const presentIds = new Set(events.map((e) => e.id));
+    const deletedNative: string[] = [];
+    for (const prevId of hadNativeIds.current) {
+      if (!presentIds.has(prevId)) deletedNative.push(prevId);
+    }
+
+    // Build the next-run refs and gather actionable diffs.
+    const nextHadNative = new Set<string>();
+    const adds: CalendarEvent[] = [];
+    const updates: { e: CalendarEvent; nativeId: string }[] = [];
+    const unassigns: { e: CalendarEvent; nativeId: string }[] = [];
+
+    for (const e of events) {
+      const nativeId = e.deviceCalendarIds?.[me];
+      const assigned = e.assignedTo?.includes(me);
+
+      if (assigned && !nativeId) {
+        // ADD: assigned but not yet on this device.
+        adds.push(e);
+      } else if (assigned && nativeId) {
+        // Possible UPDATE: compare current content against last-synced shape.
+        nextHadNative.add(e.id);
+        const prev = syncedShapes.current.get(e.id);
+        const cur: SyncedShape = {
+          title: e.title,
+          description: e.description,
+          start: e.startTime.toMillis(),
+          end: e.endTime.toMillis(),
+        };
+        if (
+          !prev ||
+          prev.title !== cur.title ||
+          prev.description !== cur.description ||
+          prev.start !== cur.start ||
+          prev.end !== cur.end
+        ) {
+          updates.push({ e, nativeId });
+        }
+      } else if (!assigned && nativeId) {
+        // UNASSIGN: removed from assignees but native id lingers.
+        unassigns.push({ e, nativeId });
+      }
+    }
+
+    // Resolve native ids for DELETE-DIFF from the prior snapshot cache. The
+    // current `events` no longer contains them, so read the native id we cached
+    // when they last had one. We stash native ids alongside the shape cache.
+    const deletes: string[] = [];
+    for (const id of deletedNative) {
+      const nativeId = nativeIdByEvent.current.get(id);
+      if (nativeId) deletes.push(nativeId);
+    }
+
+    // Rebuild nativeIdByEvent for the next run from currently-present events.
+    nativeIdByEvent.current = new Map();
+    for (const e of events) {
+      const nid = e.deviceCalendarIds?.[me];
+      if (nid) nativeIdByEvent.current.set(e.id, nid);
+    }
+
+    hadNativeIds.current = nextHadNative;
+
+    if (!adds.length && !updates.length && !unassigns.length && !deletes.length) {
+      return;
+    }
 
     (async () => {
-      for (const event of unsynced) {
+      for (const e of adds) {
         await syncEventForCurrentUser({
-          eventFirestoreId: event.id,
+          eventFirestoreId: e.id,
           houseId,
-          userId: userProfile.id,
-          title: event.title,
-          description: event.description,
-          startDate: event.startTime.toDate(),
-          endDate: event.endTime.toDate(),
+          userId: me,
+          title: e.title,
+          description: e.description,
+          startDate: e.startTime.toDate(),
+          endDate: e.endTime.toDate(),
         });
+        syncedShapes.current.set(e.id, {
+          title: e.title,
+          description: e.description,
+          start: e.startTime.toMillis(),
+          end: e.endTime.toMillis(),
+        });
+      }
+
+      for (const { e, nativeId } of updates) {
+        await updateEventInDeviceCalendar(nativeId, {
+          title: e.title,
+          notes: e.description,
+          startDate: e.startTime.toDate(),
+          endDate: e.endTime.toDate(),
+        });
+        // No Firestore write — the native id is unchanged.
+        syncedShapes.current.set(e.id, {
+          title: e.title,
+          description: e.description,
+          start: e.startTime.toMillis(),
+          end: e.endTime.toMillis(),
+        });
+      }
+
+      for (const { e, nativeId } of unassigns) {
+        await removeEventFromDeviceCalendar(nativeId);
+        await updateDoc(eventDoc(houseId, e.id), {
+          [`deviceCalendarIds.${me}`]: deleteField(),
+        });
+        syncedShapes.current.delete(e.id);
+      }
+
+      for (const nativeId of deletes) {
+        await removeEventFromDeviceCalendar(nativeId);
+      }
+      for (const id of deletedNative) {
+        syncedShapes.current.delete(id);
       }
     })();
   }, [events, userProfile?.id, houseId]);
@@ -155,5 +292,13 @@ export function useCalendarEvents() {
     });
   };
 
-  return { events, isLoading, addEvent, updateEvent };
+  const deleteEvent = async (id: string) => {
+    if (!houseId || !userProfile) throw new Error('No house connected.');
+    const evt = events.find((e) => e.id === id);
+    const myNativeId = evt?.deviceCalendarIds?.[userProfile.id];
+    if (myNativeId) await removeEventFromDeviceCalendar(myNativeId);
+    await deleteDoc(eventDoc(houseId, id));
+  };
+
+  return { events, isLoading, addEvent, updateEvent, deleteEvent };
 }

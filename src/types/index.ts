@@ -99,6 +99,10 @@ export interface PantryItem {
   imageUrl: string | null;
   addedBy: string; // userId
   createdAt: Timestamp;
+  // Idempotency guard for the expirationReminders Cloud Function: the
+  // YYYY-MM-DD day-key (PT) on which an expiry push was last sent for this
+  // item. Re-running on the same day skips already-notified items.
+  notifiedExpiryFor?: string | null;
 }
 
 export interface ShoppingItem {
@@ -134,3 +138,21 @@ export interface ExpirationPrediction {
   category: string;
   cachedAt: Timestamp;
 }
+
+// ---------------------------------------------------------------------------
+// Push notification data payloads.
+//
+// Shared contract between the server-side sender (functions/) and the client
+// deep-link router (src/hooks/useNotificationResponse.ts). The `data` field of
+// an Expo push message carries one of these shapes; `type` is the discriminant.
+// ---------------------------------------------------------------------------
+
+export interface PantryExpiryPushData {
+  type: 'pantry_expiry';
+  houseId: string;
+  itemId: string;
+  itemName?: string;
+  daysUntilExpiry?: number;
+}
+
+export type NotificationData = PantryExpiryPushData;

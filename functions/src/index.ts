@@ -6,4 +6,5 @@
  */
 
 export { dailyChoreReset } from '../jobs/dailyChoreReset';
+export { expirationReminders } from '../jobs/expirationReminders';
 export { exchangeGoogleAuthCode, unlinkGoogleCalendar } from './google-oauth';

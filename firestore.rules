@@ -20,6 +20,19 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isSelf(userId);
       allow delete: if false;
+
+      // OAuth refresh tokens. Written only by Cloud Functions via the Admin SDK,
+      // which bypasses rules — so clients are locked out entirely. Explicit deny
+      // (subcollections do not inherit the parent's rules) prevents a future
+      // recursive wildcard from ever exposing refresh tokens.
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+
+      // Per-device push tokens, written by the owning user from the client.
+      match /devices/{deviceId} {
+        allow read, write: if isSelf(userId);
+      }
     }
 
     match /houses/{houseId} {
@@ -57,9 +70,11 @@ service cloud.firestore {
       }
     }
 
+    // Barcode -> expiration predictions: a shared client-readable cache.
+    // Writes happen only via Cloud Functions (Admin SDK bypasses rules).
     match /predictions/{barcode} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if false;
     }
   }
 }

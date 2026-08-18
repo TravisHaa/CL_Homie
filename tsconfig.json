@@ -27,5 +27,10 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "functions",
+    "firestore-tests"
   ]
 }
