@@ -141,9 +141,7 @@ export default function ChoresScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open rotation schedule"
-              // app/rotation.tsx lands later in this port; route-types
-              // regenerate once that file exists.
-              onPress={() => router.push('/rotation' as Parameters<typeof router.push>[0])}
+              onPress={() => router.push('/rotation')}
               hitSlop={8}
               style={({ pressed }) => [styles.heroRefresh, pressed && { opacity: 0.6 }]}
             >
