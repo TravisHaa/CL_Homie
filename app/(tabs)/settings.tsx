@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 2,
   },
   profileEmail: {
@@ -465,14 +465,14 @@ const styles = StyleSheet.create({
   householdName: {
     fontFamily: 'AlbertSans_700Bold',
     fontSize: 20,
-    color: '#1A1A1A',
+    color: '#2E0800',
     flex: 1,
   },
   householdNameInput: {
     flex: 1,
     fontFamily: 'AlbertSans_700Bold',
     fontSize: 20,
-    color: '#1A1A1A',
+    color: '#2E0800',
     borderBottomWidth: 1.5,
     borderBottomColor: '#7A6652',
     paddingVertical: 2,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   householdSectionLabel: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 13,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 8,
   },
   inviteCodeBox: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceMono',
     fontSize: 16,
     letterSpacing: 3,
-    color: '#1A1A1A',
+    color: '#2E0800',
   },
   peopleList: { gap: 8, marginBottom: 18 },
   memberCard: {
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#1A1A1A',
+    color: '#2E0800',
   },
   roleBadge: {
     backgroundColor: '#2D1A0E',

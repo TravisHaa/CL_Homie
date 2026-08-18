@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   filterPillText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
   filterPillTextActive: {
     color: '#fff',

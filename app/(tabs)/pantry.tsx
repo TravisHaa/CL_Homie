@@ -271,6 +271,6 @@ const styles = StyleSheet.create({
   menuBtnText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
 });

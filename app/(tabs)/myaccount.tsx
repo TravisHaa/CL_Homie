@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   rowValue: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 14,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
   divider: {
     height: 1,

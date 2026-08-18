@@ -248,9 +248,9 @@ export function ManualAddModal({ visible, onClose, onAdd, onUpdate, editItem }: 
                   selectedDayBackgroundColor: '#3D6B5E',
                   selectedDayTextColor: '#fff',
                   arrowColor: '#2D1A0E',
-                  dayTextColor: '#2D1A0E',
+                  dayTextColor: '#2E0800',
                   textDisabledColor: '#C4A98A',
-                  monthTextColor: '#2D1A0E',
+                  monthTextColor: '#2E0800',
                   textDayFontFamily: 'AlbertSans_400Regular',
                   textMonthFontFamily: 'AlbertSans_700Bold',
                   textDayHeaderFontFamily: 'AlbertSans_600SemiBold',
@@ -307,14 +307,14 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    color: '#2D1A0E',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 20,
   },
   label: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 14,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 8,
     marginTop: 4,
   },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 12,
   },
   quantityRow: {
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 14,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
   pillTextActive: {
     color: '#FFFFFF',
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
   addBtn: {
     flex: 1,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   successMsg: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 17,
-    color: '#2D1A0E',
+    color: '#2E0800',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   successItemName: {
     fontFamily: 'AlbertSans_700Bold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 3,
   },
   successItemMeta: {

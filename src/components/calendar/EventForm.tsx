@@ -65,7 +65,7 @@ function PickerCol({ data, selectedIndex, onChange, width = 56 }: {
           onPress={() => { ref.current?.scrollTo({ y: i * ITEM_H, animated: true }); onChange(i); }}
           activeOpacity={0.6}
         >
-          <Text style={{ fontSize: 15, fontWeight: i === selectedIndex ? '700' : '400', color: i === selectedIndex ? '#2D1A0E' : '#C8BFB0' }}>
+          <Text style={{ fontSize: 15, fontWeight: i === selectedIndex ? '700' : '400', color: i === selectedIndex ? '#2E0800' : '#C8BFB0' }}>
             {label}
           </Text>
         </TouchableOpacity>

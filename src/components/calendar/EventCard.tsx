@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0E8",
   },
   body: { flex: 1, minWidth: 0, gap: 8 },
-  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: "#32180E" },
+  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#2E0800' },
   duePill: {
     backgroundColor: "#AFCCD8",
     borderRadius: 20,

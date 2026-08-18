@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'AlbertSans_700Bold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 4,
   },
   notes: {

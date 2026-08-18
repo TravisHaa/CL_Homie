@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#2E0800',
     marginBottom: 5,
   },
   metaRow: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   backBtnText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 12,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
 
   // ── Checked / bought face ──────────────────────────────────────────────────
