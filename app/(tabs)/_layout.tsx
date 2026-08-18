@@ -1,26 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import CalendarIcon from '@/assets/images/CalendarIcon.svg';
+import HomeIcon from '@/assets/images/HomeIcon.svg';
+import PantryIcon from '@/assets/images/PantryIcon.svg';
+import ShoppingIcon from '@/assets/images/ShoppingIcon.svg';
 
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type TabTheme = {
   headerBg: string;
   headerTint: string;
   tabActive: string;
 };
 
-const TABS: { name: string; title: string; icon: IconName; activeIcon: IconName }[] = [
-  { name: 'index', title: 'Home', icon: 'home-outline', activeIcon: 'home' },
-  { name: 'pantry', title: 'Pantry', icon: 'nutrition-outline', activeIcon: 'nutrition' },
-  { name: 'shopping', title: 'Shopping', icon: 'cart-outline', activeIcon: 'cart' },
-  { name: 'settings', title: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },
+const TABS: { name: string; title: string; Icon: React.FC<{ width: number; height: number; color?: string }> }[] = [
+  { name: 'index', title: 'Home', Icon: HomeIcon },
+  { name: 'calendar', title: 'Calendar', Icon: CalendarIcon },
+  { name: 'pantry', title: 'Pantry', Icon: PantryIcon },
+  { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'calendar', 'two', 'house'];
+const HIDDEN = ['chores', 'two', 'house', 'settings'];
 const TAB_THEME: Record<string, TabTheme> = {
   index: { headerBg: '#FFE3B8', headerTint: '#4A2C1A', tabActive: '#A7572D' },
+  calendar: { headerBg: '#EEF4FF', headerTint: '#2D3D72', tabActive: '#5E7CE2' },
   pantry: { headerBg: '#DDF4E7', headerTint: '#154D37', tabActive: '#1B8F63' },
   shopping: { headerBg: '#FFE9DA', headerTint: '#5A2D18', tabActive: '#C15B2A' },
-  settings: { headerBg: '#EDE9FF', headerTint: '#32246C', tabActive: '#6557C8' },
 };
 
 export default function TabLayout() {
@@ -48,14 +50,14 @@ export default function TabLayout() {
         };
       }}
     >
-      {TABS.map(({ name, title, icon, activeIcon }) => (
+      {TABS.map(({ name, title, Icon }) => (
         <Tabs.Screen
           key={name}
           name={name}
           options={{
             title,
-            tabBarIcon: ({ focused, color }) => (
-              <Ionicons name={focused ? activeIcon : icon} size={24} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Icon width={24} height={24} color={color} />
             ),
           }}
         />
