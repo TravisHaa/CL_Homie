@@ -1,3 +1,11 @@
+import {
+    AlbertSans_400Regular,
+    AlbertSans_500Medium,
+    AlbertSans_600SemiBold,
+    AlbertSans_700Bold,
+    AlbertSans_800ExtraBold,
+} from '@expo-google-fonts/albert-sans';
+import { GowunBatang_400Regular, GowunBatang_700Bold } from '@expo-google-fonts/gowun-batang';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,18 +33,27 @@ const queryClient = new QueryClient();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    AlbertSans_400Regular,
+    AlbertSans_500Medium,
+    AlbertSans_600SemiBold,
+    AlbertSans_700Bold,
+    AlbertSans_800ExtraBold,
+    GowunBatang_400Regular,
+    GowunBatang_700Bold,
     ...FontAwesome.font,
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.warn('[Fonts] custom fonts failed to load; using system fallback fonts.', error);
+    }
   }, [error]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
 
-  if (!loaded) return null;
+  if (!loaded && !error) return null;
 
   return (
     <GestureHandlerRootView style={styles.root}>
