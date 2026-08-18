@@ -39,7 +39,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const C = {
   bg:              '#FCF5EE',
-  text:            '#3B1F0E',
+  text:            '#2E0800',
   muted:           '#9E9380',
   faint:           '#C8BFB0',
   today:           '#4E7B78',
@@ -63,7 +63,7 @@ function CalendarChoreCard({ chore }: { chore: Chore }) {
   return (
     <View style={choreStyles.card}>
       <View style={choreStyles.iconBubble}>
-        <Ionicons name="sparkles-outline" size={22} color="#3B1F0E" />
+        <Ionicons name="sparkles-outline" size={22} color="#2E0800" />
       </View>
 
       <View style={choreStyles.body}>
@@ -110,7 +110,7 @@ const choreStyles = StyleSheet.create({
     backgroundColor: '#FFF0E8',
   },
   body: { flex: 1, minWidth: 0, gap: 8 },
-  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#32180E' },
+  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#2E0800' },
   pill: { backgroundColor: '#AFCCD8', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
   pillDone: { backgroundColor: '#BFD9C4' },
   pillTxt: { fontSize: 14, fontFamily: 'AlbertSans_600SemiBold', color: '#FFFFFF' },
@@ -175,11 +175,18 @@ export default function CalendarScreen() {
   };
   const navLabel   = viewMode === "week" ? format(weekStart, "MMMM") : format(monthStart, "MMMM");
 
+  const goToToday = () => {
+    const today = new Date();
+    setSelectedDate(today);
+    setMonthStart(startOfMonth(today));
+    setWeekStart(startOfWeek(today, { weekStartsOn: 0 }));
+  };
+
   // Filter popup
   const openFilter = () => {
-    filterBtnRef.current?.measureInWindow((x, y, _w, h) => {
+    filterBtnRef.current?.measureInWindow((x, y, width, h) => {
       const winWidth = Dimensions.get('window').width;
-      setFilterPos({ top: y + h + 6, right: winWidth - x - 32 });
+      setFilterPos({ top: y + h + 6, right: winWidth - x - width });
       setShowFilter(true);
     });
   };
@@ -236,35 +243,42 @@ export default function CalendarScreen() {
           {/* ── Nav row ─────────────────────────────────────────────── */}
           <View style={styles.navRow}>
             <View style={styles.monthNav}>
-              <TouchableOpacity onPress={navBack} activeOpacity={0.7} hitSlop={8}>
+              <TouchableOpacity style={styles.monthNavButton} onPress={navBack} activeOpacity={0.7} hitSlop={8}>
                 <Ionicons name="chevron-back" size={18} color={C.text} />
               </TouchableOpacity>
               <Text style={styles.monthNavLabel}>{navLabel}</Text>
-              <TouchableOpacity onPress={navForward} activeOpacity={0.7} hitSlop={8}>
+              <TouchableOpacity style={styles.monthNavButton} onPress={navForward} activeOpacity={0.7} hitSlop={8}>
                 <Ionicons name="chevron-forward" size={18} color={C.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.toggle}>
-              <TouchableOpacity
-                style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnActive]}
-                onPress={() => { setWeekStart(startOfWeek(selectedDate, { weekStartsOn: 0 })); setViewMode("week"); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.toggleTxt, viewMode === "week" && styles.toggleTxtActive]}>Week</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnActive]}
-                onPress={() => { setMonthStart(startOfMonth(selectedDate)); setViewMode("month"); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.toggleTxt, viewMode === "month" && styles.toggleTxtActive]}>Month</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.todayButton}
+              onPress={goToToday}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Go to today, ${format(new Date(), "MMMM d, yyyy")}`}
+            >
+              <Text style={styles.dateLabel}>Today’s Date</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* ── Centered date label ──────────────────────────────────── */}
-          <Text style={styles.dateLabel}>{format(selectedDate, "MMMM d, yyyy")}</Text>
+          <View style={styles.toggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === "week" && styles.toggleBtnActive]}
+              onPress={() => { setWeekStart(startOfWeek(selectedDate, { weekStartsOn: 0 })); setViewMode("week"); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.toggleTxt, viewMode === "week" && styles.toggleTxtActive]}>Week</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === "month" && styles.toggleBtnActive]}
+              onPress={() => { setMonthStart(startOfMonth(selectedDate)); setViewMode("month"); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.toggleTxt, viewMode === "month" && styles.toggleTxtActive]}>Month</Text>
+            </TouchableOpacity>
+          </View>
 
           {viewMode === "week" ? (
             /* ── Week pill strip ──────────────────────────────────── */
@@ -379,10 +393,14 @@ export default function CalendarScreen() {
                 style={styles.filterBtn}
                 onPress={openFilter}
                 activeOpacity={0.7}
-                accessibilityLabel="Filter calendar items"
+                accessibilityLabel={`Filter calendar items, currently ${filter}`}
                 accessibilityRole="button"
               >
-                <Ionicons name="options-outline" size={16} color={C.text} />
+                <Ionicons name="options-outline" size={15} color={C.text} />
+                <Text style={styles.filterBtnText}>
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color={C.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -488,11 +506,13 @@ const styles = StyleSheet.create({
 
   // Nav row
   navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  monthNav: { flexDirection: "row", alignItems: "center", gap: 8 },
-  monthNavLabel: { fontSize: 16, fontWeight: "700", color: C.text },
+  monthNav: { width: 160, flexDirection: "row", alignItems: "center" },
+  monthNavButton: { width: 28, alignItems: 'center', justifyContent: 'center' },
+  monthNavLabel: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: "700", color: C.text },
 
   // Toggle
   toggle: {
+    alignSelf: 'center',
     flexDirection: "row",
     backgroundColor: C.toggleBg,
     borderRadius: 20,
@@ -502,14 +522,22 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
+    marginBottom: 20,
   },
   toggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17 },
   toggleBtnActive: { backgroundColor: C.toggleActive },
   toggleTxt: { fontSize: 13, fontWeight: "600", color: C.toggleMutedTxt },
   toggleTxtActive: { color: C.toggleActiveTxt },
 
-  // Date label
-  dateLabel: { textAlign: "center", fontSize: 13, color: C.text, fontWeight: "500", marginBottom: 20 },
+  // Today shortcut
+  todayButton: {
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  dateLabel: { textAlign: "center", fontSize: 13, color: C.text, fontWeight: "600" },
 
   // Week pill strip
   pillRow: { flexDirection: "row", alignItems: "flex-end", gap: 5, marginBottom: 28 },
@@ -548,15 +576,19 @@ const styles = StyleSheet.create({
     marginTop: 22,
     marginBottom: 16,
   },
-  addBtn: { fontSize: 22, fontFamily: "GowunBatang_700Bold", color: "#3B1F0E" },
+  addBtn: { fontSize: 22, fontFamily: "GowunBatang_700Bold", color: "#2E0800" },
   filterBtn: {
+    flexDirection: 'row',
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
     backgroundColor: '#fff',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 112,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
+  filterBtnText: { fontSize: 14, fontFamily: 'AlbertSans_600SemiBold', color: C.text },
 
   // Events list
   listSection: {},
