@@ -27,6 +27,8 @@ export interface House {
   lastRolloverDayKey?: string;     // last YYYY-MM-DD the rollover transaction ran (daily race guard)
   rotationOffset?: number;         // monotonic count of completed rollovers; also seeds new auto-rotate chores
   choreSchemaVersion?: number;     // bumped by one-shot migrations (see src/firebase/choreMigrations.ts)
+  pictureCardUrl?: string;
+  pictureCardUpdatedAt?: Timestamp | null;
 }
 
 export type ChoreRecurrence =
