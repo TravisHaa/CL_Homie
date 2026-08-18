@@ -1,28 +1,43 @@
-import { ProgressRing } from '@/src/components/chores/ProgressRing';
 import { useCalendarEvents } from '@/src/hooks/useCalendarEvents';
 import { useChores } from '@/src/hooks/useChores';
 import { usePantry } from '@/src/hooks/usePantry';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
-import { useHouseStore } from '@/src/store/houseStore';
-import { CHORE_THEME } from '@/src/theme/chores';
+import { isChoreDueOn } from '@/src/utils/choreSchedule';
 import { getWeekKey } from '@/src/utils/weekKey';
-import { differenceInCalendarDays, format, isToday, isTomorrow } from 'date-fns';
-import * as Clipboard from 'expo-clipboard';
+import { differenceInCalendarDays, format, isPast, isToday, isTomorrow } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { GridBackground } from '@/src/components/GridBackground';
+import { useAuthStore } from '@/src/store/authStore';
+import { useHouseStore } from '@/src/store/houseStore';
+import RecentActivitySvg from '@/assets/images/recent activity.svg';
+import RecentActivityIcon from '@/assets/images/Recent Activity icon.svg';
+import { Ionicons } from '@expo/vector-icons';
+import CalendarIcon from '@/assets/images/CalendarIcon.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
+import NoticeBoardIcon from '@/assets/images/Notice-board-icon.svg';
+import HomeSettingIcon from '@/assets/images/home-setting-icon.svg';
+import ButtonStickerSvg from '@/assets/images/button-sticker.svg';
+import ButtonStickerGreenSvg from '@/assets/images/button-sticker-green.svg';
+import StarBlueSvg from '@/assets/images/star-blue.svg';
+import StarYellowSvg from '@/assets/images/star-yellow.svg';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db, storage } from '@/src/firebase/config';
 
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
   // Sunset-kitchen palette: warm walls + saturated fridge magnets.
-  fridgeBg: "#F3E0BF",
+  fridgeBg: "#F8F1E8",
   noteCream: "#FFF0D9",
   noteAlt: "#FFE8C6",
-  noteText: "#3A2A1E",
-  noteMeta: "#7D5B42",
-  noteLabel: "#B38762",
+  noteText: "#2E0800",
+  noteMeta: "#2E0800",
+  noteLabel: "#2E0800",
   noteLines: "#F4D9BA",
   noteMargin: "#F19B8E",
   headerPlate: "#FFEFD2",
@@ -39,7 +54,7 @@ function formatEventTime(ts: Timestamp): string {
   const d = ts.toDate();
   if (isToday(d)) return `Today · ${format(d, "h:mm a")}`;
   if (isTomorrow(d)) return `Tomorrow · ${format(d, "h:mm a")}`;
-  return format(d, "MMM d");
+  return format(d, "MMM d · h:mm a");
 }
 
 // ─── Magnet ───────────────────────────────────────────────────────────────────
@@ -62,17 +77,29 @@ function Note({
   children,
   tilt,
   color,
-  bg = C.noteCream,
+  bg = '#FFFFFF',
   showMarginLine = false,
   foldCorner = false,
+  hideStrip = false,
+  hideMagnet = false,
+  hideLines = false,
+  stripLabel,
+  stripContent,
+  stripHeight,
   style,
 }: {
   children: React.ReactNode;
-  tilt: "left" | "right" | "mild" | "steep";
+  tilt?: "left" | "right" | "mild" | "steep";
   color: string;
   bg?: string;
   showMarginLine?: boolean;
   foldCorner?: boolean;
+  hideStrip?: boolean;
+  hideMagnet?: boolean;
+  hideLines?: boolean;
+  stripLabel?: string;
+  stripContent?: React.ReactNode;
+  stripHeight?: number;
   style?: object;
 }) {
   const rotations = {
@@ -85,25 +112,25 @@ function Note({
     <View
       style={[
         styles.noteOuter,
-        { transform: [{ rotate: rotations[tilt] }] },
+        { transform: [{ rotate: tilt? rotations[tilt] : '0deg' }] },
         style,
       ]}
     >
       {/* colored top strip */}
-      <View style={[styles.noteStrip, { backgroundColor: color }]} />
-      {/* magnet overlapping strip */}
-      <View style={styles.magnetAnchor}>
-        <Magnet color={color} />
-      </View>
+      {!hideStrip && (
+        <View style={[styles.noteStrip, { backgroundColor: color, justifyContent: 'center', paddingHorizontal: 12, ...(stripHeight ? { height: stripHeight } : {}) }]}>
+          {stripContent ?? (stripLabel && <Text style={styles.stripLabelText}>{stripLabel}</Text>)}
+        </View>
+      )}
+      {!hideStrip && !hideMagnet && !stripLabel && !stripContent && <View style={styles.magnetAnchor}><Magnet color={color} /></View>}
       {/* paper body */}
       <View style={[styles.notePaper, { backgroundColor: bg }]}>
         {/* red margin line on some cards */}
         {showMarginLine && <View style={styles.marginLine} />}
         {/* subtle ruled lines */}
-        <View style={styles.ruleLine} />
-        <View style={[styles.ruleLine, { top: 56 }]} />
-        <View style={[styles.ruleLine, { top: 72 }]} />
-        <View style={[styles.ruleLine, { top: 88 }]} />
+        {!hideLines && [1,2,3,4,5].map((i) => (
+          <View key={i} style={[styles.ruleLine, { top: `${i * (100/6)}%` as any }]} />
+        ))}
         {children}
       </View>
       {/* folded corner triangle */}
@@ -170,6 +197,24 @@ function EmojiMagnet({
   );
 }
 
+function HomeDecor() {
+  return (
+    <View pointerEvents="none" style={styles.decorLayer}>
+      <ButtonStickerSvg width={44} height={44} style={styles.decorButtonPeach} />
+      <ButtonStickerGreenSvg width={44} height={44} style={styles.decorButtonGreen} />
+    </View>
+  );
+}
+
+function PhotoStars() {
+  return (
+    <View pointerEvents="none" style={styles.photoStars}>
+      <StarBlueSvg width={61} height={61} style={styles.photoStarBlue} />
+      <StarYellowSvg width={38} height={38} style={styles.photoStarYellow} />
+    </View>
+  );
+}
+
 function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
   return (
     <View style={[styles.tapBadge, { borderColor: color + "66" }]}>
@@ -181,19 +226,10 @@ function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
-  const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
-  const inviteCode = useHouseStore((s) => s.house?.inviteCode);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyInvite = async () => {
-    if (!inviteCode) return;
-    await Clipboard.setStringAsync(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const { chores: allChores = [], isLoading: choresLoading } = useChores();
+  const house = useHouseStore((s) => s.house);
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const { chores: allChores = [], isLoading: choresLoading, toggleChore } = useChores();
   const { events: allEvents = [], isLoading: eventsLoading } =
     useCalendarEvents();
   const { items: allPantry = [], isLoading: pantryLoading } = usePantry();
@@ -203,10 +239,6 @@ export default function HomeScreen() {
   const weekKey = getWeekKey();
   const now = new Date();
 
-  // `useChores` already scopes to the current ISO week (plus still-incomplete
-  // one-time chores from prior weeks, so overdue tasks remain visible). The
-  // Home card mirrors the Chores tab's working set so the count under the
-  // "done this week" caption matches what the user sees one tap away.
   const chores = allChores;
   const doneCount = chores.filter((c) => c.isCompleted).length;
 
@@ -224,303 +256,438 @@ export default function HomeScreen() {
   });
 
   const uncheckedCount = allShopping.filter((i) => !i.isChecked).length;
-  const members = Object.entries(memberMap).map(([id, info]) => ({
-    id,
-    ...info,
-  }));
+
+  function toTimeAgo(ts: { toDate(): Date }): string {
+    const diff = Math.floor((Date.now() - ts.toDate().getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    return `${Math.floor(diff / 86400)} days ago`;
+  }
+
+  function memberInfo(userId: string) {
+    const m = memberMap[userId];
+    return {
+      avatarColor: m?.color ?? '#C8B89A',
+      avatarInitial: m?.displayName?.charAt(0).toUpperCase() ?? '?',
+      avatarUrl: m?.avatarUrl ?? null,
+    };
+  }
+
+  const rawActivities: { ts: number; boldText: string; message: string; avatarColor: string; avatarInitial: string; avatarUrl: string | null; timeAgo: string }[] = [];
+  for (const item of allShopping) {
+    if (!item.createdAt) continue;
+    const mi = memberInfo(item.addedBy);
+    rawActivities.push({ ts: item.createdAt.toMillis(), boldText: item.name, message: ' added to Shopping List', timeAgo: toTimeAgo(item.createdAt), ...mi });
+  }
+  for (const chore of allChores) {
+    if (chore.completedAt && chore.completedBy) {
+      const mi = memberInfo(chore.completedBy);
+      rawActivities.push({ ts: chore.completedAt.toMillis(), boldText: chore.title, message: ' marked as done', timeAgo: toTimeAgo(chore.completedAt), ...mi });
+    }
+    if (chore.createdAt) {
+      const mi = memberInfo(chore.createdBy);
+      rawActivities.push({ ts: chore.createdAt.toMillis(), boldText: chore.title, message: ' added to Chores', timeAgo: toTimeAgo(chore.createdAt), ...mi });
+    }
+  }
+  for (const event of allEvents) {
+    if (!event.createdAt) continue;
+    const mi = memberInfo(event.createdBy);
+    rawActivities.push({ ts: event.createdAt.toMillis(), boldText: event.title, message: ' event created', timeAgo: toTimeAgo(event.createdAt), ...mi });
+  }
+  const recentActivities = rawActivities.sort((a, b) => b.ts - a.ts).slice(0, 3);
+
+  const houseId = house?.id;
+  const [uploading, setUploading] = useState(false);
+  const [pictureLabel, setPictureLabel] = useState('');
+
+  const pickAndUploadImage = async () => {
+    if (!houseId) return;
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photo library.');
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+    if (result.canceled) return;
+    setUploading(true);
+    try {
+      const uri = result.assets[0].uri;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `houses/${houseId}/pictureCard`);
+      await uploadBytes(storageRef, blob);
+      const url = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, 'houses', houseId), { pictureCardUrl: url, pictureCardUpdatedAt: serverTimestamp() });
+    } catch (e) {
+      console.error('[pictureCard] upload failed:', e);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <View style={styles.safe}>
+      <GridBackground />
+      <View style={{ width: '100%', overflow: 'hidden' }}>
+        <HeaderImage height={117} />
+        <View style={styles.headerTextBlock}>
+          <Text style={styles.headerHouseName}>{house?.name ?? ''}</Text>
+          <Text style={styles.headerUserName}>{userProfile?.displayName ?? ''}</Text>
+        </View>
+        <View style={styles.headerButtons}>
+          <Pressable style={styles.headerIconButton} hitSlop={6} onPress={() => router.push('/(tabs)/noticeboard')}>
+            <NoticeBoardIcon width={32} height={32} />
+          </Pressable>
+          <Pressable style={styles.headerIconButton} hitSlop={6} onPress={() => router.push('/(tabs)/settings')}>
+            <HomeSettingIcon width={32} height={32} />
+          </Pressable>
+        </View>
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView
         style={styles.fridge}
         contentContainerStyle={styles.fridgeContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <View style={styles.fridgeHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.houseName}>{house?.name ?? "Home"}</Text>
-            <Text style={styles.houseDate}>{format(now, "EEEE, MMMM d")}</Text>
-            {inviteCode && (
-              <View style={styles.inviteRow}>
-                <Text style={styles.inviteCodeText}>
-                  Code <Text style={styles.inviteCodeValue}>{inviteCode}</Text>
-                </Text>
-                <Pressable
-                  onPress={handleCopyInvite}
-                  hitSlop={8}
-                  style={({ pressed }) => pressed && { opacity: 0.6 }}
-                >
-                  <Text style={styles.inviteCopyAction}>
-                    {copied ? "Copied!" : "Copy"}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-          <View style={styles.avatarRow}>
-            {members.map((m) => (
-              <View
-                key={m.id}
-                style={[styles.avatar, { backgroundColor: m.color }]}
-              >
-                <Text style={styles.avatarInitial}>
-                  {m.displayName[0].toUpperCase()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        {/* ── Two independent columns ───────────────────────────────────────── */}
+        <View style={styles.columnsContainer}>
 
-        {/* ── Filler: HOMIE letter tiles ───────────────────────────────────
-            These look like the plastic letter magnets everyone has on their fridge.
-            They are purely decorative — not interactive. */}
-        <View style={styles.fillerRow}>
-          <LetterTile char="H" color="#E17055" rotate="-3deg" nudgeTop={4} />
-          <LetterTile char="O" color="#74B9FF" rotate="2deg" nudgeTop={0} />
-          <LetterTile char="M" color="#00B894" rotate="-1deg" nudgeTop={6} />
-          <LetterTile char="I" color="#F9A825" rotate="3deg" nudgeTop={2} />
-          <LetterTile char="E" color="#6C5CE7" rotate="-2deg" nudgeTop={5} />
-          <View style={{ flex: 1 }} />
-          <LetterTile char="!" color="#FD79A8" rotate="4deg" nudgeTop={3} />
-          <LetterTile char="★" color="#FDCB6E" rotate="-2deg" nudgeTop={0} />
-        </View>
+          {/* Left column: Chores → Calendar → Shopping */}
+          <View style={[styles.column, { paddingRight: 14 }]}>
+            <Pressable
+              onPress={() => router.push("/(tabs)/chores")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Chores"
+              accessibilityHint="Tap to view and manage all chores"
+            >
+              <Note color={C.magnetPurple} hideStrip showMarginLine style={{ minHeight: 240 }}>
+                {/* Card header */}
+                <View style={styles.choreCardHeader}>
+                  <Text style={styles.choreCardTitle}>My Chores</Text>
+                </View>
 
-        {/* ── Row 1: Chores + Events ───────────────────────────────────────── */}
-        <View style={styles.row}>
-          {/* Chores — purple strip, red margin line, ruled paper */}
-          <Pressable
-            onPress={() => router.push("/(tabs)/chores")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 1.1 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Chores"
-            accessibilityHint="Tap to view and manage all chores"
-          >
-            <Note tilt="left" color={C.magnetPurple} showMarginLine style={{ flex: 1 }}>
-              <Text style={styles.noteLabel}>THIS WEEK</Text>
-              <Text style={styles.noteTitle}>Chores</Text>
-              <TapBadge color={C.magnetPurple} label="Tap for full list" />
-
-              {choresLoading ? (
-                <Text style={styles.noteMeta}>Loading…</Text>
-              ) : chores.length === 0 ? (
-                <Text style={styles.noteMeta}>Nothing this week ✓</Text>
-              ) : (
-                <>
-                  <View style={styles.choreRingRow}>
-                    <ProgressRing
-                      size={56}
-                      stroke={5}
-                      progress={doneCount / chores.length}
-                      trackColor={C.progressBg}
-                      fillColor={CHORE_THEME.accent}
-                      centerColor={C.noteCream}
-                    >
-                      <Text style={styles.choreRingInner}>
-                        {doneCount}/{chores.length}
-                      </Text>
-                    </ProgressRing>
-                    <Text style={styles.choreRingCaption}>done this week</Text>
-                  </View>
-                  {chores.slice(0, 5).map((c) => {
-                    const dotColor = memberMap[c.assignedTo]?.color ?? C.noteMeta;
-                    return (
-                      <View key={c.id} style={styles.choreRow}>
-                        <View
-                          style={[
-                            styles.choreDot,
-                            {
-                              backgroundColor: c.isCompleted
-                                ? C.progressBg
-                                : dotColor,
-                            },
-                          ]}
-                        />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.choreText,
-                            c.isCompleted && styles.choreTextDone,
-                          ]}
-                        >
+                {choresLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : chores.length === 0 ? (
+                  <Text style={styles.noteMeta}>Nothing today ✓</Text>
+                ) : (
+                  <>
+                    {chores.slice(0, 4).map((c) => (
+                      <Pressable
+                        key={c.id}
+                        style={styles.choreRowNew}
+                        onPress={() => toggleChore(c.id, c.isCompleted)}
+                      >
+                        <View style={[styles.choreSquare, c.isCompleted && styles.choreSquareDone]}>
+                          {c.isCompleted && <Ionicons name="checkmark" size={11} color="#fff" />}
+                        </View>
+                        <Text numberOfLines={1} style={[styles.choreItemText, c.isCompleted && styles.choreTextDone]}>
                           {c.title}
                         </Text>
-                      </View>
-                    );
-                  })}
-                  {chores.length > 5 && (
-                    <Text style={styles.noteMeta}>+{chores.length - 5} more</Text>
-                  )}
-                </>
-              )}
-            </Note>
-          </Pressable>
+                      </Pressable>
+                    ))}
+                    {chores.length > 4 && (
+                      <Text style={styles.choreMoreText}>and {chores.length - 4} more…</Text>
+                    )}
+                  </>
+                )}
+              </Note>
+            </Pressable>
 
-          {/* Events — yellow strip, slightly warmer paper */}
-          <Pressable
-            onPress={() => router.push("/(tabs)/calendar")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 0.9 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Calendar"
-            accessibilityHint="Tap to open the full calendar"
-          >
-            <Note
-              tilt="right"
-              color={C.magnetYellow}
-              bg={C.noteAlt}
-              style={{ flex: 1 }}
+            <Pressable
+              onPress={() => router.push("/(tabs)/calendar")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Calendar"
+              accessibilityHint="Tap to open the full calendar"
             >
-              <Text style={styles.noteLabel}>COMING UP</Text>
-              <Text style={styles.noteTitle}>Calendar</Text>
-              <TapBadge color={C.magnetYellow} label="Tap for agenda" />
-
-              {eventsLoading ? (
-                <Text style={styles.noteMeta}>Loading…</Text>
-              ) : events.length === 0 ? (
-                <Text style={styles.noteMeta}>All clear!</Text>
-              ) : (
-                events.map((e) => (
-                  <View key={e.id} style={styles.eventRow}>
-                    <View
-                      style={[styles.eventDot, { backgroundColor: e.color }]}
-                    />
+              <Note color="#B5E2F1" stripContent={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><CalendarIcon width={16} height={16} color="#2E0800" /><Text style={[styles.stripLabelText, { fontFamily: 'GowunBatang_700Bold' }]}>Next Event</Text></View>} hideLines stripHeight={38} style={{ minHeight: 150 }}>
+                {eventsLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : events.length === 0 ? (
+                  <Text style={styles.noteMeta}>No upcoming events</Text>
+                ) : (
+                  <View style={styles.eventRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.eventTitle} numberOfLines={1}>
-                        {e.title}
-                      </Text>
-                      <Text style={styles.eventTime}>
-                        {formatEventTime(e.startTime)}
-                      </Text>
+                      <Text style={styles.eventTitle} numberOfLines={1}>{events[0].title}</Text>
+                      <Text style={styles.eventTime}>{formatEventTime(events[0].startTime)}</Text>
                     </View>
                   </View>
-                ))
-              )}
-            </Note>
-          </Pressable>
-        </View>
+                )}
+              </Note>
+            </Pressable>
 
-        {/* ── Filler: scattered emoji magnets ─────────────────────────────
-            Small round decorative magnets drifting at the edge. */}
-        <View
-          style={[
-            styles.fillerRow,
-            { justifyContent: "flex-end", marginBottom: 4 },
-          ]}
-        >
-          <EmojiMagnet emoji="🏠" color="#FFD6A5" rotate="-6deg" size={32} />
-          <EmojiMagnet emoji="⭐" color="#FDCB6E" rotate="5deg" size={28} />
-          <EmojiMagnet emoji="📝" color="#A29BFE" rotate="-3deg" size={30} />
-        </View>
+            <Pressable
+              onPress={() => router.push("/(tabs)/shopping")}
+              style={({ pressed }) => [styles.notePressable, styles.noteWide, pressed && styles.notePressablePressed]}
+              hitSlop={6}
+              accessibilityLabel="Shopping list"
+              accessibilityHint="Tap to open and manage your shopping list"
+            >
+              <Note color={C.magnetMint} hideStrip hideLines style={{ minHeight: 190 }}>
+                {/* Header */}
+                <View style={styles.shopCardHeader}>
+                  <Ionicons name="cart-outline" size={22} color={C.noteText} />
+                  <Text style={styles.shopCardTitle}>Shopping List</Text>
+                </View>
 
-        {/* ── Row 2: Expiring soon — coral strip, full width ───────────────── */}
-        <Note tilt="mild" color={C.magnetCoral} style={styles.noteWide}>
-          <Text style={styles.noteLabel}>PANTRY ALERT</Text>
-          <Text style={styles.noteTitle}>Expiring Soon</Text>
+                {shoppingLoading ? (
+                  <Text style={styles.noteMeta}>Loading…</Text>
+                ) : allShopping.length === 0 ? (
+                  <Text style={styles.noteMeta}>All stocked up!</Text>
+                ) : (() => {
+                  const unchecked = allShopping.filter((i) => !i.isChecked);
+                  const shown = unchecked.slice(0, 3);
+                  const remaining = unchecked.length - shown.length;
+                  return (
+                    <>
+                      <View style={styles.shopDivider} />
+                      {shown.map((item) => (
+                        <View key={item.id} style={styles.shopRow}>
+                          <Text style={styles.shopItemText} numberOfLines={1}>
+                            {item.quantity}x {item.name}
+                          </Text>
+                          <Text style={styles.shopDots} numberOfLines={1}>{'·'.repeat(30)}</Text>
+                        </View>
+                      ))}
+                      {remaining > 0 && (
+                        <View style={styles.shopRow}>
+                          <Text style={[styles.shopItemText, { color: C.noteMeta }]}>and {remaining} other items</Text>
+                        </View>
+                      )}
+                      <View style={styles.shopDivider} />
+                      <Text style={styles.shopFooter}>Item count: {unchecked.length}</Text>
+                    </>
+                  );
+                })()}
+              </Note>
+            </Pressable>
+          </View>
 
-          {pantryLoading ? (
-            <Text style={styles.noteMeta}>Loading…</Text>
-          ) : expiring.length === 0 ? (
-            <Text style={styles.noteMeta}>Everything's fresh ✓</Text>
-          ) : (
-            <View style={styles.chipRow}>
-              {expiring.map((item) => {
-                const days = differenceInCalendarDays(
-                  item.expirationDate!.toDate(),
-                  now,
-                );
-                const urgent = days <= 1;
+          {/* Right column: Picture */}
+          <View style={styles.column}>
+            <View style={styles.photoCardWrap}>
+              <Note color={C.magnetYellow} hideStrip hideLines style={{ minHeight: 260 }}>
+                <Pressable
+                  onPress={pickAndUploadImage}
+                  style={{ alignSelf: 'stretch', height: 200, backgroundColor: '#2E0800', borderRadius: 0, marginTop: 0, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {house?.pictureCardUrl ? (
+                    <Image source={{ uri: house.pictureCardUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.addImagePill}>
+                      <Text style={styles.addImageText}>{uploading ? 'Uploading…' : 'Add Image'}</Text>
+                      <View style={styles.addImageIconWrap}>
+                        <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={18} color="#FFFFFF" />
+                        {!uploading && (
+                          <Ionicons name="pencil" size={8} color="#FFFFFF" style={styles.addImagePencil} />
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </Pressable>
+                {house?.pictureCardUpdatedAt && (
+                  <Text style={styles.pictureDateText}>
+                    {format(house.pictureCardUpdatedAt.toDate(), 'dd,MM,yy')}
+                  </Text>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4 }}>
+                  <TextInput
+                    value={pictureLabel}
+                    onChangeText={setPictureLabel}
+                    style={[styles.noteTitle, { marginTop: 2, fontFamily: 'AlbertSans_700Bold', flexShrink: 1 }]}
+                    placeholder="write here"
+                    placeholderTextColor={C.noteMeta}
+                    selectTextOnFocus
+                  />
+                  <Ionicons name="pencil-outline" size={14} color={C.noteMeta} style={{ marginTop: 2 }} />
+                </View>
+              </Note>
+              <PhotoStars />
+            </View>
+            <View style={{ marginTop: 48, aspectRatio: 168 / 445, position: 'relative' }}>
+              {/* Tilted background copy */}
+              <RecentActivitySvg
+                width="100%" height="100%"
+                style={{ position: 'absolute', transform: [{ rotate: '6deg' }, { translateX: 40 }, { translateY: 20 }], zIndex: 0 }}
+              />
+              {/* Main SVG */}
+              <RecentActivitySvg width="100%" height="100%" style={{ position: 'absolute', zIndex: 1 }} />
+
+              {/* Notification overlays — boxes at ~16.7/18.5/20.2% left, tops at 6.7/30.8/54.8% */}
+              {([
+                [16.67, 6.74],
+                [18.45, 30.79],
+                [20.24, 54.83],
+              ] as [number, number][]).map(([l, t], i) => {
+                const notif = recentActivities[i];
                 return (
                   <View
-                    key={item.id}
-                    style={[
-                      styles.expiryChip,
-                      urgent && styles.expiryChipUrgent,
-                    ]}
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      left: `${l}%`,
+                      top: `${t}%`,
+                      width: '59.52%',
+                      height: '22.25%',
+                      transform: [{ rotate: '-1.68deg' }],
+                      padding: 8,
+                      justifyContent: 'space-between',
+                      zIndex: 2,
+                    }}
                   >
-                    <Text
-                      style={[
-                        styles.expiryName,
-                        urgent && styles.expiryNameUrgent,
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.expiryDays,
-                        { color: urgent ? C.magnetCoral : C.magnetYellow },
-                      ]}
-                    >
-                      {days === 0 ? "today" : days === 1 ? "tmrw" : `${days}d`}
-                    </Text>
+                    {notif ? (
+                      <>
+                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2E0800', lineHeight: 16 }}>
+                          <Text style={{ fontFamily: 'AlbertSans_700Bold' }}>{notif.boldText}</Text>
+                          {notif.message}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          {notif.avatarUrl ? (
+                            <Image source={{ uri: notif.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                          ) : (
+                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: notif.avatarColor, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ fontFamily: 'AlbertSans_700Bold', fontSize: 8, color: '#fff' }}>{notif.avatarInitial}</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#2E0800' }}>{notif.timeAgo}</Text>
+                        </View>
+                      </>
+                    ) : null}
                   </View>
                 );
               })}
+
+              {/* Icon */}
+              <RecentActivityIcon width={180} height={180} style={{ position: 'absolute', top: -75, zIndex: 3, left: '-2%' }} />
             </View>
-          )}
-        </Note>
-
-        {/* ── Row 3: Shopping + filler tiles ──────────────────────────────── */}
-        <View style={styles.row}>
-          <Pressable
-            onPress={() => router.push("/(tabs)/shopping")}
-            style={({ pressed }) => [
-              styles.notePressable,
-              { flex: 1 },
-              pressed && styles.notePressablePressed,
-            ]}
-            hitSlop={6}
-            accessibilityLabel="Shopping list"
-            accessibilityHint="Tap to open and manage your shopping list"
-          >
-            <Note
-              tilt="steep"
-              color={C.magnetMint}
-              foldCorner
-              style={{ flex: 1 }}
-            >
-              <Text style={styles.noteLabel}>SHOPPING LIST</Text>
-              <Text style={styles.noteTitle}>
-                {shoppingLoading
-                  ? "…"
-                  : uncheckedCount === 0
-                    ? "All stocked up!"
-                    : `${uncheckedCount} to grab`}
-              </Text>
-              <TapBadge color={C.magnetMint} label="Tap to open" />
-              {!shoppingLoading && uncheckedCount > 0 && (
-                <Text style={styles.tapHint}>add checkmarks and clear items fast</Text>
-              )}
-            </Note>
-          </Pressable>
-
-          {/* Filler side: a small column of letter tiles */}
-          <View style={styles.sideFillerCol}>
-            <LetterTile char="2" color="#E17055" rotate="5deg" nudgeTop={0} />
-            <LetterTile char="B" color="#74B9FF" rotate="-4deg" nudgeTop={8} />
-            <LetterTile char="?" color="#A29BFE" rotate="2deg" nudgeTop={6} />
           </View>
+
         </View>
 
+        <HomeDecor />
         <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 // ─── styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.fridgeBg },
-  fridge: { flex: 1, backgroundColor: C.fridgeBg },
-  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 4 },
+  fridge: { flex: 1, backgroundColor: 'transparent' },
+  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 24, position: 'relative' },
+  decorLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    elevation: 30,
+  },
+  photoCardWrap: {
+    position: 'relative',
+    zIndex: 20,
+    elevation: 20,
+  },
+  addImagePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  addImageText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  addImageIconWrap: {
+    position: 'relative',
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addImagePencil: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    transform: [{ rotate: '-12deg' }],
+  },
+  photoStars: {
+    position: 'absolute',
+    top: -30,
+    right: -10,
+    width: 92,
+    height: 78,
+    zIndex: 40,
+    elevation: 40,
+  },
+  photoStarBlue: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+  },
+  photoStarYellow: {
+    position: 'absolute',
+    top: 28,
+    right: 0,
+  },
+  decorButtonPeach: {
+    position: 'absolute',
+    top: 370,
+    right: 27,
+  },
+  decorButtonGreen: {
+    position: 'absolute',
+    top: 345,
+    right: 11,
+  },
+  headerTextBlock: {
+    position: 'absolute',
+    bottom: 14,
+    left: 36,
+  },
+  headerButtons: {
+    position: 'absolute',
+    bottom: 14,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerHouseName: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 16,
+    color: '#2E0800',
+  },
+  headerUserName: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 28,
+    color: '#2E0800',
+  },
 
   // header
   fridgeHeader: {
@@ -532,7 +699,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 10,
     borderRadius: 16,
-    backgroundColor: C.headerPlate,
     borderWidth: 1,
     borderColor: C.headerBorder,
     shadowColor: "#7A4E2A",
@@ -544,7 +710,7 @@ const styles = StyleSheet.create({
   houseName: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#3A3835",
+    color: "#2E0800",
     letterSpacing: -0.5,
   },
   houseDate: {
@@ -573,9 +739,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     alignItems: "flex-start",
-    marginBottom: 14,
+    marginBottom: 20,
   },
-  noteWide: { marginBottom: 14 },
+  columnsContainer: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  column: { flex: 1 },
+  noteWide: { marginBottom: 28 },
+  noteHalf: { width: '50%', marginBottom: 20 },
   notePressable: {
     // Keep card movement subtle so it feels tactile, not jumpy.
     transform: [{ scale: 1 }],
@@ -589,6 +758,7 @@ const styles = StyleSheet.create({
   noteOuter: {
     borderRadius: 3,
     overflow: "hidden",
+    flexDirection: "column",
     shadowColor: "#000",
     shadowOpacity: 0.24,
     shadowRadius: 9,
@@ -609,18 +779,19 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   notePaper: {
+    flex: 1,
     padding: 14,
     paddingTop: 16,
     position: "relative",
+    overflow: "hidden",
   },
   // subtle horizontal ruled lines — purely decorative background detail
   ruleLine: {
     position: "absolute",
-    left: 14,
-    right: 14,
-    top: 40,
+    left: 0,
+    right: 0,
     height: 1,
-    backgroundColor: C.noteLines,
+    backgroundColor: '#B8D8F0',
   },
   // red left margin line (like composition paper)
   marginLine: {
@@ -675,6 +846,14 @@ const styles = StyleSheet.create({
     left: 6,
   },
 
+  stripLabelText: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: 'AlbertSans_800ExtraBold',
+    color: '#2E0800',
+    letterSpacing: 0.2,
+  },
+
   // ── Note typography ─────────────────────────────────────────────────────────
   noteLabel: {
     fontSize: 8,
@@ -687,6 +866,7 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 15,
     fontWeight: "800",
+    fontFamily: 'AlbertSans_800ExtraBold',
     color: C.noteText,
     marginBottom: 8,
     letterSpacing: -0.3,
@@ -716,32 +896,142 @@ const styles = StyleSheet.create({
   },
 
   // ── Chores ──────────────────────────────────────────────────────────────────
-  choreRingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
+  progressTrack: {
+    height: 2,
+    backgroundColor: '#DEEDEE',
+    borderRadius: 1,
+    marginBottom: 4,
+    overflow: "hidden",
   },
-  choreRingInner: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.noteText,
-  },
-  choreRingCaption: {
-    fontSize: 11,
-    color: C.noteMeta,
-    fontWeight: "600",
-    flex: 1,
-  },
+  progressFill: { height: 2, backgroundColor: C.magnetPurple, borderRadius: 1 },
+  progressLabel: { fontSize: 10, color: C.noteMeta, marginBottom: 8 },
   choreRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
     paddingVertical: 3,
+    marginLeft: -6,
   },
   choreDot: { width: 7, height: 7, borderRadius: 3.5 },
+  choreCheckbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1.5,
+    borderColor: C.magnetPurple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  choreCheckboxDone: {
+    backgroundColor: C.magnetPurple,
+    borderColor: C.magnetPurple,
+  },
+  choreCheckmark: { fontSize: 10, color: '#fff', fontWeight: '800' },
   choreText: { fontSize: 12, color: C.noteText, flex: 1 },
   choreTextDone: { textDecorationLine: "line-through", color: C.noteLabel },
+
+  // ── Chores card (new design) ─────────────────────────────────────────────────
+  choreCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    marginLeft: 25,
+  },
+  choreCardTitle: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 15,
+    color: C.noteText,
+  },
+  choreDivider: {
+    height: 1,
+    backgroundColor: '#EDE8DE',
+  },
+  choreRowNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 40,
+    paddingVertical: 9,
+    marginLeft: -8,
+  },
+  choreSquare: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#A09080',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choreSquareDone: {
+    backgroundColor: '#2D1A0E',
+    borderColor: '#2D1A0E',
+  },
+  choreItemText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 15,
+    color: C.noteText,
+    flex: 1,
+    marginLeft: 8,
+  },
+  choreMoreText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 12,
+    color: C.noteMeta,
+    marginTop: 8,
+    marginLeft: 25,
+  },
+  pictureDateText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 11,
+    color: C.noteMeta,
+    marginTop: 10,
+  },
+
+  // ── Shopping card (receipt style) ────────────────────────────────────────────
+  shopCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  shopCardTitle: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 15,
+    color: C.noteText,
+  },
+  shopDivider: {
+    height: 1,
+    backgroundColor: '#D0C8BC',
+    marginVertical: 6,
+  },
+  shopRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    overflow: 'hidden',
+    paddingVertical: 2,
+  },
+  shopItemText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 12,
+    color: C.noteText,
+  },
+  shopDots: {
+    flex: 1,
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 12,
+    color: C.noteLabel,
+    marginLeft: 2,
+    overflow: 'hidden',
+  },
+  shopFooter: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 11,
+    color: C.noteText,
+    marginTop: 2,
+  },
 
   // ── Events ──────────────────────────────────────────────────────────────────
   eventRow: {
@@ -753,8 +1043,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#EDE8DC",
   },
   eventDot: { width: 7, height: 7, borderRadius: 3.5, marginTop: 4 },
-  eventTitle: { fontSize: 12, fontWeight: "700", color: C.noteText },
-  eventTime: { fontSize: 10, color: C.noteMeta, marginTop: 1 },
+  eventTitle: { fontFamily: 'AlbertSans_700Bold', fontSize: 14, color: C.noteText },
+  eventTime: { fontFamily: 'AlbertSans_400Regular', fontSize: 12, color: C.noteMeta, marginTop: 1 },
 
   // ── Expiry chips ─────────────────────────────────────────────────────────────
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 },
