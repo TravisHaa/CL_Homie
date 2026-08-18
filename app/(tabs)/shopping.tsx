@@ -294,6 +294,29 @@ export default function ShoppingScreen() {
     );
   };
 
+  const renderCalendarPopup = (
+    visible: boolean,
+    onClose: () => void,
+    calMonth: Date,
+    setCalMonth: (d: Date) => void,
+    selectedDate: Date | null,
+    onSelectDate: (d: Date) => void,
+  ) => (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.calendarPopupOverlay}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityLabel="Close calendar"
+        />
+        <View style={styles.calendarPopupContent}>
+          {renderCalendar(calMonth, setCalMonth, selectedDate, onSelectDate)}
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <GridBackground />
@@ -632,7 +655,9 @@ export default function ShoppingScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-                {newItemPickDayOpen && renderCalendar(
+                {renderCalendarPopup(
+                  newItemPickDayOpen,
+                  () => setNewItemPickDayOpen(false),
                   newItemCalMonth,
                   setNewItemCalMonth,
                   newItemSelectedDate,
@@ -892,7 +917,9 @@ export default function ShoppingScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            {recurringPickDayOpen && renderCalendar(
+            {renderCalendarPopup(
+              recurringPickDayOpen,
+              () => setRecurringPickDayOpen(false),
               recurringCalMonth,
               setRecurringCalMonth,
               recurringSelectedDate,
@@ -1129,7 +1156,9 @@ export default function ShoppingScreen() {
                 </Text>
                 <Ionicons name="calendar-outline" size={18} color="#2D3436" />
               </TouchableOpacity>
-              {boughtExpiryPickerOpen && renderCalendar(
+              {renderCalendarPopup(
+                boughtExpiryPickerOpen,
+                () => setBoughtExpiryPickerOpen(false),
                 boughtExpiryCalMonth,
                 setBoughtExpiryCalMonth,
                 boughtExpiry,
@@ -1243,7 +1272,9 @@ export default function ShoppingScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-              {editPickDayOpen && renderCalendar(
+              {renderCalendarPopup(
+                editPickDayOpen,
+                () => setEditPickDayOpen(false),
                 editCalMonth,
                 setEditCalMonth,
                 editSelectedDate,
@@ -1412,7 +1443,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     fontFamily: 'GowunBatang_700Bold',
-    color: '#2D3436',
+    color: '#2E0800',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
@@ -1435,7 +1466,7 @@ const styles = StyleSheet.create({
   pantryBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   pillsRow: {
     flexDirection: 'row',
@@ -1460,7 +1491,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   pillTextActive: {
     color: '#fff',
@@ -1534,7 +1565,7 @@ const styles = StyleSheet.create({
   categoryLabelFeatured: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 13,
-    color: '#000',
+    color: '#2E0800',
     paddingVertical: 6,
   },
 
@@ -1578,7 +1609,7 @@ const styles = StyleSheet.create({
   purchasedLabel: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 13,
-    color: '#000',
+    color: '#2E0800',
   },
   clearAllBtn: {
     fontFamily: 'AlbertSans_500Medium',
@@ -1698,7 +1729,7 @@ const styles = StyleSheet.create({
   fabMenuText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 16,
-    color: '#2D3436',
+    color: '#2E0800',
   },
 
   // ── Recurring modal ───────────────────────────────────────────────────────
@@ -1732,7 +1763,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 6,
     paddingRight: 24,
@@ -1765,7 +1796,7 @@ const styles = StyleSheet.create({
   recurringItemName: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 16,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   recurringItemMeta: {
     fontFamily: 'AlbertSans_400Regular',
@@ -1814,7 +1845,7 @@ const styles = StyleSheet.create({
   modalSecondaryBtnText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   modalPrimaryBtn: {
     flex: 2,
@@ -1841,7 +1872,7 @@ const styles = StyleSheet.create({
   newItemTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 20,
     marginTop: 4,
@@ -1849,7 +1880,7 @@ const styles = StyleSheet.create({
   newItemLabel: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 8,
   },
   newItemLabelMeta: {
@@ -1877,7 +1908,7 @@ const styles = StyleSheet.create({
   newItemPillText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemPillTextActive: {
     color: '#fff',
@@ -1891,7 +1922,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 16,
   },
   newItemPriceRow: {
@@ -1903,7 +1934,7 @@ const styles = StyleSheet.create({
   newItemDollar: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemQtyRow: {
     flexDirection: 'row',
@@ -1919,7 +1950,7 @@ const styles = StyleSheet.create({
   newItemQtyText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemQtyControls: {
     gap: 2,
@@ -1970,7 +2001,7 @@ const styles = StyleSheet.create({
   recurringS2Title: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 20,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 16,
     marginTop: 4,
     paddingRight: 24,
@@ -1988,7 +2019,7 @@ const styles = StyleSheet.create({
   recurringSectionLabel: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 15,
-    color: '#3B1F0E',
+    color: '#2E0800',
   },
   recurringS2Card: {
     flexDirection: 'row',
@@ -2078,7 +2109,7 @@ const styles = StyleSheet.create({
   boughtDropdownText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   boughtDropdownList: {
     backgroundColor: '#fff',
@@ -2107,6 +2138,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
+  calendarPopupOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(46, 8, 0, 0.22)',
+  },
+  calendarPopupContent: {
+    width: '100%',
+    maxWidth: 420,
+  },
   calHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2117,7 +2159,7 @@ const styles = StyleSheet.create({
   calHeaderText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   calRow: {
     flexDirection: 'row',
@@ -2145,7 +2187,7 @@ const styles = StyleSheet.create({
   calCellText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   calCellTextMuted: {
     color: '#C4C4C4',
@@ -2169,7 +2211,7 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 20,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 28,
@@ -2200,7 +2242,7 @@ const styles = StyleSheet.create({
   confirmItemName: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 4,
   },
   confirmMeta: {
