@@ -1,21 +1,26 @@
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { updateDoc } from 'firebase/firestore';
 
-import { RotationCard } from '@/src/components/settings/RotationCard';
-import { signOut } from '@/src/firebase/auth';
+import { GridBackground } from '@/src/components/GridBackground';
+import { HeaderImage } from '@/src/components/HeaderImage';
+import { houseDoc } from '@/src/firebase/firestore';
 import { leaveHouse } from '@/src/firebase/house';
-import { useGoogleCalendar } from '@/src/hooks/useGoogleCalendar';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -31,16 +36,28 @@ const S = {
 };
 
 export default function SettingsScreen() {
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { scrollToBottom } = useLocalSearchParams<{ scrollToBottom?: string }>();
+
+  useEffect(() => {
+    if (scrollToBottom === '1') {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 400);
+    }
+  }, [scrollToBottom]);
+
   const [isLeavingHouse, setIsLeavingHouse] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
   const router = useRouter();
   const house = useHouseStore((s) => s.house);
   const memberMap = useHouseStore((s) => s.memberMap);
   const houseId = useAuthStore((s) => s.userProfile?.houseId ?? null);
   const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
-  const gcal = useGoogleCalendar();
+  const userProfile = useAuthStore((s) => s.userProfile);
+  const firebaseUser = useAuthStore((s) => s.firebaseUser);
 
   async function handleLeaveHouse() {
     if (!currentUid || !houseId) return;
@@ -80,7 +97,25 @@ export default function SettingsScreen() {
     }
   }
 
-  // Prefer the live memberMap (has color + displayName). 
+  async function saveHouseName() {
+    const trimmed = editNameValue.trim();
+    if (!trimmed || !houseId || trimmed === house?.name) { setIsEditingName(false); return; }
+    try {
+      await updateDoc(houseDoc(houseId), { name: trimmed });
+    } catch (err) {
+      console.error('[settings] rename house', err);
+    }
+    setIsEditingName(false);
+  }
+
+  async function copyInviteCode() {
+    if (!house?.inviteCode) return;
+    await Clipboard.setStringAsync(house.inviteCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  }
+
+  // Prefer the live memberMap (has color + displayName).
   const members = useMemo(() => {
     const fromMap = Object.entries(memberMap).map(([id, m]) => ({
       id,
@@ -98,122 +133,137 @@ export default function SettingsScreen() {
 
   const memberCount = house?.memberIds?.length ?? members.length;
 
-  async function handleSignOut() {
-    if (isSigningOut) return;
-
-    // On Expo Web, `Alert.alert` may not present a dialog reliably. Use a web-native confirm,
-    // and run the sign-out directly from this handler for consistent behavior.
-    if (Platform.OS === 'web') {
-      const confirmed = globalThis.confirm?.(
-        'Sign out?\n\nYou’ll need to log in again to access your house.'
-      );
-      if (!confirmed) return;
-    } else {
-      // Native: show a confirmation dialog, then proceed.
-      const confirmed = await new Promise<boolean>((resolve) => {
-        Alert.alert('Sign out?', 'You’ll need to log in again to access your house.', [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Sign out', style: 'destructive', onPress: () => resolve(true) },
-        ]);
-      });
-      if (!confirmed) return;
-    }
-
-    try {
-      setIsSigningOut(true);
-      // AuthGate listens to Firebase auth state and will redirect on sign-out.
-      await signOut();
-    } catch (err) {
-      console.error('[Settings] signOut failed:', err);
-      Alert.alert('Sign out failed', 'Please try again.');
-    } finally {
-      setIsSigningOut(false);
-    }
-  }
-
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={styles.safe}>
+      <GridBackground />
+      <View style={{ width: '100%', overflow: 'hidden' }}>
+        <HeaderImage height={117} />
+        <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2E0800" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Settings</Text>
+      </View>
+      <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
       <ScrollView
+        ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Settings gets its own themed intro panel to match tab identity. */}
-        <View style={styles.hero}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Coming soon</Text>
-        </View>
+
+        {/* ── Profile card ── */}
+        <Text style={styles.profileSectionLabel}>My account</Text>
+        <Pressable
+          style={styles.profileCard}
+          // myaccount.tsx lands in the next commit of this port; route-types
+          // regenerate once that file exists.
+          onPress={() => router.push('/(tabs)/myaccount' as Parameters<typeof router.push>[0])}
+          android_ripple={{ color: '#eee' }}
+        >
+          <View style={styles.profileAvatar}>
+            {userProfile?.avatarUrl ? (
+              <Image source={{ uri: userProfile.avatarUrl }} style={styles.profileAvatarImg} />
+            ) : (
+              <View style={[styles.profileAvatarImg, styles.profileAvatarFallback]}>
+                <Text style={styles.profileAvatarInitial}>
+                  {userProfile?.displayName?.charAt(0).toUpperCase() ?? '?'}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.profileName}>{userProfile?.displayName ?? 'You'}</Text>
+            <Text style={styles.profileEmail}>{firebaseUser?.email ?? ''}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#7A6652" />
+        </Pressable>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>House</Text>
+          <Text style={styles.profileSectionLabel}>Household</Text>
           {houseId && house ? (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{house.name}</Text>
-
-              <View style={styles.inviteRow}>
-                <Text style={styles.inviteLabel}>Invite code</Text>
-                <View style={styles.invitePill}>
-                  <Text style={styles.invitePillText}>{house.inviteCode}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.membersHeading}>
-                Members · {memberCount}
-              </Text>
-              <View style={styles.memberList}>
-                {members.map((m) => (
-                  <View key={m.id} style={styles.memberRow}>
-                    <View
-                      style={[
-                        styles.colorDot,
-                        { backgroundColor: m.color ?? S.cardBorder },
-                      ]}
-                    />
-                    <Text style={styles.memberName}>
-                      {m.displayName}
-                      {m.id === currentUid ? ' (you)' : ''}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <RotationCard />
-
-              <View style={styles.houseActionRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Switch house"
-                  onPress={() => router.push('/(tabs)/house')}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    pressed && styles.secondaryButtonPressed,
-                  ]}
-                >
-                  <Text style={styles.secondaryButtonText}>Switch house</Text>
+            <View style={styles.householdCard}>
+              {/* House name */}
+              <View style={styles.householdNameRow}>
+                {isEditingName ? (
+                  <TextInput
+                    style={styles.householdNameInput}
+                    value={editNameValue}
+                    onChangeText={setEditNameValue}
+                    onBlur={saveHouseName}
+                    onSubmitEditing={saveHouseName}
+                    autoFocus
+                    returnKeyType="done"
+                    maxLength={40}
+                  />
+                ) : (
+                  <Pressable style={{ flex: 1 }} onPress={() => { setEditNameValue(house.name); setIsEditingName(true); }}>
+                    <Text style={styles.householdName}>{house.name}</Text>
+                  </Pressable>
+                )}
+                <Pressable hitSlop={8} onPress={() => { setEditNameValue(house.name); setIsEditingName(true); }}>
+                  <Ionicons name="pencil-outline" size={18} color="#7A6652" />
                 </Pressable>
+              </View>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Leave house"
-                  onPress={confirmLeaveHouse}
-                  disabled={isLeavingHouse}
-                  style={({ pressed }) => [
-                    styles.leaveButton,
-                    isLeavingHouse && styles.leaveButtonDisabled,
-                    pressed && !isLeavingHouse && styles.leaveButtonPressed,
-                  ]}
-                >
-                  {isLeavingHouse ? (
-                    <View style={styles.signOutButtonInner}>
-                      <ActivityIndicator />
-                      <Text style={styles.leaveButtonText}>Leaving…</Text>
+              {/* Invite code */}
+              <Text style={styles.householdSectionLabel}>Invite Code</Text>
+              <Pressable style={styles.inviteCodeBox} onPress={copyInviteCode}>
+                <Text style={styles.inviteCodeText}>{house.inviteCode}</Text>
+                <Ionicons
+                  name={codeCopied ? 'checkmark-outline' : 'copy-outline'}
+                  size={20}
+                  color={codeCopied ? '#3D6B5E' : '#7A6652'}
+                />
+              </Pressable>
+
+              {/* People */}
+              <Text style={styles.householdSectionLabel}>People</Text>
+              <View style={styles.peopleList}>
+                {members.map((m) => {
+                  const isOwner = m.id === house.createdBy;
+                  const isYou = m.id === currentUid;
+                  const avatarInfo = memberMap[m.id];
+                  return (
+                    <View key={m.id} style={styles.memberCard}>
+                      <View style={[styles.memberAvatar, { backgroundColor: m.color ?? '#C8B89A' }]}>
+                        {avatarInfo?.avatarUrl ? (
+                          <Image source={{ uri: avatarInfo.avatarUrl }} style={styles.memberAvatarImg} />
+                        ) : (
+                          <Text style={styles.memberAvatarInitial}>
+                            {m.displayName.charAt(0).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={styles.memberCardName}>
+                        {m.displayName}{isYou ? ' (you)' : ''}
+                      </Text>
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>{isOwner ? 'Owner' : 'Member'}</Text>
+                      </View>
+                      {!isOwner && (
+                        <Pressable hitSlop={8}>
+                          <Ionicons name="ellipsis-vertical" size={16} color="#7A6652" />
+                        </Pressable>
+                      )}
                     </View>
-                  ) : (
-                    <Text style={styles.leaveButtonText}>Leave house</Text>
-                  )}
-                </Pressable>
+                  );
+                })}
               </View>
+
               {leaveError && <Text style={styles.errorText}>{leaveError}</Text>}
+
+              {/* Disband */}
+              <Pressable
+                style={({ pressed }) => [styles.disbandButton, pressed && { opacity: 0.75 }]}
+                onPress={confirmLeaveHouse}
+                disabled={isLeavingHouse}
+              >
+                {isLeavingHouse ? (
+                  <ActivityIndicator color="#C0392B" />
+                ) : (
+                  <Text style={styles.disbandButtonText}>Disband Household</Text>
+                )}
+              </Pressable>
             </View>
           ) : houseId && !house ? (
             <View style={[styles.card, styles.houseLoading]}>
@@ -241,95 +291,93 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Calendar sync</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Google Calendar</Text>
-            <Text style={styles.cardBody}>
-              {gcal.isLinked
-                ? 'Connected. Events you’re assigned to will export to your Google Calendar.'
-                : 'Connect your Google Calendar to export Homie events you’re assigned to.'}
-            </Text>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={gcal.isLinked ? 'Disconnect Google Calendar' : 'Connect Google Calendar'}
-              onPress={() => (gcal.isLinked ? gcal.unlink() : gcal.link())}
-              disabled={gcal.isLinking || !gcal.canLink}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                { marginTop: 14 },
-                (gcal.isLinking || !gcal.canLink) && styles.signOutButtonDisabled,
-                pressed && !gcal.isLinking && styles.secondaryButtonPressed,
-              ]}
-            >
-              {gcal.isLinking ? (
-                <View style={styles.signOutButtonInner}>
-                  <ActivityIndicator />
-                  <Text style={styles.secondaryButtonText}>Connecting…</Text>
-                </View>
-              ) : (
-                <Text style={styles.secondaryButtonText}>
-                  {gcal.isLinked ? 'Disconnect' : 'Connect Google Calendar'}
-                </Text>
-              )}
-            </Pressable>
-            {gcal.error && <Text style={styles.errorText}>{gcal.error}</Text>}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Sign out</Text>
-            <Text style={styles.cardBody}>
-              Sign out of this device. Your data stays in your Firebase account.
-            </Text>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Sign out"
-              onPress={handleSignOut}
-              disabled={isSigningOut}
-              style={({ pressed }) => [
-                styles.signOutButton,
-                isSigningOut && styles.signOutButtonDisabled,
-                pressed && !isSigningOut && styles.signOutButtonPressed,
-              ]}
-            >
-              {isSigningOut ? (
-                <View style={styles.signOutButtonInner}>
-                  <ActivityIndicator />
-                  <Text style={styles.signOutButtonText}>Signing out…</Text>
-                </View>
-              ) : (
-                <Text style={styles.signOutButtonText}>Sign out</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: S.lavenderBg },
+  safe: { flex: 1, backgroundColor: '#FCF5EE' },
   container: { flex: 1 },
-  content: { padding: 20, paddingBottom: 120 },
-  hero: {
-    marginTop: 8,
-    borderRadius: 14,
+  content: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 120 },
+
+  profileSectionLabel: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 18,
+    color: '#2E0800',
+    marginBottom: 10,
+  },
+
+  // ── Header title ────────────────────────────────────────────────────────────
+  backButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 20,
+    zIndex: 10,
+  },
+  headerTitle: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 22,
+    color: '#2E0800',
+  },
+
+  // ── Profile card ────────────────────────────────────────────────────────────
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: S.cardBorder,
-    backgroundColor: S.cardBg,
+    borderColor: '#EDE8E0',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    marginBottom: 24,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  title: { fontSize: 28, fontWeight: '800', color: S.textStrong },
-  subtitle: { color: S.textSoft, marginTop: 8 },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  profileAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  profileAvatarFallback: {
+    backgroundColor: '#C8B89A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatarInitial: {
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 20,
+    color: '#fff',
+  },
+  profileName: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 15,
+    color: '#2E0800',
+    marginBottom: 2,
+  },
+  profileEmail: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    color: '#7A6652',
+  },
   section: { marginTop: 18 },
-  sectionTitle: { color: S.textStrong, fontWeight: '800', letterSpacing: 0.2, marginBottom: 10 },
   card: {
     borderRadius: 14,
     borderWidth: 1,
@@ -340,81 +388,122 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontWeight: '800', color: S.textStrong },
   cardBody: { color: S.textSoft, marginTop: 6, lineHeight: 18 },
-  signOutButton: {
-    marginTop: 14,
-    borderRadius: 12,
+  houseLoading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  // ── Household redesign ────────────────────────────────────────────────────────
+  householdCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: S.dangerBorder,
-    backgroundColor: S.dangerBg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  signOutButtonPressed: { opacity: 0.85 },
-  signOutButtonDisabled: { opacity: 0.6 },
-  signOutButtonText: { color: S.dangerText, fontWeight: '800' },
-  signOutButtonInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  inviteRow: {
-    marginTop: 12,
+  householdNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 16,
   },
-  inviteLabel: { color: S.textSoft, fontWeight: '700' },
-  invitePill: {
-    borderRadius: 999,
+  householdName: {
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 20,
+    color: '#2E0800',
+    flex: 1,
+  },
+  householdNameInput: {
+    flex: 1,
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 20,
+    color: '#2E0800',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#7A6652',
+    paddingVertical: 2,
+  },
+  householdSectionLabel: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 13,
+    color: '#2E0800',
+    marginBottom: 8,
+  },
+  inviteCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F4F0',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: S.cardBorder,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 18,
   },
-  invitePillText: {
-    fontFamily: Platform.select({ ios: 'SpaceMono', android: 'SpaceMono', default: 'SpaceMono' }),
+  inviteCodeText: {
+    flex: 1,
+    fontFamily: 'SpaceMono',
+    fontSize: 16,
+    letterSpacing: 3,
+    color: '#2E0800',
+  },
+  peopleList: { gap: 8, marginBottom: 18 },
+  memberCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F4F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  memberAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  memberAvatarImg: { width: 44, height: 44, borderRadius: 22 },
+  memberAvatarInitial: {
+    fontFamily: 'AlbertSans_700Bold',
+    fontSize: 18,
+    color: '#fff',
+  },
+  memberCardName: {
+    flex: 1,
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    letterSpacing: 2,
-    color: S.textStrong,
-    fontWeight: '700',
+    color: '#2E0800',
   },
-  membersHeading: {
-    marginTop: 14,
-    color: S.textStrong,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+  roleBadge: {
+    backgroundColor: '#2D1A0E',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
-  memberList: { marginTop: 8, gap: 8 },
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  colorDot: { width: 10, height: 10, borderRadius: 5 },
-  memberName: { color: S.textStrong, fontWeight: '600' },
-  houseLoading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  houseActionRow: { marginTop: 14, flexDirection: 'row', gap: 10 },
-  secondaryButton: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: S.cardBorder,
-    backgroundColor: '#FFFFFF',
+  roleBadgeText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 12,
+    color: '#fff',
+  },
+  disbandButton: {
+    borderWidth: 1.5,
+    borderColor: '#C0392B',
+    borderRadius: 999,
     paddingVertical: 12,
-    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonPressed: { opacity: 0.75 },
-  secondaryButtonText: { color: S.textStrong, fontWeight: '700' },
-  leaveButton: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: S.dangerBorder,
-    backgroundColor: S.dangerBg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  disbandButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 14,
+    color: '#C0392B',
   },
-  leaveButtonPressed: { opacity: 0.75 },
-  leaveButtonText: { color: S.dangerText, fontWeight: '700' },
+
   ctaButton: {
     marginTop: 14,
     borderRadius: 12,
@@ -428,6 +517,5 @@ const styles = StyleSheet.create({
   },
   ctaButtonPressed: { opacity: 0.85 },
   ctaButtonText: { color: '#FFFFFF', fontWeight: '800' },
-  leaveButtonDisabled: { opacity: 0.6 },
   errorText: { color: S.dangerText, fontSize: 12, marginTop: 8 },
 });
