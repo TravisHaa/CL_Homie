@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+import { GridBackground } from '@/src/components/GridBackground';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,21 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomSheetModal, BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { usePantry } from '@/src/hooks/usePantry';
+import { usePantry, daysUntilExpiry } from '@/src/hooks/usePantry';
 import { PantryItemCard } from '@/src/components/pantry/PantryItemCard';
 import { AddPantryItemForm } from '@/src/components/pantry/AddPantryItemForm';
+import { ManualAddModal } from '@/src/components/pantry/ManualAddModal';
+import { BarcodeScannerModal } from '@/src/components/pantry/BarcodeScannerModal';
 import type { PantryItem } from '@/src/types';
-
-const P = {
-  mintBg: '#EAF7F0',
-  plateBg: '#DDF4E7',
-  plateBorder: '#A8D9BF',
-  textStrong: '#1D4736',
-  textSoft: '#5D7B6F',
-  alertBg: '#FFF1D5',
-  alertBorder: '#F1B748',
-  fab: '#1B8F63',
-};
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 
 export default function PantryScreen() {
   return (
@@ -34,71 +30,121 @@ export default function PantryScreen() {
 }
 
 function PantryContent() {
-  const { items, expiringItems, isLoading, addPantryItem, deletePantryItem } =
-    usePantry();
+  const { items, isLoading, addPantryItem, deletePantryItem } = usePantry();
   const addFormRef = useRef<BottomSheetModal>(null);
+  const router = useRouter();
+
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [pendingBarcode, setPendingBarcode] = useState<string | null>(null);
+  const [manualModalVisible, setManualModalVisible] = useState(false);
 
   function renderItem({ item }: { item: PantryItem }) {
-    return <PantryItemCard item={item} onDelete={deletePantryItem} />;
+    return (
+      <PantryItemCard
+        item={item}
+        onDelete={deletePantryItem}
+      />
+    );
+  }
+
+  function handleScanNew() {
+    setFabMenuOpen(false);
+    setScannerVisible(true);
+  }
+
+  function handleAddManually() {
+    setFabMenuOpen(false);
+    setManualModalVisible(true);
+  }
+
+  function handleBarcodeScan(barcode: string) {
+    setScannerVisible(false);
+    setPendingBarcode(barcode);
+    addFormRef.current?.present();
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <GridBackground />
+
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/shopping')} hitSlop={12}>
+          <Ionicons name="close" size={22} color="#2E0800" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
           <Text style={styles.title}>Pantry</Text>
-          <Text style={styles.subtitle}>
-            {items.length} {items.length === 1 ? 'item' : 'items'}
-          </Text>
+          <Text style={styles.subtitle}>See what shared goods you have</Text>
         </View>
+        <TouchableOpacity hitSlop={12} onPress={handleScanNew}>
+          <Ionicons name="scan-outline" size={24} color="#2E0800" />
+        </TouchableOpacity>
       </View>
 
-      {/* Expiry alert banner */}
-      {expiringItems.length > 0 && (
-        <View style={styles.alertBanner}>
-          <Text style={styles.alertIcon}>⚠️</Text>
-          <Text style={styles.alertText}>
-            {expiringItems.length}{' '}
-            {expiringItems.length === 1 ? 'item expires' : 'items expire'} in 3
-            days or less
-          </Text>
-        </View>
-      )}
 
       {/* Content */}
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#2D3436" />
-        </View>
-      ) : items.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyTitle}>Your pantry is empty</Text>
-          <Text style={styles.emptyHint}>
-            Tap + to add your first item
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
+      <View style={styles.contentArea}>
+        <Image
+          source={require('@/assets/images/Pantry-bg-asset.jpg')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
         />
+        {isLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#2D3436" />
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={styles.emptyTitle}>Your pantry is empty</Text>
+            <Text style={styles.emptyHint}>Tap + to add your first item</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={[...items].sort((a, b) => daysUntilExpiry(a) - daysUntilExpiry(b))}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+
+      {/* Speed-dial overlay */}
+      {fabMenuOpen && (
+        <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={() => setFabMenuOpen(false)}>
+          <View style={styles.menuButtons}>
+            <TouchableOpacity style={styles.menuBtn} onPress={handleScanNew} activeOpacity={0.85}>
+              <Text style={styles.menuBtnText}>Scan new item</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuBtn} onPress={handleAddManually} activeOpacity={0.85}>
+              <Text style={styles.menuBtnText}>Add item manually</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => addFormRef.current?.present()}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.fabIcon}>+</Text>
+      <TouchableOpacity style={styles.fab} onPress={() => setFabMenuOpen((v) => !v)} activeOpacity={0.8}>
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
-      {/* Add form bottom sheet */}
-      <AddPantryItemForm ref={addFormRef} onAdd={addPantryItem} />
+      {/* Barcode scanner */}
+      <BarcodeScannerModal
+        visible={scannerVisible}
+        onScan={handleBarcodeScan}
+        onClose={() => setScannerVisible(false)}
+      />
+
+      {/* Scan → then fill form */}
+      <AddPantryItemForm ref={addFormRef} onAdd={addPantryItem} initialBarcode={pendingBarcode} />
+
+      {/* Manual add modal (add-only; editing is unsupported -- see commit message) */}
+      <ManualAddModal
+        visible={manualModalVisible}
+        onClose={() => setManualModalVisible(false)}
+        onAdd={addPantryItem}
+      />
     </SafeAreaView>
   );
 }
@@ -106,54 +152,37 @@ function PantryContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: P.mintBg,
+    backgroundColor: '#FCF5EE',
+  },
+  contentArea: {
+    flex: 1,
+    overflow: 'hidden',
+    marginHorizontal: 28,
+    marginBottom: 16,
+    borderRadius: 20,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 10,
-    borderRadius: 14,
-    backgroundColor: P.plateBg,
-    borderWidth: 1,
-    borderColor: P.plateBorder,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: P.textStrong,
-  },
-  subtitle: {
-    color: P.textSoft,
-    marginTop: 2,
-    fontSize: 14,
-  },
-  alertBanner: {
+    paddingTop: 64,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.alertBg,
-    borderLeftWidth: 4,
-    borderLeftColor: P.alertBorder,
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  alertIcon: {
-    fontSize: 16,
-  },
-  alertText: {
-    fontSize: 14,
-    color: P.textStrong,
-    fontWeight: '600',
+  headerCenter: {
     flex: 1,
+    paddingHorizontal: 16,
+  },
+  title: {
+    fontSize: 30,
+    fontFamily: 'GowunBatang_700Bold',
+    color: '#2E0800',
+  },
+  subtitle: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    color: '#7A6652',
+    marginTop: 2,
   },
   centered: {
     flex: 1,
@@ -162,38 +191,55 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   emptyTitle: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 18,
-    fontWeight: '700',
-    color: P.textStrong,
+    color: '#1D4736',
     marginBottom: 6,
   },
   emptyHint: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 14,
-    color: P.textSoft,
+    color: '#5D7B6F',
   },
   list: {
     paddingHorizontal: 20,
+    paddingTop: 24,
     paddingBottom: 100,
   },
   fab: {
     position: 'absolute',
-    bottom: 28,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: P.fab,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    bottom: 110,
+    right: 20,
   },
-  fabIcon: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    lineHeight: 32,
+  menuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    paddingBottom: 184,
+    paddingRight: 20,
+  },
+  menuButtons: {
+    gap: 12,
+    alignItems: 'flex-end',
+  },
+  menuBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  menuBtnText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 15,
+    color: '#2E0800',
   },
 });
