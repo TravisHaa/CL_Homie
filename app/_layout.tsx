@@ -43,14 +43,16 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error) {
+      console.warn('[Fonts] custom fonts failed to load; using system fallback fonts.', error);
+    }
   }, [error]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
 
-  if (!loaded) return null;
+  if (!loaded && !error) return null;
 
   return (
     <GestureHandlerRootView style={styles.root}>

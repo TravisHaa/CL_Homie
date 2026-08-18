@@ -1,5 +1,5 @@
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
-import HeaderSvg from '@/assets/images/header.svg';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import { ChoreCard } from '@/src/components/chores/ChoreCard';
 import { ChoreDetailSheet } from '@/src/components/chores/ChoreDetailSheet';
 import { ChoreForm } from '@/src/components/chores/ChoreForm';
@@ -122,7 +122,10 @@ export default function ChoresScreen() {
     <View style={styles.container}>
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" pointerEvents="none" />
+        <HeaderImage height={117} pointerEvents="none" />
+        <Pressable style={styles.backButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2E0800" />
+        </Pressable>
         <Text style={styles.headerTitle}>Chores</Text>
       </View>
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -240,11 +243,11 @@ export default function ChoresScreen() {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => sheetRef.current?.present()}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel="Add chore"
       >
-        <AddButtonSvg width={64} height={64} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       <ChoreForm ref={sheetRef} onSubmit={addChore} />
@@ -263,6 +266,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: CHORE_THEME.bg,
+  },
+  backButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 20,
+    zIndex: 10,
   },
   headerTitle: {
     position: 'absolute',

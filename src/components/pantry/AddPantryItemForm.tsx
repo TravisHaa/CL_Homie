@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 20,
   },
   labelRow: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
     marginTop: 14,
     marginBottom: 6,
   },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   scanBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   barcodeChip: {
     flexDirection: 'row',
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   row: {
     flexDirection: 'row',

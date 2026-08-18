@@ -62,12 +62,12 @@ const styles = StyleSheet.create({
   messageText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
-    color: '#2D1A0E',
+    color: '#2E0800',
     lineHeight: 18,
   },
   bold: {
     fontFamily: 'AlbertSans_700Bold',
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
   footer: {
     flexDirection: 'row',

@@ -29,7 +29,7 @@ export default function SignupScreen() {
           <View style={styles.hero}>
             <Text style={styles.title}>Homie</Text>
             <Text style={styles.subtitle}>
-              Experience your home as{'\n'}you want it
+              keep all your household logistics in one place :)
             </Text>
           </View>
 

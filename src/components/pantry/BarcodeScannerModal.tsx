@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   webTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 10,
   },
   webBody: {
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   permTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 12,
     textAlign: 'center',
   },

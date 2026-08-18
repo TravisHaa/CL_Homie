@@ -171,6 +171,6 @@ const styles = StyleSheet.create({
   confirmText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
 });

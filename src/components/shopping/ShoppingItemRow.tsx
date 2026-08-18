@@ -117,7 +117,15 @@ export function ShoppingItemRow({ item, memberMap, currentUserId, onToggle, onDe
           <View style={styles.body}>
             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
             <View style={styles.metaRow}>
-              {item.neededBy ? (
+              {item.isAsap ? (
+                <>
+                  <View style={[styles.deadlinePill, styles.asapPill]}>
+                    <Text style={styles.deadlinePillText}>ASAP</Text>
+                  </View>
+                  {item.price ? <Text style={styles.metaDivider}>|</Text> : null}
+                  {item.price ? <Text style={styles.metaPrice}>${item.price} est.</Text> : null}
+                </>
+              ) : item.neededBy ? (
                 <>
                   <View style={styles.deadlinePill}>
                     <Text style={styles.deadlinePillText}>
@@ -198,7 +206,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#2E0800',
     marginBottom: 5,
   },
   metaRow: {
@@ -216,6 +224,9 @@ const styles = StyleSheet.create({
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 12,
     color: '#fff',
+  },
+  asapPill: {
+    backgroundColor: '#C15B2A',
   },
   metaDivider: {
     fontFamily: 'AlbertSans_400Regular',
@@ -251,7 +262,7 @@ const styles = StyleSheet.create({
   backBtnText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 12,
-    color: '#2D1A0E',
+    color: '#2E0800',
   },
 
   // ── Checked / bought face ──────────────────────────────────────────────────

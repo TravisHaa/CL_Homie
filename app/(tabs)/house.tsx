@@ -19,7 +19,7 @@ import { useHouseStore } from '@/src/store/houseStore';
 
 const G = {
   bg: '#FFFBF5',
-  textPrimary: '#2D3436',
+  textPrimary: '#2E0800',
   textSecondary: '#636e72',
   border: '#DFE6E9',
   cardBg: '#FFFFFF',

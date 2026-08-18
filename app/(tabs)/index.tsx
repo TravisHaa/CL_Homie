@@ -18,9 +18,13 @@ import RecentActivitySvg from '@/assets/images/recent activity.svg';
 import RecentActivityIcon from '@/assets/images/Recent Activity icon.svg';
 import { Ionicons } from '@expo/vector-icons';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
-import HeaderSvg from '@/assets/images/header.svg';
+import { HeaderImage } from '@/src/components/HeaderImage';
 import NoticeBoardIcon from '@/assets/images/Notice-board-icon.svg';
 import HomeSettingIcon from '@/assets/images/home-setting-icon.svg';
+import ButtonStickerSvg from '@/assets/images/button-sticker.svg';
+import ButtonStickerGreenSvg from '@/assets/images/button-sticker-green.svg';
+import StarBlueSvg from '@/assets/images/star-blue.svg';
+import StarYellowSvg from '@/assets/images/star-yellow.svg';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db, storage } from '@/src/firebase/config';
@@ -28,12 +32,12 @@ import { db, storage } from '@/src/firebase/config';
 // ─── tokens ──────────────────────────────────────────────────────────────────
 const C = {
   // Sunset-kitchen palette: warm walls + saturated fridge magnets.
-  fridgeBg: "#FCF5EE",
+  fridgeBg: "#F8F1E8",
   noteCream: "#FFF0D9",
   noteAlt: "#FFE8C6",
-  noteText: "#3A2A1E",
-  noteMeta: "#7D5B42",
-  noteLabel: "#B38762",
+  noteText: "#2E0800",
+  noteMeta: "#2E0800",
+  noteLabel: "#2E0800",
   noteLines: "#F4D9BA",
   noteMargin: "#F19B8E",
   headerPlate: "#FFEFD2",
@@ -193,6 +197,24 @@ function EmojiMagnet({
   );
 }
 
+function HomeDecor() {
+  return (
+    <View pointerEvents="none" style={styles.decorLayer}>
+      <ButtonStickerSvg width={44} height={44} style={styles.decorButtonPeach} />
+      <ButtonStickerGreenSvg width={44} height={44} style={styles.decorButtonGreen} />
+    </View>
+  );
+}
+
+function PhotoStars() {
+  return (
+    <View pointerEvents="none" style={styles.photoStars}>
+      <StarBlueSvg width={61} height={61} style={styles.photoStarBlue} />
+      <StarYellowSvg width={38} height={38} style={styles.photoStarYellow} />
+    </View>
+  );
+}
+
 function TapBadge({ color, label = "Tap" }: { color: string; label?: string }) {
   return (
     <View style={[styles.tapBadge, { borderColor: color + "66" }]}>
@@ -315,16 +337,16 @@ export default function HomeScreen() {
     <View style={styles.safe}>
       <GridBackground />
       <View style={{ width: '100%', overflow: 'hidden' }}>
-        <HeaderSvg width="100%" height={117} preserveAspectRatio="xMidYMid slice" />
+        <HeaderImage height={117} />
         <View style={styles.headerTextBlock}>
           <Text style={styles.headerHouseName}>{house?.name ?? ''}</Text>
           <Text style={styles.headerUserName}>{userProfile?.displayName ?? ''}</Text>
         </View>
         <View style={styles.headerButtons}>
-          <Pressable hitSlop={10} onPress={() => router.push('/(tabs)/noticeboard')}>
+          <Pressable style={styles.headerIconButton} hitSlop={6} onPress={() => router.push('/(tabs)/noticeboard')}>
             <NoticeBoardIcon width={32} height={32} />
           </Pressable>
-          <Pressable hitSlop={10} onPress={() => router.push('/(tabs)/settings')}>
+          <Pressable style={styles.headerIconButton} hitSlop={6} onPress={() => router.push('/(tabs)/settings')}>
             <HomeSettingIcon width={32} height={32} />
           </Pressable>
         </View>
@@ -458,34 +480,45 @@ export default function HomeScreen() {
 
           {/* Right column: Picture */}
           <View style={styles.column}>
-            <Note color={C.magnetYellow} hideStrip hideLines style={{ minHeight: 260 }}>
-              <Pressable
-                onPress={pickAndUploadImage}
-                style={{ alignSelf: 'stretch', height: 200, backgroundColor: '#2E0800', borderRadius: 0, marginTop: 0, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
-              >
-                {house?.pictureCardUrl ? (
-                  <Image source={{ uri: house.pictureCardUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                ) : (
-                  <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={32} color="#ffffff44" />
+            <View style={styles.photoCardWrap}>
+              <Note color={C.magnetYellow} hideStrip hideLines style={{ minHeight: 260 }}>
+                <Pressable
+                  onPress={pickAndUploadImage}
+                  style={{ alignSelf: 'stretch', height: 200, backgroundColor: '#2E0800', borderRadius: 0, marginTop: 0, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {house?.pictureCardUrl ? (
+                    <Image source={{ uri: house.pictureCardUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.addImagePill}>
+                      <Text style={styles.addImageText}>{uploading ? 'Uploading…' : 'Add Image'}</Text>
+                      <View style={styles.addImageIconWrap}>
+                        <Ionicons name={uploading ? 'hourglass-outline' : 'image-outline'} size={18} color="#FFFFFF" />
+                        {!uploading && (
+                          <Ionicons name="pencil" size={8} color="#FFFFFF" style={styles.addImagePencil} />
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </Pressable>
+                {house?.pictureCardUpdatedAt && (
+                  <Text style={styles.pictureDateText}>
+                    {format(house.pictureCardUpdatedAt.toDate(), 'dd,MM,yy')}
+                  </Text>
                 )}
-              </Pressable>
-              {house?.pictureCardUpdatedAt && (
-                <Text style={styles.pictureDateText}>
-                  {format(house.pictureCardUpdatedAt.toDate(), 'dd,MM,yy')}
-                </Text>
-              )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4 }}>
-                <TextInput
-                  value={pictureLabel}
-                  onChangeText={setPictureLabel}
-                  style={[styles.noteTitle, { marginTop: 2, fontFamily: 'AlbertSans_700Bold', flexShrink: 1 }]}
-                  placeholder="write here"
-                  placeholderTextColor={C.noteMeta}
-                  selectTextOnFocus
-                />
-                <Ionicons name="pencil-outline" size={14} color={C.noteMeta} style={{ marginTop: 2 }} />
-              </View>
-            </Note>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4 }}>
+                  <TextInput
+                    value={pictureLabel}
+                    onChangeText={setPictureLabel}
+                    style={[styles.noteTitle, { marginTop: 2, fontFamily: 'AlbertSans_700Bold', flexShrink: 1 }]}
+                    placeholder="write here"
+                    placeholderTextColor={C.noteMeta}
+                    selectTextOnFocus
+                  />
+                  <Ionicons name="pencil-outline" size={14} color={C.noteMeta} style={{ marginTop: 2 }} />
+                </View>
+              </Note>
+              <PhotoStars />
+            </View>
             <View style={{ marginTop: 48, aspectRatio: 168 / 445, position: 'relative' }}>
               {/* Tilted background copy */}
               <RecentActivitySvg
@@ -519,7 +552,7 @@ export default function HomeScreen() {
                   >
                     {notif ? (
                       <>
-                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2D1A0E', lineHeight: 16 }}>
+                        <Text numberOfLines={2} style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 11, color: '#2E0800', lineHeight: 16 }}>
                           <Text style={{ fontFamily: 'AlbertSans_700Bold' }}>{notif.boldText}</Text>
                           {notif.message}
                         </Text>
@@ -531,7 +564,7 @@ export default function HomeScreen() {
                               <Text style={{ fontFamily: 'AlbertSans_700Bold', fontSize: 8, color: '#fff' }}>{notif.avatarInitial}</Text>
                             </View>
                           )}
-                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#7A6652' }}>{notif.timeAgo}</Text>
+                          <Text style={{ fontFamily: 'AlbertSans_400Regular', fontSize: 10, color: '#2E0800' }}>{notif.timeAgo}</Text>
                         </View>
                       </>
                     ) : null}
@@ -546,6 +579,7 @@ export default function HomeScreen() {
 
         </View>
 
+        <HomeDecor />
         <View style={{ height: 32 }} />
       </ScrollView>
       </SafeAreaView>
@@ -557,7 +591,78 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.fridgeBg },
   fridge: { flex: 1, backgroundColor: 'transparent' },
-  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 24 },
+  fridgeContent: { paddingHorizontal: 14, paddingBottom: 32, paddingTop: 24, position: 'relative' },
+  decorLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    elevation: 30,
+  },
+  photoCardWrap: {
+    position: 'relative',
+    zIndex: 20,
+    elevation: 20,
+  },
+  addImagePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  addImageText: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  addImageIconWrap: {
+    position: 'relative',
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addImagePencil: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    transform: [{ rotate: '-12deg' }],
+  },
+  photoStars: {
+    position: 'absolute',
+    top: -30,
+    right: -10,
+    width: 92,
+    height: 78,
+    zIndex: 40,
+    elevation: 40,
+  },
+  photoStarBlue: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+  },
+  photoStarYellow: {
+    position: 'absolute',
+    top: 28,
+    right: 0,
+  },
+  decorButtonPeach: {
+    position: 'absolute',
+    top: 370,
+    right: 27,
+  },
+  decorButtonGreen: {
+    position: 'absolute',
+    top: 345,
+    right: 11,
+  },
   headerTextBlock: {
     position: 'absolute',
     bottom: 14,
@@ -570,6 +675,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerIconButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerHouseName: {
     fontFamily: 'GowunBatang_700Bold',
@@ -603,7 +714,7 @@ const styles = StyleSheet.create({
   houseName: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#3A3835",
+    color: "#2E0800",
     letterSpacing: -0.5,
   },
   houseDate: {
@@ -845,6 +956,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    minHeight: 40,
     paddingVertical: 9,
     marginLeft: -8,
   },
@@ -873,6 +985,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: C.noteMeta,
     marginTop: 8,
+    marginLeft: 25,
   },
   pictureDateText: {
     fontFamily: 'AlbertSans_400Regular',

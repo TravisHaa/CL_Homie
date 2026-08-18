@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   houseName: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#3A3835',
+    color: '#2E0800',
     letterSpacing: -0.5,
   },
   houseDate: {
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   inviteCodeText: { fontSize: 12, color: '#7A7670' },
-  inviteCodeValue: { fontWeight: '800', letterSpacing: 2, color: '#2A2A27' },
+  inviteCodeValue: { fontWeight: '800', letterSpacing: 2, color: '#2E0800' },
   inviteCopyAction: { fontSize: 12, fontWeight: '700', color: '#E17055' },
   center: { flex: 1 },
   avatarRow: { flexDirection: 'row', gap: 6 },

@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarIcon from '@/assets/images/CalendarIcon.svg';
 import HomeIcon from '@/assets/images/HomeIcon.svg';
 import PantryIcon from '@/assets/images/PantryIcon.svg';
@@ -10,37 +9,41 @@ import ShoppingIcon from '@/assets/images/ShoppingIcon.svg';
 const TABS: { name: string; title: string; Icon: React.FC<{ width: number; height: number; color?: string }> }[] = [
   { name: 'index', title: 'Home', Icon: HomeIcon },
   { name: 'calendar', title: 'Calendar', Icon: CalendarIcon },
-  { name: 'pantry', title: 'Pantry', Icon: PantryIcon },
+  { name: 'chores', title: 'Chores', Icon: PantryIcon },
   { name: 'shopping', title: 'Shopping', Icon: ShoppingIcon },
 ];
 
-const HIDDEN = ['chores', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
-const TAB_ACTIVE: Record<string, string> = {
-  index: '#A7572D',
-  pantry: '#1B8F63',
-  shopping: '#C15B2A',
-  settings: '#6557C8',
+const HIDDEN = ['pantry', 'two', 'house', 'settings', 'noticeboard', 'myaccount'];
+const NAV_ICON_COLOR = '#2E0800';
+
+const ICON_SIZE = 19;
+// Increase this number to move every nav icon and the active bubble lower.
+const ICON_VERTICAL_OFFSET = 0;
+const ACTIVE_PILL = {
+  width: 72,
+  height: 54,
+  borderRadius: 27,
 };
 
+const TAB_BAR_HEIGHT = 80;
+
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
   return (
     <Tabs
       safeAreaInsets={{ bottom: 0 }}
-      screenOptions={({ route }) => {
-        const tabActive = TAB_ACTIVE[route.name] ?? TAB_ACTIVE.index;
+      screenOptions={() => {
         return {
-          tabBarActiveTintColor: tabActive,
-          tabBarInactiveTintColor: '#B38D71',
+          tabBarActiveTintColor: NAV_ICON_COLOR,
+          tabBarInactiveTintColor: NAV_ICON_COLOR,
           tabBarStyle: {
             borderTopWidth: 0,
             elevation: 0,
             shadowOpacity: 0,
             position: 'absolute',
             backgroundColor: 'transparent',
-            paddingBottom: insets.bottom,
-            height: 90 + insets.bottom,
-            paddingHorizontal: 30,
+            paddingBottom: 0,
+            height: TAB_BAR_HEIGHT,
+            paddingHorizontal: 34,
           },
           tabBarShowLabel: false,
           tabBarBackground: () => (
@@ -52,10 +55,17 @@ export default function TabLayout() {
             />
           ),
           tabBarItemStyle: {
-            paddingTop: 21,
-            paddingBottom: 18,
+            height: TAB_BAR_HEIGHT,
+            paddingTop: 20,
+            paddingBottom: 20,
             alignItems: 'center',
+            justifyContent: 'center',
             margin: 0,
+          },
+          tabBarIconStyle: {
+            margin: 0,
+            alignItems: 'center',
+            justifyContent: 'center',
           },
           headerShown: false,
         };
@@ -69,10 +79,10 @@ export default function TabLayout() {
             title,
             tabBarIcon: ({ color, focused }) => (
               <View style={[
-                { alignItems: 'center', justifyContent: 'center', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 20 },
+                styles.iconWrap,
                 focused && { backgroundColor: '#FEF3ED' },
               ]}>
-                <Icon width={24} height={24} color={color} />
+                <Icon width={ICON_SIZE} height={ICON_SIZE} color={color} />
               </View>
             ),
           }}
@@ -84,3 +94,12 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    ...ACTIVE_PILL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: ICON_VERTICAL_OFFSET }],
+  },
+});

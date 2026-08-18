@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -11,34 +12,41 @@ import type { Chore } from '@/src/types';
 import { recurrenceLabel } from '@/src/utils/choreSchedule';
 
 const S = {
-  bg: '#FFFBF5',
-  textStrong: '#372B73',
-  border: '#CBC1FA',
-  sectionTitle: '#1A1A1A',
-  sectionBody: '#7A6652',
-  rowBg: '#F7F4F0',
-  rowBorder: '#EDE8E0',
-  meta: '#7A6652',
+  bg: '#FFFFFF',
+  textStrong: '#2E0800',
+  sectionTitle: '#2E0800',
+  sectionBody: '#2E0800',
+  rowBg: '#FBF7F1',
+  rowBorder: '#EDE3DA',
+  recurrence: '#4F8688',
 };
 
 export default function RotationScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close rotation schedule"
-          onPress={() => router.back()}
-          hitSlop={10}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        >
-          <Ionicons name="chevron-back" size={24} color={S.textStrong} />
-        </Pressable>
-        <Text style={styles.title}>Rotation Schedule</Text>
-        <View style={styles.closeButton} />
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#F7D1C2', '#F4E0C8', '#CDE6EA']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+      >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to chores"
+              onPress={() => router.replace('/(tabs)/chores')}
+              hitSlop={10}
+              style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="chevron-back" size={28} color={S.textStrong} />
+            </Pressable>
+            <Text style={styles.title}>Rotation Schedule</Text>
+            <View style={styles.closeButton} />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -47,7 +55,7 @@ export default function RotationScreen() {
         <RotationCard />
         <RecurringChoresSection />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -61,9 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: S.border,
+    paddingVertical: 14,
   },
   closeButton: {
     width: 40,
@@ -74,20 +80,21 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.6 },
   title: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 23,
     color: S.textStrong,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 24,
+    paddingTop: 26,
+    paddingBottom: 40,
   },
   sectionWrap: {
-    marginTop: 22,
+    marginTop: 46,
   },
   sectionTitle: {
-    fontFamily: 'AlbertSans_700Bold',
-    fontSize: 16,
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 18,
     color: S.sectionTitle,
   },
   sectionBody: {
@@ -95,33 +102,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     color: S.sectionBody,
-    marginTop: 6,
+    marginTop: 4,
   },
   sectionList: {
-    marginTop: 14,
-    gap: 10,
+    marginTop: 16,
   },
   choreRow: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: S.rowBorder,
-    backgroundColor: S.rowBg,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
   },
   choreTitle: {
     fontFamily: 'AlbertSans_600SemiBold',
-    fontSize: 14,
+    fontSize: 15,
     color: S.sectionTitle,
   },
   choreMeta: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 12,
-    color: S.meta,
+    color: S.recurrence,
     marginTop: 2,
   },
   assigneeRow: {
-    marginTop: 8,
+    marginTop: 7,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
   assigneeText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 12,
-    color: S.meta,
+    color: S.sectionBody,
   },
   emptyState: {
     marginTop: 40,
@@ -184,11 +186,14 @@ function RecurringChoresSection() {
         </View>
       ) : (
         <View style={styles.sectionList}>
-          {recurring.map((chore) => {
+          {recurring.map((chore, index) => {
             const assignee = memberMap[chore.assignedTo];
             const badgeColor = assignee?.color ?? S.rowBorder;
             return (
-              <View key={chore.id} style={styles.choreRow}>
+              <View
+                key={chore.id}
+                style={[styles.choreRow, index % 2 === 0 && { backgroundColor: S.rowBg }]}
+              >
                 <Text style={styles.choreTitle}>{chore.title}</Text>
                 <Text style={styles.choreMeta}>{recurrenceLabel(chore)}</Text>
                 <View style={styles.assigneeRow}>

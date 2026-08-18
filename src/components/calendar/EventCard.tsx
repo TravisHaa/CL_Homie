@@ -1,5 +1,6 @@
 import { useHouseStore } from "@/src/store/houseStore";
 import type { CalendarEvent } from "@/src/types";
+import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -24,36 +25,38 @@ export function EventCard({ event, onPress }: Props) {
       style={({ pressed }) => [{ flex: 1 }, pressed && onPress && { opacity: 0.75 }]}
     >
       <View style={styles.card}>
-        {/* Title row */}
-        <View style={styles.topRow}>
-          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
-          <View style={styles.duePill}>
-            <Text style={styles.dueText}>Due {format(start, "M/d")}</Text>
-          </View>
+        <View style={styles.iconBubble}>
+          <Ionicons name="calendar-outline" size={22} color="#3B1F0E" />
         </View>
 
-        {/* Assignee row */}
-        {firstAssignee && (
-          <View style={styles.assigneeRow}>
-            {firstAssignee.avatarUrl ? (
-              <Image source={{ uri: firstAssignee.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#6B5E52', justifyContent: 'center', alignItems: 'center' }]}>
-                <Text style={styles.avatarInitial}>
-                  {firstAssignee.displayName.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <Text style={styles.assigneeText}>
-              Assigned to{" "}
-              {assignees.map((m) => m!.displayName).join(", ")}
-            </Text>
-          </View>
-        )}
+        <View style={styles.body}>
+          <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
 
-        {!!event.description && (
-          <Text style={styles.desc}>{event.description}</Text>
-        )}
+          {firstAssignee && (
+            <View style={styles.assigneeRow}>
+              {firstAssignee.avatarUrl ? (
+                <Image source={{ uri: firstAssignee.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: firstAssignee.color ?? '#7B6258' }]}>
+                  <Text style={styles.avatarInitial}>
+                    {firstAssignee.displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.assigneeText} numberOfLines={1}>
+                Assigned to {assignees.map((m) => m!.displayName).join(", ")}
+              </Text>
+            </View>
+          )}
+
+          {!!event.description && (
+            <Text style={styles.desc} numberOfLines={1}>{event.description}</Text>
+          )}
+        </View>
+
+        <View style={styles.duePill}>
+          <Text style={styles.dueText}>Due {format(start, "M/d")}</Text>
+        </View>
       </View>
     </Pressable>
   );
@@ -62,40 +65,40 @@ export function EventCard({ event, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    marginBottom: 8,
+    backgroundColor: "#fff",
+    borderRadius: 32,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    gap: 14,
   },
-  title: { flex: 1, fontSize: 15, fontFamily: 'AlbertSans_600SemiBold', color: "#2D1A0E" },
+  iconBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0E8",
+  },
+  body: { flex: 1, minWidth: 0, gap: 8 },
+  title: { fontSize: 16, fontFamily: 'AlbertSans_600SemiBold', color: '#2E0800' },
   duePill: {
-    backgroundColor: "#C8D8E8",
+    backgroundColor: "#AFCCD8",
     borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
   },
-  dueText: { fontSize: 12, fontFamily: 'AlbertSans_600SemiBold', color: "#4A6A84" },
-  assigneeRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  dueText: { fontSize: 14, fontFamily: 'AlbertSans_600SemiBold', color: "#FFFFFF" },
+  assigneeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   avatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarInitial: { color: "#fff", fontSize: 11, fontFamily: 'AlbertSans_700Bold' },
-  assigneeText: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380" },
-  desc: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380", marginTop: 6, fontStyle: "italic" },
+  assigneeText: { flex: 1, fontSize: 14, fontFamily: 'AlbertSans_400Regular', color: "#8A7068" },
+  desc: { fontSize: 12, fontFamily: 'AlbertSans_400Regular', color: "#9E9380" },
 });

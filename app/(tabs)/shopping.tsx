@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
@@ -71,7 +72,10 @@ export default function ShoppingScreen() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemQty, setNewItemQty] = useState(1);
-  const [newItemDeadline, setNewItemDeadline] = useState<'2' | '4' | '6' | null>('2');
+  const [newItemDeadline, setNewItemDeadline] = useState<'asap' | '2' | '4' | '6' | null>('2');
+  const [newItemPickDayOpen, setNewItemPickDayOpen] = useState(false);
+  const [newItemCalMonth, setNewItemCalMonth] = useState(() => new Date());
+  const [newItemSelectedDate, setNewItemSelectedDate] = useState<Date | null>(null);
   const [newItemAssignee, setNewItemAssignee] = useState<string>('anyone');
 
   // Bought modal
@@ -86,7 +90,7 @@ export default function ShoppingScreen() {
   const openBoughtModal = (item: import('@/src/types').ShoppingItem) => {
     setBoughtItem(item);
     setBoughtCost(item.price ?? '');
-    setBoughtBy('you');
+    setBoughtBy(currentUserId ?? Object.keys(memberMap)[0] ?? '');
     setBoughtBuyerOpen(false);
     setBoughtExpiry(null);
     setBoughtExpiryPickerOpen(false);
@@ -107,10 +111,50 @@ export default function ShoppingScreen() {
     setEditingItem(item);
     setEditName(item.name);
     setEditPrice(item.price ?? '');
-    setEditDeadline('2');
-    setEditAssignee('anyone');
+    setEditDeadline(item.isAsap ? 'asap' : null);
+    setEditAssignee(item.assignedTo ?? 'anyone');
     setEditPickDayOpen(false);
-    setEditSelectedDate(null);
+    setEditSelectedDate(item.isAsap || !item.neededBy ? null : item.neededBy.toDate());
+  };
+
+  const closeNewItemModal = () => {
+    setNewItemModalOpen(false);
+    setNewItemStep(1);
+    setNewItemPickDayOpen(false);
+  };
+
+  const openNewItemModal = () => {
+    setNewItemName('');
+    setNewItemPrice('');
+    setNewItemQty(1);
+    setNewItemStep(1);
+    setNewItemDeadline('2');
+    setNewItemPickDayOpen(false);
+    setNewItemCalMonth(new Date());
+    setNewItemSelectedDate(null);
+    setNewItemAssignee('anyone');
+    setNewItemModalOpen(true);
+  };
+
+  const closeRecurringStep2Modal = () => {
+    setRecurringStep2Open(false);
+    setRecurringStep(1);
+    setRecurringPickDayOpen(false);
+  };
+
+  const closeBoughtModal = () => {
+    setBoughtItem(null);
+    setBoughtBuyerOpen(false);
+    setBoughtExpiryPickerOpen(false);
+  };
+
+  const closeEditModal = () => {
+    setEditingItem(null);
+    setEditPickDayOpen(false);
+  };
+
+  const closeRecurringModal = () => {
+    setRecurringModalOpen(false);
   };
 
   const router = useRouter();
@@ -250,12 +294,38 @@ export default function ShoppingScreen() {
     );
   };
 
+  const renderCalendarPopup = (
+    visible: boolean,
+    onClose: () => void,
+    calMonth: Date,
+    setCalMonth: (d: Date) => void,
+    selectedDate: Date | null,
+    onSelectDate: (d: Date) => void,
+  ) => (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.calendarPopupOverlay}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityLabel="Close calendar"
+        />
+        <View style={styles.calendarPopupContent}>
+          {renderCalendar(calMonth, setCalMonth, selectedDate, onSelectDate)}
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <GridBackground />
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
+        <TouchableOpacity style={styles.homeBackButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2D3436" />
+        </TouchableOpacity>
         <View style={styles.headerTop}>
           <View>
             <Text style={styles.headerTitle}>Shopping List</Text>
@@ -414,7 +484,7 @@ export default function ShoppingScreen() {
             <TouchableOpacity
               style={styles.fabMenuItem}
               activeOpacity={0.8}
-              onPress={() => { setFabMenuOpen(false); setNewItemName(''); setNewItemPrice(''); setNewItemQty(1); setNewItemStep(1); setNewItemDeadline('2'); setNewItemAssignee('anyone'); setNewItemModalOpen(true); }}
+              onPress={() => { setFabMenuOpen(false); openNewItemModal(); }}
             >
               <Text style={styles.fabMenuText}>Add new item</Text>
             </TouchableOpacity>
@@ -428,7 +498,7 @@ export default function ShoppingScreen() {
         onPress={() => setFabMenuOpen((v) => !v)}
         activeOpacity={0.85}
       >
-        <AddButtonSvg width={64} height={64} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       <AddShoppingItemForm ref={formRef} onSubmit={handleAddItem} />
@@ -438,17 +508,19 @@ export default function ShoppingScreen() {
         visible={newItemModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setNewItemModalOpen(false)}
+        onRequestClose={closeNewItemModal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setNewItemModalOpen(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeNewItemModal} />
           <View style={styles.newItemCard}>
             {/* Close */}
             {newItemStep < 3 && (
               <TouchableOpacity
                 style={styles.modalClose}
-                onPress={() => setNewItemModalOpen(false)}
+                onPress={closeNewItemModal}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close add item popup"
               >
                 <Ionicons name="close" size={20} color="#2D3436" />
               </TouchableOpacity>
@@ -542,28 +614,64 @@ export default function ShoppingScreen() {
                 {/* Deadline */}
                 <View style={styles.step2Row}>
                   <Text style={styles.newItemLabel}>Set a deadline</Text>
-                  <Text style={styles.step2Link}>Pick a day</Text>
+                  <TouchableOpacity
+                    onPress={() => setNewItemPickDayOpen((open) => !open)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Pick a specific deadline date"
+                  >
+                    <Text style={[styles.step2Link, newItemPickDayOpen && { color: '#3D6B5E' }]}>Pick a day</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={[styles.newItemPills, { marginBottom: 20 }]}>
-                  {(['2', '4', '6'] as const).map((d) => (
+                <View style={[styles.newItemPills, { flexWrap: 'wrap', marginBottom: newItemPickDayOpen ? 12 : 20 }]}>
+                  {([['asap', 'ASAP'], ['2', 'in 2 days'], ['4', 'in 4 days'], ['6', 'in 6 days']] as const).map(([d, label]) => (
                     <TouchableOpacity
                       key={d}
                       style={[styles.newItemPill, newItemDeadline === d && styles.newItemPillActive]}
-                      onPress={() => setNewItemDeadline(d)}
+                      onPress={() => {
+                        setNewItemDeadline(d);
+                        setNewItemSelectedDate(null);
+                        setNewItemPickDayOpen(false);
+                      }}
                       activeOpacity={0.75}
                     >
                       <Text style={[styles.newItemPillText, newItemDeadline === d && styles.newItemPillTextActive]}>
-                        in {d} days
+                        {label}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  {newItemSelectedDate && (
+                    <TouchableOpacity
+                      style={[styles.newItemPill, styles.newItemPillActive]}
+                      onPress={() => {
+                        setNewItemSelectedDate(null);
+                        setNewItemDeadline('2');
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.newItemPillText, styles.newItemPillTextActive]}>
+                        {newItemSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
+                {renderCalendarPopup(
+                  newItemPickDayOpen,
+                  () => setNewItemPickDayOpen(false),
+                  newItemCalMonth,
+                  setNewItemCalMonth,
+                  newItemSelectedDate,
+                  (date) => {
+                    setNewItemSelectedDate(date);
+                    setNewItemDeadline(null);
+                    setNewItemPickDayOpen(false);
+                  },
+                )}
 
                 {/* Assignee */}
                 <Text style={styles.newItemLabel}>Assign to a housemate</Text>
                 <View style={styles.assigneeGrid}>
                   {[
-                    { id: 'you', label: 'You' },
                     ...Object.entries(memberMap).map(([id, m]) => ({ id, label: m.displayName })),
                     { id: 'anyone', label: 'Anyone' },
                   ].map((person) => {
@@ -609,9 +717,9 @@ export default function ShoppingScreen() {
                         amenities: 'cleaning',
                         furnishing: 'frozen',
                       };
-                      const neededByDate = newItemDeadline
+                      const neededByDate = newItemSelectedDate ?? (newItemDeadline && newItemDeadline !== 'asap'
                         ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(newItemDeadline)); return d; })()
-                        : null;
+                        : null);
                       await addShoppingItem({
                         name: newItemName || 'New item',
                         category: categoryMap[newItemCategory] ?? 'other',
@@ -620,6 +728,7 @@ export default function ShoppingScreen() {
                         price: newItemPrice,
                         assignedTo: newItemAssignee === 'you' ? currentUserId : newItemAssignee,
                         neededBy: neededByDate,
+                        isAsap: newItemDeadline === 'asap',
                       });
                       setNewItemStep(3);
                     }}
@@ -645,9 +754,15 @@ export default function ShoppingScreen() {
                     <View>
                       <Text style={styles.confirmItemName}>{newItemName || 'Item'}</Text>
                       <View style={styles.confirmMeta}>
-                        {newItemDeadline && (
+                        {(newItemDeadline || newItemSelectedDate) && (
                           <View style={styles.confirmDeadlinePill}>
-                            <Text style={styles.confirmDeadlinePillText}>{newItemDeadline} days</Text>
+                            <Text style={styles.confirmDeadlinePillText}>
+                              {newItemDeadline === 'asap'
+                                ? 'ASAP'
+                                : newItemSelectedDate
+                                  ? `by ${newItemSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                  : `${newItemDeadline} days`}
+                            </Text>
                           </View>
                         )}
                         {newItemPrice ? (
@@ -668,7 +783,7 @@ export default function ShoppingScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.modalPrimaryBtn, { flex: 0, marginTop: 20 }]}
+                  style={[styles.confirmReturnButton, { marginTop: 20 }]}
                   onPress={() => setNewItemModalOpen(false)}
                   activeOpacity={0.8}
                 >
@@ -685,12 +800,24 @@ export default function ShoppingScreen() {
         visible={recurringStep2Open}
         transparent
         animationType="fade"
-        onRequestClose={() => setRecurringStep2Open(false)}
+        onRequestClose={closeRecurringStep2Modal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setRecurringStep2Open(false)} />
-          <View style={[styles.modalCard, { backgroundColor: '#FDF6EE' }]}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => { setRecurringStep2Open(false); setRecurringStep(1); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeRecurringStep2Modal} />
+          <LinearGradient
+            colors={['#F5D8D4', '#F4E4DC', '#DCEBE8']}
+            locations={[0, 0.48, 1]}
+            start={{ x: 0.08, y: 0 }}
+            end={{ x: 0.92, y: 1 }}
+            style={[styles.modalCard, styles.recurringGradientCard]}
+          >
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={closeRecurringStep2Modal}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close recurring item popup"
+            >
               <Ionicons name="close" size={20} color="#2D3436" />
             </TouchableOpacity>
 
@@ -699,10 +826,10 @@ export default function ShoppingScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {/* Selected item cards */}
-            <Text style={styles.newItemLabel}>Your item{selectedRecurring.length > 1 ? 's' : ''}</Text>
+            <Text style={[styles.newItemLabel, styles.recurringSectionLabel]}>Your item{selectedRecurring.length > 1 ? 's' : ''}</Text>
             <View style={{ gap: 10, marginBottom: 8 }}>
               {RECURRING_ITEMS.filter((i) => selectedRecurring.includes(i.id)).map((item) => (
-                <View key={item.id} style={styles.recurringS2Card}>
+                <View key={item.id} style={[styles.recurringS2Card, styles.recurringGradientItemCard]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.recurringItemName}>{item.name}</Text>
                     <Text style={styles.recurringItemMeta}>{item.meta}</Text>
@@ -766,7 +893,7 @@ export default function ShoppingScreen() {
 
             {/* Deadline */}
             <View style={styles.step2Row}>
-              <Text style={styles.newItemLabel}>Set a deadline</Text>
+              <Text style={[styles.newItemLabel, styles.recurringSectionLabel]}>Set a deadline</Text>
               <TouchableOpacity onPress={() => setRecurringPickDayOpen((v) => !v)} activeOpacity={0.75}>
                 <Text style={[styles.step2Link, recurringPickDayOpen && { color: '#3D6B5E' }]}>Pick a day</Text>
               </TouchableOpacity>
@@ -775,7 +902,7 @@ export default function ShoppingScreen() {
               {([['asap', 'ASAP'], ['2', 'in 2 days'], ['4', 'in 4 days'], ['6', 'in 6 days']] as const).map(([val, label]) => (
                 <TouchableOpacity
                   key={val}
-                  style={[styles.newItemPill, recurringDeadline === val && styles.newItemPillActive]}
+                  style={[styles.newItemPill, styles.recurringChoicePill, recurringDeadline === val && styles.newItemPillActive]}
                   onPress={() => { setRecurringDeadline(val); setRecurringSelectedDate(null); setRecurringPickDayOpen(false); }}
                   activeOpacity={0.75}
                 >
@@ -783,14 +910,16 @@ export default function ShoppingScreen() {
                 </TouchableOpacity>
               ))}
               {recurringSelectedDate && (
-                <TouchableOpacity style={[styles.newItemPill, styles.newItemPillActive]} activeOpacity={0.75} onPress={() => { setRecurringSelectedDate(null); setRecurringDeadline('2'); }}>
+                <TouchableOpacity style={[styles.newItemPill, styles.recurringChoicePill, styles.newItemPillActive]} activeOpacity={0.75} onPress={() => { setRecurringSelectedDate(null); setRecurringDeadline('2'); }}>
                   <Text style={[styles.newItemPillText, styles.newItemPillTextActive]}>
-                    {recurringSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {recurringSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (custom)
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
-            {recurringPickDayOpen && renderCalendar(
+            {renderCalendarPopup(
+              recurringPickDayOpen,
+              () => setRecurringPickDayOpen(false),
               recurringCalMonth,
               setRecurringCalMonth,
               recurringSelectedDate,
@@ -798,10 +927,9 @@ export default function ShoppingScreen() {
             )}
 
             {/* Assignee */}
-            <Text style={styles.newItemLabel}>Assign to a housemate</Text>
+            <Text style={[styles.newItemLabel, styles.recurringSectionLabel]}>Assign to a housemate</Text>
             <View style={styles.assigneeGrid}>
               {[
-                { id: 'you', label: 'You' },
                 ...Object.entries(memberMap).map(([id, m]) => ({ id, label: m.displayName })),
                 { id: 'anyone', label: 'Anyone' },
               ].map((person) => {
@@ -810,7 +938,7 @@ export default function ShoppingScreen() {
                 return (
                   <TouchableOpacity
                     key={person.id}
-                    style={[styles.assigneePill, active && styles.newItemPillActive]}
+                    style={[styles.assigneePill, styles.recurringAssigneePill, active && styles.newItemPillActive]}
                     onPress={() => setRecurringAssignee(person.id)}
                     activeOpacity={0.75}
                   >
@@ -825,12 +953,12 @@ export default function ShoppingScreen() {
 
             </ScrollView>
 
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider, styles.recurringFooterDivider]} />
 
-            <View style={styles.modalActions}>
+            <View style={[styles.modalActions, styles.recurringModalActions]}>
               <TouchableOpacity
                 style={styles.modalSecondaryBtn}
-                onPress={() => { setRecurringStep2Open(false); setNewItemName(''); setNewItemPrice(''); setNewItemQty(1); setNewItemStep(1); setNewItemModalOpen(true); }}
+                onPress={() => { setRecurringStep2Open(false); openNewItemModal(); }}
                 activeOpacity={0.75}
               >
                 <Text style={styles.modalSecondaryBtnText}>New item</Text>
@@ -843,7 +971,19 @@ export default function ShoppingScreen() {
                   for (const item of selectedItems) {
                     const name = keepPriceAndName ? item.name : (recurringOverrides[item.id]?.name ?? item.name);
                     const price = keepPriceAndName ? item.price : (recurringOverrides[item.id]?.price ?? item.price);
-                    await addShoppingItem({ name, category: 'other', quantity: 1, unit: 'unit', price, assignedTo: recurringAssignee === 'you' ? currentUserId : recurringAssignee });
+                    const neededBy = recurringSelectedDate ?? (recurringDeadline && recurringDeadline !== 'asap'
+                      ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(recurringDeadline)); return d; })()
+                      : null);
+                    await addShoppingItem({
+                      name,
+                      category: 'other',
+                      quantity: 1,
+                      unit: 'unit',
+                      price,
+                      assignedTo: recurringAssignee === 'you' ? currentUserId : recurringAssignee,
+                      neededBy,
+                      isAsap: recurringDeadline === 'asap',
+                    });
                   }
                   setRecurringStep(2);
                 }}
@@ -911,7 +1051,7 @@ export default function ShoppingScreen() {
                   </View>
                   <View style={styles.modalDivider} />
                   <TouchableOpacity
-                    style={[styles.modalPrimaryBtn, { flex: 0, backgroundColor: '#3D6B5E' }]}
+                    style={[styles.confirmReturnButton, { backgroundColor: '#3D6B5E' }]}
                     onPress={() => { setRecurringStep2Open(false); setRecurringStep(1); }}
                     activeOpacity={0.8}
                   >
@@ -920,7 +1060,7 @@ export default function ShoppingScreen() {
                 </>
               );
             })()}
-          </View>
+          </LinearGradient>
         </View>
       </Modal>
 
@@ -929,12 +1069,18 @@ export default function ShoppingScreen() {
         visible={!!boughtItem}
         transparent
         animationType="fade"
-        onRequestClose={() => setBoughtItem(null)}
+        onRequestClose={closeBoughtModal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setBoughtItem(null)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeBoughtModal} />
           <View style={[styles.modalCard, { backgroundColor: '#FDF6EE' }]}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setBoughtItem(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={closeBoughtModal}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close purchase popup"
+            >
               <Ionicons name="close" size={20} color="#2D3436" />
             </TouchableOpacity>
 
@@ -975,13 +1121,13 @@ export default function ShoppingScreen() {
                 activeOpacity={0.75}
               >
                 <Text style={styles.boughtDropdownText}>
-                  {boughtBy === 'you' ? 'You' : (memberMap[boughtBy]?.displayName ?? boughtBy)}
+                  {memberMap[boughtBy]?.displayName ?? 'Select a housemate'}
                 </Text>
                 <Ionicons name={boughtBuyerOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#2D3436" />
               </TouchableOpacity>
               {boughtBuyerOpen && (
                 <View style={styles.boughtDropdownList}>
-                  {[{ id: 'you', label: 'You' }, ...Object.entries(memberMap).map(([id, m]) => ({ id, label: m.displayName }))].map((p) => (
+                  {Object.entries(memberMap).map(([id, member]) => ({ id, label: member.displayName })).map((p) => (
                     <TouchableOpacity
                       key={p.id}
                       style={styles.boughtDropdownItem}
@@ -1010,7 +1156,9 @@ export default function ShoppingScreen() {
                 </Text>
                 <Ionicons name="calendar-outline" size={18} color="#2D3436" />
               </TouchableOpacity>
-              {boughtExpiryPickerOpen && renderCalendar(
+              {renderCalendarPopup(
+                boughtExpiryPickerOpen,
+                () => setBoughtExpiryPickerOpen(false),
                 boughtExpiryCalMonth,
                 setBoughtExpiryCalMonth,
                 boughtExpiry,
@@ -1046,12 +1194,18 @@ export default function ShoppingScreen() {
         visible={!!editingItem}
         transparent
         animationType="fade"
-        onRequestClose={() => setEditingItem(null)}
+        onRequestClose={closeEditModal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setEditingItem(null)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeEditModal} />
           <View style={[styles.modalCard, { backgroundColor: '#FDF6EE' }]}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setEditingItem(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              style={styles.modalClose}
+              onPress={closeEditModal}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close edit item popup"
+            >
               <Ionicons name="close" size={20} color="#2D3436" />
             </TouchableOpacity>
 
@@ -1118,7 +1272,9 @@ export default function ShoppingScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-              {editPickDayOpen && renderCalendar(
+              {renderCalendarPopup(
+                editPickDayOpen,
+                () => setEditPickDayOpen(false),
                 editCalMonth,
                 setEditCalMonth,
                 editSelectedDate,
@@ -1129,7 +1285,6 @@ export default function ShoppingScreen() {
               <Text style={styles.newItemLabel}>Assign to a housemate</Text>
               <View style={styles.assigneeGrid}>
                 {[
-                  { id: 'you', label: 'You' },
                   ...Object.entries(memberMap).map(([id, m]) => ({ id, label: m.displayName })),
                   { id: 'anyone', label: 'Anyone' },
                 ].map((person) => {
@@ -1162,7 +1317,16 @@ export default function ShoppingScreen() {
                 style={styles.modalPrimaryBtn}
                 onPress={async () => {
                   if (!editingItem) return;
-                  await updateShoppingItem(editingItem.id, { name: editName, price: editPrice });
+                  const neededBy = editSelectedDate ?? (editDeadline && editDeadline !== 'asap'
+                    ? (() => { const d = new Date(); d.setDate(d.getDate() + parseInt(editDeadline)); return d; })()
+                    : null);
+                  await updateShoppingItem(editingItem.id, {
+                    name: editName,
+                    price: editPrice,
+                    assignedTo: editAssignee === 'you' ? currentUserId : editAssignee,
+                    neededBy,
+                    isAsap: editDeadline === 'asap',
+                  });
                   setEditingItem(null);
                 }}
                 activeOpacity={0.8}
@@ -1179,16 +1343,18 @@ export default function ShoppingScreen() {
         visible={recurringModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setRecurringModalOpen(false)}
+        onRequestClose={closeRecurringModal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setRecurringModalOpen(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeRecurringModal} />
           <View style={styles.modalCard}>
             {/* Close */}
             <TouchableOpacity
               style={styles.modalClose}
-              onPress={() => setRecurringModalOpen(false)}
+              onPress={closeRecurringModal}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close recurring items popup"
             >
               <Ionicons name="close" size={20} color="#2D3436" />
             </TouchableOpacity>
@@ -1227,7 +1393,7 @@ export default function ShoppingScreen() {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalSecondaryBtn}
-                onPress={() => { setRecurringModalOpen(false); setNewItemName(''); setNewItemPrice(''); setNewItemQty(1); setNewItemStep(1); setNewItemDeadline('2'); setNewItemAssignee('anyone'); setNewItemModalOpen(true); }}
+                onPress={() => { setRecurringModalOpen(false); openNewItemModal(); }}
                 activeOpacity={0.75}
               >
                 <Text style={styles.modalSecondaryBtnText}>New item</Text>
@@ -1262,6 +1428,12 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 12,
   },
+  homeBackButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
+  },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1271,7 +1443,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     fontFamily: 'GowunBatang_700Bold',
-    color: '#2D3436',
+    color: '#2E0800',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
@@ -1294,7 +1466,7 @@ const styles = StyleSheet.create({
   pantryBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   pillsRow: {
     flexDirection: 'row',
@@ -1319,7 +1491,7 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   pillTextActive: {
     color: '#fff',
@@ -1393,7 +1565,7 @@ const styles = StyleSheet.create({
   categoryLabelFeatured: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 13,
-    color: '#000',
+    color: '#2E0800',
     paddingVertical: 6,
   },
 
@@ -1437,7 +1609,7 @@ const styles = StyleSheet.create({
   purchasedLabel: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 13,
-    color: '#000',
+    color: '#2E0800',
   },
   clearAllBtn: {
     fontFamily: 'AlbertSans_500Medium',
@@ -1557,7 +1729,7 @@ const styles = StyleSheet.create({
   fabMenuText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 16,
-    color: '#2D3436',
+    color: '#2E0800',
   },
 
   // ── Recurring modal ───────────────────────────────────────────────────────
@@ -1578,13 +1750,20 @@ const styles = StyleSheet.create({
   },
   modalClose: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 10,
+    right: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+    elevation: 10,
   },
   modalTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 6,
     paddingRight: 24,
@@ -1617,7 +1796,7 @@ const styles = StyleSheet.create({
   recurringItemName: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 16,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   recurringItemMeta: {
     fontFamily: 'AlbertSans_400Regular',
@@ -1666,7 +1845,7 @@ const styles = StyleSheet.create({
   modalSecondaryBtnText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   modalPrimaryBtn: {
     flex: 2,
@@ -1693,7 +1872,7 @@ const styles = StyleSheet.create({
   newItemTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 20,
     marginTop: 4,
@@ -1701,7 +1880,7 @@ const styles = StyleSheet.create({
   newItemLabel: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 8,
   },
   newItemLabelMeta: {
@@ -1729,7 +1908,7 @@ const styles = StyleSheet.create({
   newItemPillText: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemPillTextActive: {
     color: '#fff',
@@ -1743,7 +1922,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 16,
   },
   newItemPriceRow: {
@@ -1755,7 +1934,7 @@ const styles = StyleSheet.create({
   newItemDollar: {
     fontFamily: 'AlbertSans_500Medium',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemQtyRow: {
     flexDirection: 'row',
@@ -1771,7 +1950,7 @@ const styles = StyleSheet.create({
   newItemQtyText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   newItemQtyControls: {
     gap: 2,
@@ -1822,10 +2001,25 @@ const styles = StyleSheet.create({
   recurringS2Title: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 20,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 16,
     marginTop: 4,
     paddingRight: 24,
+  },
+  recurringGradientCard: {
+    maxHeight: '88%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#3B1F0E',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  recurringSectionLabel: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 15,
+    color: '#2E0800',
   },
   recurringS2Card: {
     flexDirection: 'row',
@@ -1836,6 +2030,19 @@ const styles = StyleSheet.create({
     borderColor: '#DFE6E9',
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  recurringGradientItemCard: {
+    borderColor: '#4E7B78',
+    borderWidth: 1.25,
+    borderRadius: 20,
+  },
+  recurringChoicePill: {
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  recurringAssigneePill: {
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   recurringS2Change: {
     fontFamily: 'AlbertSans_600SemiBold',
@@ -1861,12 +2068,19 @@ const styles = StyleSheet.create({
   },
   recurringS2CheckboxOn: {
     backgroundColor: '#3D6B5E',
-    borderColor: '#3D6B5E',
+    borderColor: '#E39A55',
   },
   recurringS2CheckLabel: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
     color: '#636e72',
+  },
+  recurringFooterDivider: {
+    borderBottomColor: 'rgba(59,31,14,0.28)',
+    marginTop: 18,
+  },
+  recurringModalActions: {
+    paddingHorizontal: 24,
   },
 
   // ── Bought modal inputs ───────────────────────────────────────────────────
@@ -1895,7 +2109,7 @@ const styles = StyleSheet.create({
   boughtDropdownText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   boughtDropdownList: {
     backgroundColor: '#fff',
@@ -1924,6 +2138,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
+  calendarPopupOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(46, 8, 0, 0.22)',
+  },
+  calendarPopupContent: {
+    width: '100%',
+    maxWidth: 420,
+  },
   calHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1934,7 +2159,7 @@ const styles = StyleSheet.create({
   calHeaderText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 14,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   calRow: {
     flexDirection: 'row',
@@ -1962,7 +2187,7 @@ const styles = StyleSheet.create({
   calCellText: {
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   calCellTextMuted: {
     color: '#C4C4C4',
@@ -1986,7 +2211,7 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontFamily: 'GowunBatang_700Bold',
     fontSize: 20,
-    color: '#2D3436',
+    color: '#2E0800',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 28,
@@ -2017,7 +2242,7 @@ const styles = StyleSheet.create({
   confirmItemName: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 4,
   },
   confirmMeta: {
@@ -2061,5 +2286,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmReturnButton: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 999,
+    backgroundColor: '#2D1A0E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    flexGrow: 0,
+    flexShrink: 0,
   },
 });

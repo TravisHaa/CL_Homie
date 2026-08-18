@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: 'AlbertSans_700Bold',
     fontSize: 15,
-    color: '#2D1A0E',
+    color: '#2E0800',
     marginBottom: 3,
   },
   expiry: {

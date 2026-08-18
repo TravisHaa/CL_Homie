@@ -23,11 +23,11 @@ import { nextMondayDate } from '@/src/utils/weekKey';
 
 const S = {
   cardBg: '#FFFFFF',
-  cardBorder: '#EDE8E0',
-  textStrong: '#1A1A1A',
-  textSoft: '#7A6652',
-  pillBg: '#F7F4F0',
-  saveBg: '#2B1B15',
+  cardBorder: '#EDE3DA',
+  textStrong: '#2E0800',
+  textSoft: '#2E0800',
+  pillBg: '#4F8688',
+  saveBg: '#2E0800',
   saveText: '#FFFFFF',
 };
 
@@ -191,25 +191,46 @@ export function RotationCard() {
           </View>
         )}
 
-        {editing ? (
-          items.length > 0 && (
-            <View style={styles.draggableWrap}>
-              <DraggableFlatList
-                horizontal
-                data={items}
-                keyExtractor={(item) => item.id}
-                onDragEnd={({ data }) => setLocalOrder(data.map((d) => d.id))}
-                activationDistance={8}
-                contentContainerStyle={styles.draggableContent}
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item, drag, isActive }: RenderItemParams<MemberItem>) => (
-                  <ScaleDecorator>
-                    <Pressable
-                      onLongPress={drag}
-                      delayLongPress={150}
-                      disabled={isActive}
-                      style={[styles.dragCard, isActive && styles.dragCardActive]}
-                    >
+        <View style={styles.rotationTrack}>
+          {editing ? (
+            items.length > 0 && (
+              <View style={styles.draggableWrap}>
+                <DraggableFlatList
+                  horizontal
+                  data={items}
+                  keyExtractor={(item) => item.id}
+                  onDragEnd={({ data }) => setLocalOrder(data.map((d) => d.id))}
+                  activationDistance={8}
+                  contentContainerStyle={styles.draggableContent}
+                  showsHorizontalScrollIndicator={false}
+                  renderItem={({ item, drag, isActive }: RenderItemParams<MemberItem>) => (
+                    <ScaleDecorator>
+                      <Pressable
+                        onLongPress={drag}
+                        delayLongPress={150}
+                        disabled={isActive}
+                        style={[styles.dragCard, isActive && styles.dragCardActive]}
+                      >
+                        {item.avatarUrl ? (
+                          <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
+                        ) : (
+                          <View style={[styles.avatar, { backgroundColor: item.color }]}>
+                            <Text style={styles.avatarText}>{initialOf(item.name)}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.avatarName} numberOfLines={1}>{item.name}</Text>
+                      </Pressable>
+                    </ScaleDecorator>
+                  )}
+                />
+              </View>
+            )
+          ) : (
+            items.length > 0 && (
+              <View style={[styles.avatarsRow, !enabled && styles.dimmed]}>
+                {items.map((item, idx) => (
+                  <View key={item.id} style={styles.avatarGroup}>
+                    <View style={styles.avatarColumn}>
                       {item.avatarUrl ? (
                         <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
                       ) : (
@@ -217,45 +238,17 @@ export function RotationCard() {
                           <Text style={styles.avatarText}>{initialOf(item.name)}</Text>
                         </View>
                       )}
-                      <Text style={styles.avatarName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                    </Pressable>
-                  </ScaleDecorator>
-                )}
-              />
-            </View>
-          )
-        ) : (
-          items.length > 0 && (
-            <View style={[styles.avatarsRow, !enabled && styles.dimmed]}>
-              {items.map((item, idx) => (
-                <View key={item.id} style={styles.avatarGroup}>
-                  <View style={styles.avatarColumn}>
-                    {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
-                    ) : (
-                      <View style={[styles.avatar, { backgroundColor: item.color }]}>
-                        <Text style={styles.avatarText}>{initialOf(item.name)}</Text>
-                      </View>
+                      <Text style={styles.avatarName} numberOfLines={1}>{item.name}</Text>
+                    </View>
+                    {idx < items.length - 1 && (
+                      <Ionicons name="arrow-forward" size={18} color={S.textStrong} style={styles.arrow} />
                     )}
-                    <Text style={styles.avatarName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
                   </View>
-                  {idx < items.length - 1 && (
-                    <Ionicons
-                      name="arrow-forward"
-                      size={16}
-                      color={S.textSoft}
-                      style={styles.arrow}
-                    />
-                  )}
-                </View>
-              ))}
-            </View>
-          )
-        )}
+                ))}
+              </View>
+            )
+          )}
+        </View>
       </View>
 
       {editing && (
@@ -295,27 +288,17 @@ export function RotationCard() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: S.cardBg,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: S.cardBorder,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    backgroundColor: 'transparent',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 6,
   },
   heading: {
-    fontFamily: 'AlbertSans_700Bold',
-    fontSize: 15,
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 18,
     color: S.textStrong,
   },
   iconButton: { padding: 4 },
@@ -330,21 +313,27 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: S.pillBg,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: S.cardBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 5,
+    marginBottom: 16,
   },
   pillText: {
-    fontFamily: 'AlbertSans_600SemiBold',
-    fontSize: 12,
-    color: S.textSoft,
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  rotationTrack: {
+    minHeight: 112,
+    justifyContent: 'center',
+    backgroundColor: '#F0E4DA',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   avatarsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   dimmed: { opacity: 0.5 },
   avatarGroup: {
@@ -353,12 +342,22 @@ const styles = StyleSheet.create({
   },
   avatarColumn: {
     alignItems: 'center',
-    width: 56,
+    width: 60,
+    borderRadius: 14,
+    backgroundColor: S.cardBg,
+    paddingHorizontal: 5,
+    paddingTop: 9,
+    paddingBottom: 8,
+    shadowColor: '#2E0800',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -371,12 +370,12 @@ const styles = StyleSheet.create({
   avatarName: {
     marginTop: 4,
     fontFamily: 'AlbertSans_400Regular',
-    fontSize: 11,
-    color: S.textSoft,
+    fontSize: 12,
+    color: S.textStrong,
   },
-  arrow: { marginHorizontal: 2 },
+  arrow: { marginHorizontal: 1 },
   draggableWrap: {
-    marginHorizontal: -4,
+    marginHorizontal: -8,
   },
   draggableContent: {
     paddingHorizontal: 4,
@@ -393,7 +392,7 @@ const styles = StyleSheet.create({
     borderColor: S.cardBorder,
     alignItems: 'center',
     marginRight: 10,
-    shadowColor: '#000',
+    shadowColor: '#2E0800',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -405,13 +404,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveButton: {
-    marginTop: 16,
+    marginTop: 22,
     backgroundColor: S.saveBg,
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 44,
   },
   saveButtonPressed: { opacity: 0.85 },
   saveButtonDisabled: { opacity: 0.6 },

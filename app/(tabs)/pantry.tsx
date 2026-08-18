@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,8 +19,7 @@ import { BarcodeScannerModal } from '@/src/components/pantry/BarcodeScannerModal
 import type { PantryItem } from '@/src/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import PantryBg from '@/assets/images/Pantry-bg.svg';
-import AddButtonSvg from '@/assets/images/Add-Button.svg';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 
 const P = {
   alertBg: '#FFF1D5',
@@ -79,7 +79,7 @@ function PantryContent() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/shopping')} hitSlop={12}>
           <Ionicons name="close" size={22} color="#2E0800" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -94,7 +94,11 @@ function PantryContent() {
 
       {/* Content */}
       <View style={styles.contentArea}>
-        <PantryBg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} preserveAspectRatio="xMidYMid slice" />
+        <Image
+          source={require('@/assets/images/Pantry-bg-asset.jpg')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
         {isLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#2D3436" />
@@ -131,7 +135,7 @@ function PantryContent() {
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => setFabMenuOpen((v) => !v)} activeOpacity={0.8}>
-        <AddButtonSvg width={64} height={64} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       {/* Barcode scanner */}
@@ -267,6 +271,6 @@ const styles = StyleSheet.create({
   menuBtnText: {
     fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
 });

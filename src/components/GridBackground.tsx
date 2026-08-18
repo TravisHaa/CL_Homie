@@ -1,6 +1,6 @@
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
-const GRID_COLOR = '#EDEAC2';
+const GRID_COLOR = '#E8E0BF';
 const SPACING = 32;
 
 export function GridBackground() {

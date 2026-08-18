@@ -52,13 +52,13 @@ export default function HomeChoiceScreen() {
                 accessibilityLabel="Join a Home"
                 style={({ pressed }) => [
                   styles.optionCard,
-                  styles.optionCardMuted,
+                  styles.optionCardActive,
                   pressed && styles.optionPressed,
                 ]}
                 onPress={() => router.push('/(auth)/join-house')}
               >
-                <FontAwesome name="home" size={18} color={PALETTE.inkFaint} />
-                <Text style={styles.optionTextMuted}>Join a Home</Text>
+                <FontAwesome name="home" size={18} color={PALETTE.ink} />
+                <Text style={styles.optionText}>Join a Home</Text>
               </Pressable>
 
               <Pressable
