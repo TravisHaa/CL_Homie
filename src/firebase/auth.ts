@@ -37,9 +37,7 @@ export async function signUp(
     houseId: null,
     color,
     createdAt: serverTimestamp(),
-  } as any).catch((err) => {
-    console.warn('[Auth] profile write after signUp failed:', err);
-  });
+  } as any);
 
   return credential.user;
 }
