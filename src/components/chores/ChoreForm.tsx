@@ -8,11 +8,11 @@ import {
     BottomSheetModal,
     BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import React, { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { AssignmentTile } from './AssignmentTile';
 import { MonthDayPicker } from './MonthDayPicker';
 import { RecurrenceDropdown } from './RecurrenceDropdown';
@@ -67,7 +67,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    const webDateInputRef = React.useRef<HTMLInputElement>(null);
 
     // `assignedTo` is seeded from `memberIds[0]` at mount. If the house store
     // hadn't hydrated yet (rare but possible right after login), `memberIds`
@@ -99,8 +98,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
     const showCustomBlock = recurrence === 'custom';
     const showDueDatePicker = recurrence === 'once';
     const supportsAutoRotate = recurrence !== 'once';
-    const requiresMemberPick = !supportsAutoRotate || !autoRotate;
-
     const toggleCustomDay = (idx: number) => {
       setCustomDays((prev) =>
         prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort()
@@ -129,8 +126,8 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         Alert.alert('No members', 'Join a house before adding chores.');
         return;
       }
-      if (requiresMemberPick && !assignedTo) {
-        Alert.alert('Pick a member', 'Choose who this chore goes to, or enable auto-rotate.');
+      if (!assignedTo) {
+        Alert.alert('Pick a member', 'Choose who should start with this chore.');
         return;
       }
       if (recurrence === 'custom') {
@@ -149,9 +146,9 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
         title: title.trim(),
         recurrence,
         autoRotate: supportsAutoRotate ? autoRotate : false,
-        // When auto-rotate is on, leave assignedTo empty so useChores seeds it
-        // deterministically using house.rotationOffset.
-        assignedTo: requiresMemberPick ? assignedTo : undefined,
+        // For auto-rotate chores this is the starting person; the rollover
+        // function advances from them through the household rotation order.
+        assignedTo,
         dayOfWeek: recurrence === 'weekly' ? dayOfWeek : null,
         dayOfMonth: recurrence === 'monthly' ? dayOfMonth : null,
         customRecurrence:
@@ -328,108 +325,60 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           {showDueDatePicker && (
             <>
               <Text style={styles.label}>Due Date (Optional)</Text>
+              <TouchableOpacity
+                style={styles.datePill}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="calendar-outline" size={15} color={CHORE_THEME.text} />
+                <Text style={styles.datePillText}>
+                  {dueDate ? format(dueDate, 'EEEE, MMM. d') : 'Select a date'}
+                </Text>
+                {dueDate && (
+                  <TouchableOpacity onPress={() => setDueDate(null)} hitSlop={8} style={{ marginLeft: 'auto' }}>
+                    <Ionicons name="close-circle" size={16} color={CHORE_THEME.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
 
-              {Platform.OS === 'web' ? (
-                <View style={styles.datePickerContainer}>
-                  <View style={styles.dateButton}>
-                    <div
-                      onClick={() => webDateInputRef.current?.showPicker?.()}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        cursor: 'pointer',
-                        zIndex: 1,
-                      }}
-                    />
-                    <input
-                      ref={webDateInputRef}
-                      type="date"
-                      value={dueDate ? format(dueDate, 'yyyy-MM-dd') : ''}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          const [year, month, day] = e.target.value.split('-').map(Number);
-                          setDueDate(new Date(year, month - 1, day));
-                        } else {
-                          setDueDate(null);
-                        }
-                      }}
-                      onFocus={() => {
-                        setTimeout(() => {
-                          webDateInputRef.current?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'center',
-                          });
-                        }, 100);
-                      }}
-                      style={{
-                        width: '100%',
-                        border: 'none',
-                        background: 'transparent',
-                        fontSize: 16,
-                        color: CHORE_THEME.text,
-                        outline: 'none',
-                        padding: 0,
-                        position: 'relative',
-                        zIndex: 0,
-                      }}
-                    />
-                  </View>
-                  {dueDate && (
-                    <TouchableOpacity
-                      style={styles.clearButton}
-                      onPress={() => setDueDate(null)}
-                    >
-                      <Text style={styles.clearButtonText}>Clear</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <>
-                  <View style={styles.datePickerContainer}>
-                    <TouchableOpacity
-                      style={styles.dateButton}
-                      onPress={() => setShowDatePicker(true)}
-                    >
-                      <Text style={styles.dateButtonText}>
-                        {dueDate ? dueDate.toLocaleDateString() : 'Select date'}
-                      </Text>
-                    </TouchableOpacity>
-                    {dueDate && (
-                      <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={() => setDueDate(null)}
-                      >
-                        <Text style={styles.clearButtonText}>Clear</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={dueDate || new Date()}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(event, selectedDate) => {
+              <Modal visible={showDatePicker} transparent animationType="fade">
+                <Pressable style={styles.calOverlay} onPress={() => setShowDatePicker(false)}>
+                  <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
+                    <Calendar
+                      current={dueDate ? format(dueDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')}
+                      markedDates={dueDate ? { [format(dueDate, 'yyyy-MM-dd')]: { selected: true, selectedColor: CHORE_THEME.accent } } : {}}
+                      onDayPress={(day: { dateString: string }) => {
+                        const [y, m, d] = day.dateString.split('-').map(Number);
+                        setDueDate(new Date(y, m - 1, d));
                         setShowDatePicker(false);
-                        if (selectedDate) {
-                          setDueDate(selectedDate);
-                        }
+                      }}
+                      theme={{
+                        backgroundColor: '#FDFAF7',
+                        calendarBackground: '#FDFAF7',
+                        todayTextColor: CHORE_THEME.accent,
+                        selectedDayBackgroundColor: CHORE_THEME.accent,
+                        selectedDayTextColor: '#fff',
+                        arrowColor: CHORE_THEME.text,
+                        textDayFontFamily: 'AlbertSans_400Regular',
+                        textMonthFontFamily: 'AlbertSans_700Bold',
+                        textDayHeaderFontFamily: 'AlbertSans_600SemiBold',
+                        textDayFontSize: 14,
+                        textMonthFontSize: 16,
+                        textDayHeaderFontSize: 12,
                       }}
                     />
-                  )}
-                </>
-              )}
+                  </Pressable>
+                </Pressable>
+              </Modal>
             </>
           )}
 
           {/* Assignment */}
-          <Text style={styles.label}>Assignment</Text>
+          <Text style={styles.label}>{autoRotate ? 'Starts with' : 'Assignment'}</Text>
           <View style={styles.assignmentRow}>
             {memberIds.map((uid) => {
               const m = memberMap[uid];
-              const active = !autoRotate && assignedTo === uid;
+              const active = assignedTo === uid;
               return (
                 <AssignmentTile
                   key={uid}
@@ -437,10 +386,7 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
                   initial={initialOf(m.displayName)}
                   color={m.color}
                   selected={active}
-                  onPress={() => {
-                    setAutoRotate(false);
-                    setAssignedTo(uid);
-                  }}
+                  onPress={() => setAssignedTo(uid)}
                 />
               );
             })}
@@ -453,6 +399,11 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
               />
             )}
           </View>
+          {autoRotate && (
+            <Text style={[styles.summary, { marginTop: 8 }]}>
+              {memberMap[assignedTo]?.displayName ?? 'The selected housemate'} starts, then this chore follows your rotation order.
+            </Text>
+          )}
 
           {/* Footer actions */}
           <View style={styles.footerRow}>
@@ -497,8 +448,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heading: {
+    fontFamily: 'GowunBatang_700Bold',
     fontSize: 22,
-    fontWeight: '800',
     color: CHORE_THEME.text,
   },
   headerDivider: {
@@ -508,8 +459,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: {
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 12,
-    fontWeight: '700',
     color: CHORE_THEME.textMuted,
     marginBottom: 8,
     marginTop: 18,
@@ -517,18 +468,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   subLabel: {
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 12,
-    fontWeight: '600',
     color: CHORE_THEME.textMuted,
     marginBottom: 8,
   },
   input: {
+    fontFamily: 'AlbertSans_400Regular',
     borderWidth: 1,
     borderColor: CHORE_THEME.hairline,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    fontSize: 16,
+    fontSize: 15,
     color: CHORE_THEME.text,
     backgroundColor: CHORE_THEME.cardBg,
   },
@@ -559,8 +511,8 @@ const styles = StyleSheet.create({
     borderColor: CHORE_THEME.accent,
   },
   dayChipText: {
+    fontFamily: 'AlbertSans_600SemiBold',
     fontSize: 13,
-    fontWeight: '600',
     color: CHORE_THEME.text,
   },
   dayChipTextActive: {
@@ -583,16 +535,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperButtonText: {
+    fontFamily: 'AlbertSans_700Bold',
     fontSize: 20,
-    fontWeight: '700',
     color: CHORE_THEME.text,
     lineHeight: 22,
   },
   stepperValue: {
+    fontFamily: 'AlbertSans_700Bold',
     minWidth: 36,
     textAlign: 'center',
     fontSize: 18,
-    fontWeight: '700',
     color: CHORE_THEME.text,
   },
   unitGroup: {
@@ -613,49 +565,54 @@ const styles = StyleSheet.create({
     borderColor: CHORE_THEME.accent,
   },
   unitChipText: {
+    fontFamily: 'AlbertSans_500Medium',
     fontSize: 14,
     color: CHORE_THEME.text,
-    fontWeight: '500',
   },
   unitChipTextActive: {
+    fontFamily: 'AlbertSans_700Bold',
     color: CHORE_THEME.onAccent,
-    fontWeight: '700',
   },
-  datePickerContainer: {
+  datePill: {
     flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
-  },
-  dateButton: {
-    flex: 1,
+    gap: 8,
     borderWidth: 1,
     borderColor: CHORE_THEME.hairline,
     borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: CHORE_THEME.cardBg,
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: CHORE_THEME.text,
-  },
-  clearButton: {
-    paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: CHORE_THEME.hairline,
     backgroundColor: CHORE_THEME.cardBg,
   },
-  clearButtonText: {
+  datePillText: {
+    fontFamily: 'AlbertSans_400Regular',
     fontSize: 14,
     color: CHORE_THEME.text,
-    fontWeight: '600',
+    flex: 1,
+  },
+  calOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  calCard: {
+    backgroundColor: '#FDFAF7',
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: 360,
   },
   assignmentRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  summary: {
+    color: CHORE_THEME.textMuted,
+    fontSize: 13,
+    marginBottom: 8,
   },
   footerRow: {
     flexDirection: 'row',
@@ -672,8 +629,8 @@ const styles = StyleSheet.create({
     backgroundColor: CHORE_THEME.cardBg,
   },
   outlineButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
     color: CHORE_THEME.text,
-    fontWeight: '600',
     fontSize: 14,
   },
   primaryButton: {
@@ -687,8 +644,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
+    fontFamily: 'AlbertSans_700Bold',
     color: CHORE_THEME.onAccent,
     fontSize: 15,
-    fontWeight: '700',
   },
 });
