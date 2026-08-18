@@ -155,9 +155,7 @@ export default function SettingsScreen() {
         <Text style={styles.profileSectionLabel}>My account</Text>
         <Pressable
           style={styles.profileCard}
-          // myaccount.tsx lands in the next commit of this port; route-types
-          // regenerate once that file exists.
-          onPress={() => router.push('/(tabs)/myaccount' as Parameters<typeof router.push>[0])}
+          onPress={() => router.push('/(tabs)/myaccount')}
           android_ripple={{ color: '#eee' }}
         >
           <View style={styles.profileAvatar}>
