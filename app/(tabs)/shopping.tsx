@@ -1,3 +1,4 @@
+import { GridBackground } from '@/src/components/GridBackground';
 import { useRef, useState } from 'react';
 import {
   View,
@@ -9,55 +10,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import BottomSheet from '@gorhom/bottom-sheet';
+import { useRouter } from 'expo-router';
 import { useShoppingList } from '@/src/hooks/useShoppingList';
 import { useHouseStore } from '@/src/store/houseStore';
+import { useAuthStore } from '@/src/store/authStore';
 import { ShoppingItemRow } from '@/src/components/shopping/ShoppingItemRow';
 import { AddShoppingItemForm } from '@/src/components/shopping/AddShoppingItemForm';
 import { SHOPPING_CATEGORIES } from '@/src/utils/categories';
 import type { AddItemInput } from '@/src/hooks/useShoppingList';
+import type { ShoppingCategory } from '@/src/utils/categories';
 
 // ─── design tokens ────────────────────────────────────────────────────────────
 const R = {
-  paper:       '#FFF3E5',
-  paperDark:   '#FCE8D2',
-  border:      '#E9CBAA',
-  dashed:      '#CCAD8C',
-  textHdr:     '#5A2D18',
-  textBody:    '#70412A',
-  textMute:    '#9B6A4C',
-  textDone:    '#C9A58A',
-  doneBg:      '#FDE7D3',
-  receiptEdge: '#F0D3B5',
-  fab:         '#C15B2A',
+  textMute: '#9B6A4C',
+  dashed: '#CCAD8C',
 };
-
-// Decorative barcode strip
-function Barcode() {
-  const bars = [3,1,2,1,3,1,1,2,3,1,2,1,1,3,2,1,3,1,2,1,1,2,3,1];
-  return (
-    <View style={styles.barcodeWrap}>
-      <View style={styles.barcodeStrips}>
-        {bars.map((w, i) => (
-          <View
-            key={i}
-            style={[
-              styles.barcodeBar,
-              {
-                width: w * 2,
-                backgroundColor: i % 2 === 0 ? R.textHdr : R.paper,
-              },
-            ]}
-          />
-        ))}
-      </View>
-      <Text style={styles.barcodeNum}>
-        {format(new Date(), 'yyyyMMdd')}-HOMIE
-      </Text>
-    </View>
-  );
-}
 
 // Dashed horizontal rule
 function DashedRule({ style }: { style?: object }) {
@@ -68,154 +37,172 @@ export default function ShoppingScreen() {
   const { items, isLoading, addShoppingItem, toggleShoppingItem, clearChecked } =
     useShoppingList();
   const { memberMap } = useHouseStore();
+  const currentUserId = useAuthStore((s) => s.userProfile?.id);
   const formRef = useRef<BottomSheet>(null);
-  const [cartExpanded, setCartExpanded] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<ShoppingCategory | null>(null);
+  const [foodGroupActive, setFoodGroupActive] = useState(false);
+
+  const router = useRouter();
+
+  const FOOD_CATEGORIES: ShoppingCategory[] = ['produce', 'dairy', 'meat', 'snacks', 'beverages', 'condiments', 'grains'];
+
+  const CATEGORY_LABELS: Partial<Record<ShoppingCategory, string>> = {
+    cleaning: 'Amenities',
+    frozen: 'Furniture',
+  };
 
   const unchecked = items.filter((i) => !i.isChecked);
   const checked   = items.filter((i) => i.isChecked);
 
-  const sections = SHOPPING_CATEGORIES
+  const allSections = SHOPPING_CATEGORIES
     .map((cat) => ({ category: cat, data: unchecked.filter((i) => i.category === cat) }))
     .filter((s) => s.data.length > 0);
+
+  const availableCategories = allSections.map((s) => s.category).filter((c) => c !== 'other' && c !== 'produce');
+
+  const filteredUnchecked = activeCategory
+    ? unchecked.filter((i) => i.category === activeCategory)
+    : foodGroupActive
+    ? unchecked.filter((i) => FOOD_CATEGORIES.includes(i.category as any))
+    : unchecked;
+
+  const handleFoodGroup = () => {
+    setFoodGroupActive((v) => !v);
+    setActiveCategory(null);
+  };
+
+  const handleCategoryPill = (cat: ShoppingCategory) => {
+    setActiveCategory((prev) => (prev === cat ? null : cat));
+    setFoodGroupActive(false);
+  };
 
   const handleAddItem = async (data: AddItemInput) => {
     await addShoppingItem(data);
     formRef.current?.close();
   };
 
-  const now = new Date();
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <GridBackground />
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.homeBackButton} onPress={() => router.replace('/(tabs)')} hitSlop={10} accessibilityLabel="Back to home">
+          <Ionicons name="chevron-back" size={22} color="#2D3436" />
+        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Shopping List</Text>
+            <Text style={styles.headerSubtitle}>Items to purchase</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.pantryBtn}
+            onPress={() => router.push('/(tabs)/pantry')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="file-tray-stacked-outline" size={15} color="#2D3436" />
+            <Text style={styles.pantryBtnText}>See pantry</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Category pills ──────────────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsRow}
+        >
+          <TouchableOpacity
+            style={[styles.pill, foodGroupActive && styles.pillActive]}
+            onPress={handleFoodGroup}
+            activeOpacity={0.75}
+          >
+            <Ionicons
+              name="bag-handle-outline"
+              size={13}
+              color={foodGroupActive ? '#fff' : '#2D3436'}
+            />
+            <Text style={[styles.pillText, foodGroupActive && styles.pillTextActive]}>
+              Food
+            </Text>
+          </TouchableOpacity>
+
+          {availableCategories.map((cat) => {
+            const active = activeCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.pill, active && styles.pillActive]}
+                onPress={() => handleCategoryPill(cat)}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name="bag-handle-outline"
+                  size={13}
+                  color={active ? '#fff' : '#2D3436'}
+                />
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                  {CATEGORY_LABELS[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Receipt paper ─────────────────────────────────────────────── */}
-        <View style={styles.receipt}>
-
-          {/* ── Receipt header ──────────────────────────────────────────── */}
-          <View style={styles.receiptHeader}>
-            <Text style={styles.storeName}>HOMIE MARKET</Text>
-            <Text style={styles.storeTagline}>shared household · all locations</Text>
-            <DashedRule style={{ marginTop: 10 }} />
-            <View style={styles.receiptMeta}>
-              <Text style={styles.receiptMetaText}>
-                {format(now, 'MM/dd/yyyy  HH:mm')}
-              </Text>
-              <Text style={styles.receiptMetaText}>
-                TXN #{format(now, 'MMdd')}-LIST
-              </Text>
-            </View>
-            <DashedRule />
-          </View>
-
           {isLoading ? (
             <ActivityIndicator color={R.textMute} style={{ marginVertical: 40 }} />
           ) : (
             <>
-              {/* ── Line items by category ──────────────────────────────── */}
-              {sections.length === 0 && checked.length === 0 ? (
+              {/* ── Line items ───────────────────────────────────────────── */}
+              {filteredUnchecked.length === 0 && checked.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>- LIST IS EMPTY -</Text>
                   <Text style={styles.emptyHint}>tap + to add items</Text>
                 </View>
               ) : (
-                sections.map(({ category, data }, idx) => (
-                  <View key={category}>
-                    {/* Category header */}
-                    <Text style={styles.categoryLabel}>{category}</Text>
-
-                    {/* Items */}
-                    {data.map((item) => (
-                      <ShoppingItemRow
-                        key={item.id}
-                        item={item}
-                        memberMap={memberMap}
-                        onToggle={toggleShoppingItem}
-                      />
-                    ))}
-
-                    {/* Category subtotal */}
-                    <View style={styles.subtotalRow}>
-                      <Text style={styles.subtotalLabel}>
-                        {category.toUpperCase()} SUBTOTAL
-                      </Text>
-                      <Text style={styles.subtotalValue}>{data.length} QTY</Text>
+                filteredUnchecked.length > 0 && (
+                  <>
+                    <Text style={styles.categoryLabelFeatured}>To purchase</Text>
+                    <View style={styles.itemsBackdrop}>
+                      {filteredUnchecked.map((item) => (
+                        <ShoppingItemRow key={item.id} item={item} memberMap={memberMap} currentUserId={currentUserId} onToggle={toggleShoppingItem} />
+                      ))}
                     </View>
-
-                    {idx < sections.length - 1 && <DashedRule />}
-                  </View>
-                ))
+                  </>
+                )
               )}
 
-              {/* ── In cart section ─────────────────────────────────────── */}
+              {/* ── Purchased section ───────────────────────────────────── */}
               {checked.length > 0 && (
                 <>
                   <DashedRule />
-                  <TouchableOpacity
-                    style={styles.cartToggleRow}
-                    onPress={() => setCartExpanded((v) => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.categoryLabel}>IN CART</Text>
-                    <View style={styles.cartToggleRight}>
-                      <Text style={styles.subtotalValue}>{checked.length} QTY</Text>
-                      <Ionicons
-                        name={cartExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={13}
-                        color={R.textMute}
-                        style={{ marginLeft: 6 }}
-                      />
-                    </View>
-                  </TouchableOpacity>
+                  <View style={styles.cartToggleRow}>
+                    <Text style={styles.purchasedLabel}>{checked.length} items purchased this week</Text>
+                    <TouchableOpacity onPress={clearChecked} activeOpacity={0.7}>
+                      <Text style={styles.clearAllBtn}>Clear all</Text>
+                    </TouchableOpacity>
+                  </View>
 
-                  {cartExpanded && checked.map((item) => (
+                  {checked.map((item) => (
                     <ShoppingItemRow
                       key={item.id}
                       item={item}
                       memberMap={memberMap}
                       onToggle={toggleShoppingItem}
+                      currentUserId={currentUserId}
                     />
                   ))}
-                </>
-              )}
-
-              {/* ── Receipt total ────────────────────────────────────────── */}
-              <DashedRule style={{ marginTop: 8 }} />
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>ITEMS REMAINING</Text>
-                <Text style={styles.totalValue}>{unchecked.length}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>IN CART</Text>
-                <Text style={styles.totalValue}>{checked.length}</Text>
-              </View>
-
-              {checked.length > 0 && (
-                <>
-                  <DashedRule style={{ marginVertical: 8 }} />
-                  <TouchableOpacity
-                    onPress={clearChecked}
-                    style={styles.clearBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.clearBtnText}>CLEAR CART  ×</Text>
-                  </TouchableOpacity>
                 </>
               )}
             </>
           )}
 
-          {/* ── Bottom decoratives ──────────────────────────────────────── */}
-          <DashedRule style={{ marginTop: 20 }} />
-          <Text style={styles.thankYou}>THANK YOU FOR SHOPPING</Text>
-          <Text style={styles.tagline}>* HOMIE — HOUSEHOLD MADE EASY *</Text>
-          <Barcode />
-        </View>
-
-        <View style={{ height: 100 }} />
+        <View style={{ height: 180 }} />
       </ScrollView>
 
       {/* ── FAB ─────────────────────────────────────────────────────────── */}
@@ -224,7 +211,7 @@ export default function ShoppingScreen() {
         onPress={() => formRef.current?.expand()}
         activeOpacity={0.85}
       >
-        <Ionicons name="add" size={26} color={R.paper} />
+        <AddButtonIcon size={64} />
       </TouchableOpacity>
 
       <AddShoppingItemForm ref={formRef} onSubmit={handleAddItem} />
@@ -233,55 +220,84 @@ export default function ShoppingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: R.paperDark },
+  safe:   { flex: 1, backgroundColor: '#FCF5EE' },
   scroll: { flex: 1 },
-  scrollContent: { padding: 12, paddingTop: 8 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 8 },
 
-  // ── Receipt paper ──────────────────────────────────────────────────────────
-  receipt: {
-    backgroundColor: R.paper,
-    borderRadius: 2,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderWidth: 1,
-    borderColor: R.border,
-    shadowColor: '#9D552F',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+  // ── Header ────────────────────────────────────────────────────────────────
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 64,
+    paddingBottom: 8,
+    gap: 12,
   },
-
-  // ── Receipt header ─────────────────────────────────────────────────────────
-  receiptHeader: { alignItems: 'center', marginBottom: 4 },
-  storeName: {
-    fontFamily: 'SpaceMono',
-    fontSize: 20,
-    fontWeight: '900',
-    color: R.textHdr,
-    letterSpacing: 4,
-    textAlign: 'center',
+  homeBackButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
   },
-  storeTagline: {
-    fontFamily: 'SpaceMono',
-    fontSize: 9,
-    color: R.textMute,
-    letterSpacing: 1.5,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  receiptMeta: {
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 4,
+    alignItems: 'flex-start',
   },
-  receiptMetaText: {
-    fontFamily: 'SpaceMono',
-    fontSize: 9,
-    color: R.textMute,
-    letterSpacing: 0.5,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    fontFamily: 'GowunBatang_700Bold',
+    color: '#2E0800',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontFamily: 'AlbertSans_400Regular',
+    color: '#636e72',
+    marginTop: 2,
+  },
+  pantryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  pantryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2E0800',
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DFE6E9',
+  },
+  pillActive: {
+    backgroundColor: '#3D6B5E',
+    borderColor: '#3D6B5E',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2E0800',
+  },
+  pillTextActive: {
+    color: '#fff',
   },
 
   // ── Dashed rule ────────────────────────────────────────────────────────────
@@ -293,35 +309,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Category label ─────────────────────────────────────────────────────────
-  categoryLabel: {
-    fontFamily: 'SpaceMono',
-    fontSize: 9,
-    fontWeight: '700',
-    color: R.textMute,
-    letterSpacing: 2.5,
-    textTransform: 'uppercase',
+  categoryLabelFeatured: {
+    fontFamily: 'GowunBatang_700Bold',
+    fontSize: 13,
+    color: '#2E0800',
     paddingVertical: 6,
-  },
-
-  // ── Subtotal row ───────────────────────────────────────────────────────────
-  subtotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-    marginTop: 2,
-  },
-  subtotalLabel: {
-    fontFamily: 'SpaceMono',
-    fontSize: 8,
-    color: R.textMute,
-    letterSpacing: 1.5,
-  },
-  subtotalValue: {
-    fontFamily: 'SpaceMono',
-    fontSize: 8,
-    color: R.textMute,
-    letterSpacing: 1,
   },
 
   // ── Cart toggle ────────────────────────────────────────────────────────────
@@ -330,38 +322,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  cartToggleRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  itemsBackdrop: {
+    backgroundColor: 'rgba(210, 210, 210, 0.2)',
+    borderRadius: 20,
+    padding: 8,
+    marginBottom: 4,
   },
-
-  // ── Total section ──────────────────────────────────────────────────────────
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
+  purchasedLabel: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 13,
+    color: '#2E0800',
   },
-  totalLabel: {
-    fontFamily: 'SpaceMono',
-    fontSize: 11,
-    fontWeight: '700',
-    color: R.textBody,
-    letterSpacing: 1,
-  },
-  totalValue: {
-    fontFamily: 'SpaceMono',
-    fontSize: 11,
-    fontWeight: '700',
-    color: R.textBody,
-  },
-
-  // ── Clear cart ─────────────────────────────────────────────────────────────
-  clearBtn: { alignItems: 'center', paddingVertical: 6 },
-  clearBtnText: {
-    fontFamily: 'SpaceMono',
-    fontSize: 10,
-    color: R.textMute,
-    letterSpacing: 2,
+  clearAllBtn: {
+    fontFamily: 'AlbertSans_500Medium',
+    fontSize: 13,
+    color: '#C0392B',
   },
 
   // ── Empty state ────────────────────────────────────────────────────────────
@@ -380,56 +355,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // ── Receipt footer ─────────────────────────────────────────────────────────
-  thankYou: {
-    fontFamily: 'SpaceMono',
-    fontSize: 10,
-    color: R.textMute,
-    letterSpacing: 2.5,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  tagline: {
-    fontFamily: 'SpaceMono',
-    fontSize: 8,
-    color: R.dashed,
-    letterSpacing: 1.5,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 12,
-  },
-
-  // ── Barcode ────────────────────────────────────────────────────────────────
-  barcodeWrap: { alignItems: 'center', marginTop: 8 },
-  barcodeStrips: {
-    flexDirection: 'row',
-    height: 36,
-    alignItems: 'stretch',
-  },
-  barcodeBar: { height: '100%' },
-  barcodeNum: {
-    fontFamily: 'SpaceMono',
-    fontSize: 7,
-    color: R.textMute,
-    letterSpacing: 1,
-    marginTop: 4,
-  },
-
-  // ── FAB ────────────────────────────────────────────────────────────────────
+  // ── FAB ─────────────────────────────────────────────────────────────────
   fab: {
     position: 'absolute',
-    bottom: 28,
-    right: 24,
-    width: 52,
-    height: 52,
-    borderRadius: 2,
-    backgroundColor: R.fab,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    bottom: 110,
+    right: 20,
   },
 });
