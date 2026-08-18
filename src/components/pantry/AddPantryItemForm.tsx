@@ -29,6 +29,7 @@ import { lookupBarcode } from '@/src/services/openFoodFacts';
 
 interface Props {
   onAdd: (input: AddPantryItemInput) => Promise<void>;
+  initialBarcode?: string | null;
 }
 
 const INITIAL_STATE = {
@@ -41,7 +42,7 @@ const INITIAL_STATE = {
 };
 
 export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
-  ({ onAdd }, ref) => {
+  ({ onAdd, initialBarcode }, ref) => {
     const snapPoints = useMemo(() => ['70%', '92%'], []);
     // BottomSheetTextInput relies on a native focus API that is missing on react-native-web.
     const SheetInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
@@ -50,6 +51,10 @@ export const AddPantryItemForm = forwardRef<BottomSheetModal, Props>(
     const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
     const [scannerVisible, setScannerVisible] = useState(false);
     const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle');
+
+    useEffect(() => {
+      if (initialBarcode) setScannedBarcode(initialBarcode);
+    }, [initialBarcode]);
 
     useEffect(() => {
       if (!scannedBarcode) {
@@ -312,7 +317,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#2D3436',
+    color: '#2E0800',
     marginBottom: 20,
   },
   labelRow: {
@@ -323,7 +328,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
     marginTop: 14,
     marginBottom: 6,
   },
@@ -336,7 +341,7 @@ const styles = StyleSheet.create({
   scanBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2D3436',
+    color: '#2E0800',
   },
   barcodeChip: {
     flexDirection: 'row',
@@ -380,7 +385,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#2D3436',
+    color: '#2E0800',
   },
   row: {
     flexDirection: 'row',
