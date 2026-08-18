@@ -123,12 +123,8 @@ const choreStyles = StyleSheet.create({
 
 // ────────────────────────────────────────────────────────────────────
 export default function CalendarScreen() {
-<<<<<<< HEAD
-  const { events, isLoading: eventsLoading, addEvent, updateEvent, deleteEvent } = useCalendarEvents();
-=======
   const router = useRouter();
-  const { events, isLoading: eventsLoading, addEvent, updateEvent } = useCalendarEvents();
->>>>>>> origin/ui_changes
+  const { events, isLoading: eventsLoading, addEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { chores, isLoading: choresLoading } = useChores();
   const formRef = useRef<BottomSheetModal>(null);
   const filterBtnRef = useRef<View>(null);

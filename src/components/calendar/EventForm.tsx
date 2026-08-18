@@ -238,10 +238,10 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
         >
           {/* Header */}
           <View style={styles.headerRow}>
-<<<<<<< HEAD
-            <Text style={styles.heading}>
-              🎉  {event ? 'Edit Event' : 'New Event'}
-            </Text>
+            <View style={styles.headingRow}>
+              <PartyIcon width={24} height={24} />
+              <Text style={styles.heading}>{event ? 'Edit Event' : 'New Event'}</Text>
+            </View>
             <View style={styles.headerActions}>
               {event && onDelete && (
                 <TouchableOpacity onPress={handleDelete} hitSlop={12} activeOpacity={0.7}>
@@ -252,15 +252,6 @@ export const EventForm = forwardRef<BottomSheetModal, Props>(
                 <Ionicons name="close" size={22} color="#3B1F0E" />
               </TouchableOpacity>
             </View>
-=======
-            <View style={styles.headingRow}>
-              <PartyIcon width={24} height={24} />
-              <Text style={styles.heading}>{event ? 'Edit Event' : 'New Event'}</Text>
-            </View>
-            <TouchableOpacity onPress={dismiss} hitSlop={12} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#3B1F0E" />
-            </TouchableOpacity>
->>>>>>> origin/ui_changes
           </View>
           <View style={styles.headerDivider} />
 
@@ -395,17 +386,10 @@ const styles = StyleSheet.create({
 
   // Header
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-<<<<<<< HEAD
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  heading: { fontSize: 22, fontWeight: '700', color: '#3B1F0E' },
-
-  // Dotted divider
-  dottedDivider: { height: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#C4B5E0', marginHorizontal: 0 },
-=======
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heading: { fontFamily: 'GowunBatang_700Bold', fontSize: 22, color: CHORE_THEME.text },
   headerDivider: { height: 1, backgroundColor: CHORE_THEME.hairline, marginTop: 10, marginBottom: 4 },
->>>>>>> origin/ui_changes
 
   // Form
   scrollView: { flex: 1 },
