@@ -2,7 +2,11 @@ import { Timestamp } from 'firebase/firestore';
 
 export interface User {
   id: string;
-  email: string;
+  // Nullable: phone-authenticated users have no email. Always non-null for
+  // accounts created via email/password signup.
+  email: string | null;
+  // E.164 (e.g. "+15551234567"); only set for phone-authenticated users.
+  phoneNumber?: string | null;
   displayName: string;
   avatarUrl: string | null;
   houseId: string | null;

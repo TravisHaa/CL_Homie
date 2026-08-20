@@ -101,7 +101,18 @@ function AuthGate() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!firebaseUser) {
+    // A phone-only Firebase session with no Homie profile is either mid
+    // rejection (confirmPhoneLogin is deleting/signing it back out — see
+    // src/firebase/auth.ts) or genuinely orphaned. Either way it must not be
+    // routed into house setup, which would let a failed "login" attempt
+    // silently complete as a signup.
+    const isUnresolvedPhoneSession =
+      !!firebaseUser &&
+      !userProfile &&
+      firebaseUser.providerData.length > 0 &&
+      firebaseUser.providerData.every((p) => p.providerId === 'phone');
+
+    if (!firebaseUser || isUnresolvedPhoneSession) {
       if (!inAuthGroup) router.replace('/(auth)/signup');
     } else if (!userProfile?.houseId) {
       const onHouseSetupScreen =

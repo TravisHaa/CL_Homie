@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ImageBackground,
   KeyboardAvoidingView,
@@ -13,10 +13,20 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import type { RecaptchaVerifier } from 'firebase/auth';
 
+import {
+  createRecaptchaVerifier,
+  getPhoneAuthErrorMessage,
+  isPhoneAuthSupported,
+  startPhoneVerification,
+  toE164,
+} from '@/src/firebase/auth';
+import { setPendingPhoneConfirmation } from '@/src/firebase/phoneAuthSession';
 import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
+const RECAPTCHA_CONTAINER_ID = 'recaptcha-container-phone-number';
 
 function formatPhoneNumber(digits: string) {
   if (digits.length <= 3) return digits;
@@ -33,6 +43,9 @@ export default function PhoneNumberScreen() {
   const [phoneDigits, setPhoneDigits] = useState(() =>
     phone.replace(/\D/g, '').slice(-10)
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const verifierRef = useRef<RecaptchaVerifier | null>(null);
   const isComplete = phoneDigits.length === 10;
   const formattedNumber = useMemo(
     () => formatPhoneNumber(phoneDigits),
@@ -43,6 +56,7 @@ export default function PhoneNumberScreen() {
     let digits = value.replace(/\D/g, '');
     if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
     setPhoneDigits(digits.slice(0, 10));
+    if (error) setError('');
   }
 
   function goBack() {
@@ -53,11 +67,42 @@ export default function PhoneNumberScreen() {
     router.replace(destination as Href);
   }
 
-  function continueToVerification() {
-    if (!isComplete) return;
-    router.push(
-      `/(auth)/verify-phone?flow=${flow === 'login' ? 'login' : 'signup'}&phone=${phoneDigits}` as Href
-    );
+  async function continueToVerification() {
+    console.log('[PhoneAuth] continueToVerification pressed', { isComplete, isSubmitting });
+    if (!isComplete || isSubmitting) return;
+    setError('');
+
+    if (!isPhoneAuthSupported()) {
+      console.log('[PhoneAuth] platform unsupported');
+      setError(
+        'Phone sign-in isn’t available in this preview build yet — try the web version, or use email.'
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    const currentFlow = flow === 'login' ? 'login' : 'signup';
+    try {
+      const phoneE164 = toE164(phoneDigits);
+      console.log('[PhoneAuth] starting verification for', phoneE164);
+      verifierRef.current?.clear();
+      const verifier = createRecaptchaVerifier(RECAPTCHA_CONTAINER_ID);
+      console.log('[PhoneAuth] recaptcha verifier created');
+      verifierRef.current = verifier;
+      const confirmation = await startPhoneVerification(phoneE164, verifier);
+      console.log('[PhoneAuth] signInWithPhoneNumber resolved, navigating');
+      setPendingPhoneConfirmation(confirmation);
+      router.push(
+        `/(auth)/verify-phone?flow=${currentFlow}&phone=${phoneDigits}` as Href
+      );
+    } catch (err) {
+      console.error('[PhoneAuth] verification failed:', err);
+      verifierRef.current?.clear();
+      verifierRef.current = null;
+      setError(getPhoneAuthErrorMessage(err));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -104,20 +149,27 @@ export default function PhoneNumberScreen() {
               />
               <Text style={styles.suffix}>)</Text>
             </View>
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
+
+          {/* Invisible reCAPTCHA mount point — web only, required by Firebase's ApplicationVerifier. */}
+          <View nativeID={RECAPTCHA_CONTAINER_ID} />
 
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: !isComplete }}
-            disabled={!isComplete}
+            accessibilityState={{ disabled: !isComplete || isSubmitting }}
+            disabled={!isComplete || isSubmitting}
             onPress={continueToVerification}
             style={({ pressed }) => [
               styles.continueButton,
-              !isComplete && styles.continueButtonDisabled,
+              (!isComplete || isSubmitting) && styles.continueButtonDisabled,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.continueText}>Continue</Text>
+            <Text style={styles.continueText}>
+              {isSubmitting ? 'Sending…' : 'Continue'}
+            </Text>
           </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -198,6 +250,13 @@ const styles = StyleSheet.create({
     color: PALETTE.ink,
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 18,
+  },
+  errorText: {
+    color: PALETTE.error,
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    marginTop: 14,
+    textAlign: 'center',
   },
   continueButton: {
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { type Href, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ImageBackground,
   KeyboardAvoidingView,
@@ -13,36 +13,137 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import type { RecaptchaVerifier } from 'firebase/auth';
 
+import {
+  confirmPhoneLogin,
+  confirmPhoneSignUp,
+  createRecaptchaVerifier,
+  getPhoneAuthErrorMessage,
+  isPhoneAuthSupported,
+  PhoneAuthNoAccountError,
+  startPhoneVerification,
+  toE164,
+} from '@/src/firebase/auth';
+import {
+  clearPendingPhoneConfirmation,
+  getPendingPhoneConfirmation,
+  setPendingPhoneConfirmation,
+} from '@/src/firebase/phoneAuthSession';
 import { PALETTE } from '@/src/theme/palette';
 
 const bg = require('@/assets/images/phoneBG.png');
 const CODE_LENGTH = 6;
+const RECAPTCHA_CONTAINER_ID = 'recaptcha-container-verify-phone';
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function VerifyPhoneScreen() {
   const { flow, phone = '' } = useLocalSearchParams<{
     flow?: 'login' | 'signup';
     phone?: string;
   }>();
+  const currentFlow = flow === 'login' ? 'login' : 'signup';
   const { width, height } = useWindowDimensions();
   const [code, setCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [error, setError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const verifierRef = useRef<RecaptchaVerifier | null>(null);
   const isComplete = code.length === CODE_LENGTH;
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // If there's no in-flight verification session (e.g. the page was
+  // reloaded on web, losing in-memory state), silently re-send a code so
+  // the screen isn't a dead end.
+  useEffect(() => {
+    if (!getPendingPhoneConfirmation() && phone) {
+      void sendCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function updateCode(value: string) {
     setCode(value.replace(/\D/g, '').slice(0, CODE_LENGTH));
+    if (error) setError('');
   }
 
   function goBackToPhoneNumber() {
-    const currentFlow = flow === 'login' ? 'login' : 'signup';
     router.replace(
       `/(auth)/phone-number?flow=${currentFlow}&phone=${phone}` as Href
     );
   }
 
-  function continueAfterVerification() {
-    const destination =
-      flow === 'login' ? '/(tabs)' : '/(auth)/home-choice';
-    router.replace(destination as Href);
+  async function sendCode() {
+    setError('');
+    if (!isPhoneAuthSupported()) {
+      setError(
+        'Phone sign-in isn’t available in this preview build yet — try the web version, or use email.'
+      );
+      return;
+    }
+    try {
+      const phoneE164 = toE164(phone);
+      verifierRef.current?.clear();
+      const verifier = createRecaptchaVerifier(RECAPTCHA_CONTAINER_ID);
+      verifierRef.current = verifier;
+      const confirmation = await startPhoneVerification(phoneE164, verifier);
+      setPendingPhoneConfirmation(confirmation);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (err) {
+      setError(getPhoneAuthErrorMessage(err));
+    }
+  }
+
+  async function handleResend() {
+    if (isResending || isVerifying || resendCooldown > 0) return;
+    setIsResending(true);
+    setCode('');
+    await sendCode();
+    setIsResending(false);
+  }
+
+  async function continueAfterVerification() {
+    if (!isComplete || isVerifying) return;
+    setError('');
+
+    const confirmation = getPendingPhoneConfirmation();
+    if (!confirmation) {
+      setError('Your verification session expired. Requesting a new code…');
+      void sendCode();
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      if (currentFlow === 'signup') {
+        await confirmPhoneSignUp(confirmation, code, toE164(phone));
+        clearPendingPhoneConfirmation();
+        router.replace('/(auth)/home-choice');
+      } else {
+        await confirmPhoneLogin(confirmation, code);
+        clearPendingPhoneConfirmation();
+        // AuthGate routes based on the now-populated profile/houseId.
+      }
+    } catch (err) {
+      // A successful confirm() that we then rejected for business reasons
+      // (no matching account) has already consumed the verification —
+      // retrying the same code won't work, so force a fresh send instead.
+      if (err instanceof PhoneAuthNoAccountError) {
+        clearPendingPhoneConfirmation();
+      }
+      setError(getPhoneAuthErrorMessage(err));
+      setCode('');
+    } finally {
+      setIsVerifying(false);
+    }
   }
 
   return (
@@ -88,31 +189,51 @@ export default function VerifyPhoneScreen() {
               value={code}
             />
 
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
             <View style={styles.resendRow}>
               <Text style={styles.resendPrompt}>Didn’t receive the code? </Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Resend code"
+                accessibilityState={{ disabled: resendCooldown > 0 || isResending }}
+                disabled={resendCooldown > 0 || isResending}
                 hitSlop={8}
-                onPress={() => setCode('')}
+                onPress={handleResend}
               >
-                <Text style={styles.resendLink}>Resend code.</Text>
+                <Text
+                  style={[
+                    styles.resendLink,
+                    (resendCooldown > 0 || isResending) && styles.resendLinkDisabled,
+                  ]}
+                >
+                  {isResending
+                    ? 'Sending…'
+                    : resendCooldown > 0
+                      ? `Resend code (${resendCooldown}s)`
+                      : 'Resend code.'}
+                </Text>
               </Pressable>
             </View>
           </View>
 
+          {/* Invisible reCAPTCHA mount point — web only, required by Firebase's ApplicationVerifier. */}
+          <View nativeID={RECAPTCHA_CONTAINER_ID} />
+
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: !isComplete }}
-            disabled={!isComplete}
+            accessibilityState={{ disabled: !isComplete || isVerifying }}
+            disabled={!isComplete || isVerifying}
             onPress={continueAfterVerification}
             style={({ pressed }) => [
               styles.continueButton,
-              !isComplete && styles.continueButtonDisabled,
+              (!isComplete || isVerifying) && styles.continueButtonDisabled,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.continueText}>Continue</Text>
+            <Text style={styles.continueText}>
+              {isVerifying ? 'Verifying…' : 'Continue'}
+            </Text>
           </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -194,6 +315,16 @@ const styles = StyleSheet.create({
     color: PALETTE.coral,
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
+  },
+  resendLinkDisabled: {
+    color: PALETTE.inkFaint,
+  },
+  errorText: {
+    color: PALETTE.error,
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 13,
+    marginTop: 14,
+    textAlign: 'center',
   },
   continueButton: {
     alignItems: 'center',
