@@ -8,7 +8,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Link, router } from 'expo-router';
+import { type Href, Link, router } from 'expo-router';
 
 import { PALETTE } from '@/src/theme/palette';
 
@@ -37,14 +37,14 @@ export default function SignupScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               style={styles.button}
-              onPress={() => router.push('/(auth)/setup-account')}
+              onPress={() => router.push('/(auth)/create-account-options' as Href)}
             >
               <Text style={styles.buttonText}>Get started</Text>
             </TouchableOpacity>
 
             <Text style={styles.loginText}>
               I already have an account.{' '}
-              <Link href="/(auth)/login" style={styles.loginLink}>
+              <Link href={'/(auth)/sign-in-options' as Href} style={styles.loginLink}>
                 Log in.
               </Link>
             </Text>

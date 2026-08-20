@@ -1,7 +1,7 @@
 import { signIn } from '@/src/firebase/auth';
 import { PALETTE } from '@/src/theme/palette';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
+import { type Href, Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -64,7 +64,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             accessibilityLabel="Go back"
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(auth)/sign-in-options' as Href)}
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
