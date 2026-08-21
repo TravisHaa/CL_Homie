@@ -17,7 +17,6 @@ export function useAuthListener() {
     let unsubMembers: (() => void) | undefined;
 
     const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log('[Auth] onAuthStateChanged fired, uid=', firebaseUser?.uid ?? 'null');
       // Clean up previous subscriptions on auth change
       unsubProfile?.();
       unsubHouse?.();
@@ -36,11 +35,9 @@ export function useAuthListener() {
       unsubProfile = onSnapshot(
         userDoc(firebaseUser.uid),
         async (snap) => {
-          console.log('[Auth] profile snapshot fired, exists=', snap.exists());
           try {
             if (snap.exists()) {
               const profile = snap.data();
-              console.log('[Auth] profile loaded, houseId=', profile.houseId);
               setUserProfile(profile);
 
               if (profile.houseId) {
@@ -49,7 +46,6 @@ export function useAuthListener() {
                 unsubHouse = onSnapshot(
                   houseDoc(profile.houseId),
                   (houseSnap) => {
-                    console.log('[Auth] house snapshot, exists=', houseSnap.exists());
                     if (houseSnap.exists()) setHouse(houseSnap.data());
                   },
                   (err) => {
@@ -68,7 +64,6 @@ export function useAuthListener() {
                 unsubMembers = onSnapshot(
                   membersQ,
                   (membersSnap) => {
-                    console.log('[Auth] members snapshot, count=', membersSnap.size);
                     setMemberMap(membersSnap.docs.map((d) => d.data()));
                   },
                   (err) => {
@@ -90,7 +85,6 @@ export function useAuthListener() {
                 setMemberMap([]);
               }
             } else {
-              console.log('[Auth] no profile doc — creating one');
               const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
               await setDoc(userDoc(firebaseUser.uid), {
                 id: firebaseUser.uid,
@@ -101,13 +95,11 @@ export function useAuthListener() {
                 color,
                 createdAt: serverTimestamp(),
               } as any);
-              console.log('[Auth] profile doc created, waiting for snapshot re-fire');
               return;
             }
           } catch (err) {
             console.error('[Auth] profile snapshot error:', err);
           } finally {
-            console.log('[Auth] setIsLoading(false)');
             setIsLoading(false);
           }
         },
