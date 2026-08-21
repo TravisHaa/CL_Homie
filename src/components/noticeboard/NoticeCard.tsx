@@ -1,10 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { format } from 'date-fns';
 
 interface Props {
   title: string;
   notes?: string;
   tag?: string | null;
   createdAt: Date;
+  status?: 'sent' | 'scheduled';
+  scheduledAt?: Date | null;
 }
 
 function timeAgo(date: Date): string {
@@ -15,12 +18,18 @@ function timeAgo(date: Date): string {
   return `${Math.floor(diff / 86400)} days ago`;
 }
 
-export function NoticeCard({ title, notes, tag, createdAt }: Props) {
+export function NoticeCard({ title, notes, tag, createdAt, status, scheduledAt }: Props) {
+  const isPendingSend = status === 'scheduled' && !!scheduledAt;
   return (
     <View style={styles.card}>
       <View style={styles.body}>
         <Text style={styles.title}>{title}</Text>
         {notes ? <Text style={styles.notes}>{notes}</Text> : null}
+        {isPendingSend && (
+          <Text style={styles.scheduledText}>
+            Sends {format(scheduledAt as Date, 'EEE, MMM d · h:mm a')}
+          </Text>
+        )}
       </View>
       <View style={styles.right}>
         {tag ? (
@@ -60,6 +69,12 @@ const styles = StyleSheet.create({
     fontFamily: 'AlbertSans_400Regular',
     fontSize: 13,
     color: '#7A6652',
+  },
+  scheduledText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 11,
+    color: '#4A7C70',
+    marginTop: 6,
   },
   right: { alignItems: 'flex-end', justifyContent: 'center', gap: 6, alignSelf: 'stretch' },
   tagBadge: {

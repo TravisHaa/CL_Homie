@@ -120,6 +120,22 @@ export interface ShoppingItem {
   createdAt: Timestamp;
 }
 
+export type NoticeTag = 'House' | 'Chore' | 'Shopping' | 'Event';
+export type NoticeStatus = 'sent' | 'scheduled';
+
+export interface Notice {
+  id: string;
+  title: string;
+  notes: string;
+  tag: NoticeTag | null;
+  createdBy: string; // userId
+  createdByName: string; // denormalized from user.displayName at write time
+  status: NoticeStatus;
+  scheduledAt: Timestamp | null; // set when the author picked a future send time
+  sentAt: Timestamp | null; // stamped when the push actually goes out (immediately, or by sendScheduledNotices)
+  createdAt: Timestamp;
+}
+
 export type DevicePlatform = 'ios' | 'android' | 'web';
 
 export interface DeviceToken {
@@ -157,4 +173,10 @@ export interface PantryExpiryPushData {
   daysUntilExpiry?: number;
 }
 
-export type NotificationData = PantryExpiryPushData;
+export interface NoticePushData {
+  type: 'notice';
+  houseId: string;
+  noticeId: string;
+}
+
+export type NotificationData = PantryExpiryPushData | NoticePushData;

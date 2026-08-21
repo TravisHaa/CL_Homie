@@ -20,11 +20,13 @@ if (Platform.OS !== 'web') {
 
 function routeForNotification(
   data: unknown,
-  push: (path: '/(tabs)/pantry') => void
+  push: (path: '/(tabs)/pantry' | '/(tabs)/noticeboard') => void
 ): void {
   const payload = data as Partial<NotificationData> | undefined;
   if (payload?.type === 'pantry_expiry') {
     push('/(tabs)/pantry');
+  } else if (payload?.type === 'notice') {
+    push('/(tabs)/noticeboard');
   }
 }
 

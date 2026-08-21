@@ -17,6 +17,7 @@ import {
   ShoppingItem,
   ExpirationPrediction,
   DeviceToken,
+  Notice,
 } from '../types';
 
 // Generic converter factory — strips the `id` field on write, injects it on read
@@ -40,6 +41,7 @@ export const pantryItemConverter = makeConverter<PantryItem>();
 export const shoppingItemConverter = makeConverter<ShoppingItem>();
 export const predictionConverter = makeConverter<ExpirationPrediction>();
 export const deviceConverter = makeConverter<DeviceToken>();
+export const noticeConverter = makeConverter<Notice>();
 
 // Collection refs
 export const usersCol = () =>
@@ -60,6 +62,9 @@ export const pantryCol = (houseId: string) =>
 export const shoppingCol = (houseId: string) =>
   collection(db, 'houses', houseId, 'shoppingItems').withConverter(shoppingItemConverter);
 
+export const noticesCol = (houseId: string) =>
+  collection(db, 'houses', houseId, 'notices').withConverter(noticeConverter);
+
 export const predictionsCol = () =>
   collection(db, 'predictions').withConverter(predictionConverter);
 
@@ -72,6 +77,9 @@ export const houseDoc = (houseId: string) =>
 
 export const eventDoc = (houseId: string, eventId: string) =>
   doc(db, 'houses', houseId, 'events', eventId).withConverter(calendarEventConverter);
+
+export const noticeDoc = (houseId: string, noticeId: string) =>
+  doc(db, 'houses', houseId, 'notices', noticeId).withConverter(noticeConverter);
 
 export const devicesCol = (userId: string) =>
   collection(db, 'users', userId, 'devices').withConverter(deviceConverter);

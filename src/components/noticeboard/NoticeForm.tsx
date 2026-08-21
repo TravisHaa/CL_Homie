@@ -18,9 +18,11 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { HeaderImage } from '@/src/components/HeaderImage';
+import type { NewNoticeInput } from '@/src/hooks/useNotices';
+import type { NoticeTag } from '@/src/types';
 
-const TAGS = ['House', 'Chore', 'Shopping', 'Event'] as const;
-type Tag = typeof TAGS[number];
+const TAGS: NoticeTag[] = ['House', 'Chore', 'Shopping', 'Event'];
+type Tag = NoticeTag;
 
 const WEB_DATE_TIME_INPUT_STYLE: React.CSSProperties = {
   flex: 1,
@@ -37,13 +39,6 @@ const WEB_DATE_TIME_INPUT_STYLE: React.CSSProperties = {
   accentColor: '#4A7C70',
   colorScheme: 'light',
 };
-
-export interface NewNoticeInput {
-  title: string;
-  notes: string;
-  tag: Tag | null;
-  scheduledAt: Date | null;
-}
 
 interface Props {
   onSubmit: (input: NewNoticeInput) => Promise<void>;
