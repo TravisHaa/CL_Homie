@@ -116,10 +116,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
       setDueDate(null);
     };
 
-    const handleAddToCalendar = () => {
-      Alert.alert('Coming soon', 'Calendar sync will be available in a future update.');
-    };
-
     const handleSubmit = async () => {
       if (!title.trim()) return;
       if (memberIds.length === 0) {
@@ -408,13 +404,6 @@ export const ChoreForm = forwardRef<BottomSheetModal, ChoreFormProps>(
           {/* Footer actions */}
           <View style={styles.footerRow}>
             <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={handleAddToCalendar}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.outlineButtonText}>+ Add to calendar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
               onPress={handleSubmit}
               disabled={submitting}
@@ -618,20 +607,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 28,
-  },
-  outlineButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: CHORE_THEME.hairline,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: CHORE_THEME.cardBg,
-  },
-  outlineButtonText: {
-    fontFamily: 'AlbertSans_600SemiBold',
-    color: CHORE_THEME.text,
-    fontSize: 14,
   },
   primaryButton: {
     flex: 1,

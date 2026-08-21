@@ -247,10 +247,6 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
       }
     };
 
-    const handleAddToCalendar = () => {
-      notify('Coming soon', 'Calendar sync will be available in a future update.');
-    };
-
     const handleClose = () => {
       (ref as React.RefObject<BottomSheetModal>)?.current?.dismiss();
     };
@@ -503,13 +499,6 @@ export const ChoreDetailSheet = forwardRef<BottomSheetModal, ChoreDetailSheetPro
           {/* Footer actions */}
           <View style={styles.footerRow}>
             <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={handleAddToCalendar}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.outlineButtonText}>+ Add to calendar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[
                 styles.primaryButton,
                 (submitting || !isDirty || !title.trim()) && styles.primaryButtonDisabled,
@@ -722,20 +711,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 28,
-  },
-  outlineButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: CHORE_THEME.hairline,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: CHORE_THEME.cardBg,
-  },
-  outlineButtonText: {
-    color: CHORE_THEME.text,
-    fontWeight: '600',
-    fontSize: 14,
   },
   primaryButton: {
     flex: 1,
