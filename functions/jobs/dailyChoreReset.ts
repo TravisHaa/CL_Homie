@@ -425,7 +425,10 @@ async function rolloverHouse(
     // from `functions:shell` and repeated tests actually do work.
 
     const memberIds = house.memberIds ?? [];
-    const sortedMembers = [...memberIds].sort();
+    // house.memberIds is the rotation order: default insertion order unless
+    // customized via setMemberOrder (drag-to-reorder in RotationCard). Do not
+    // re-sort — that would silently discard the user's custom order.
+    const sortedMembers = [...memberIds];
     const masterSwitchOn = house.weeklyScrambleEnabled !== false;
 
     let rolled = 0;

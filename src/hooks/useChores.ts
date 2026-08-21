@@ -110,7 +110,9 @@ export function useChores() {
     // successive creations stagger across members.
     let assignedTo = input.assignedTo ?? '';
     if (autoRotate && house) {
-      const sortedMembers = [...(house.memberIds ?? [])].sort();
+      // house.memberIds is the rotation order (customizable via RotationCard's
+      // drag-to-reorder / setMemberOrder) — don't re-sort it alphabetically.
+      const sortedMembers = [...(house.memberIds ?? [])];
       if (sortedMembers.length > 0) {
         const offset = (house.rotationOffset ?? 0) % sortedMembers.length;
         assignedTo = sortedMembers[offset];
