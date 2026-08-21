@@ -11,7 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,7 +70,7 @@ export default function SetupAccountScreen() {
           <TouchableOpacity
             accessibilityLabel="Go back"
             style={styles.backButton}
-            onPress={() => router.replace('/(auth)/signup')}
+            onPress={() => router.replace('/(auth)/create-account-options' as Href)}
           >
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>

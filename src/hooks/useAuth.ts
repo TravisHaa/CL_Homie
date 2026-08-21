@@ -89,6 +89,18 @@ export function useAuthListener() {
                 setHouse(null);
                 setMemberMap([]);
               }
+            } else if (
+              firebaseUser.providerData.length > 0 &&
+              firebaseUser.providerData.every((p) => p.providerId === 'phone')
+            ) {
+              // Phone-only session with no Homie profile. Never auto-create
+              // here: a "login with mobile" attempt for a number with no
+              // account would otherwise silently provision one. Profile
+              // creation for phone users is handled explicitly by
+              // confirmPhoneSignUp (src/firebase/auth.ts), which is only
+              // called from the signup flow.
+              console.log('[Auth] phone-only session, no profile — leaving unset');
+              setUserProfile(null);
             } else {
               console.log('[Auth] no profile doc — creating one');
               const color = ROOMMATE_COLORS[Math.floor(Math.random() * ROOMMATE_COLORS.length)];
