@@ -10,6 +10,7 @@ import {
     Pressable,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     View,
@@ -21,6 +22,7 @@ import { GridBackground } from '@/src/components/GridBackground';
 import { HeaderImage } from '@/src/components/HeaderImage';
 import { houseDoc } from '@/src/firebase/firestore';
 import { leaveHouse } from '@/src/firebase/house';
+import { useNotificationSettings } from '@/src/hooks/useNotificationSettings';
 import { useAuthStore } from '@/src/store/authStore';
 import { useHouseStore } from '@/src/store/houseStore';
 
@@ -58,6 +60,7 @@ export default function SettingsScreen() {
   const currentUid = useAuthStore((s) => s.firebaseUser?.uid ?? null);
   const userProfile = useAuthStore((s) => s.userProfile);
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const notif = useNotificationSettings();
 
   async function handleLeaveHouse() {
     if (!currentUid || !houseId) return;
@@ -175,6 +178,41 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color="#7A6652" />
         </Pressable>
+
+        {/* ── Notifications ── */}
+        <View style={styles.section}>
+          <Text style={styles.profileSectionLabel}>Notifications</Text>
+          <View style={styles.notificationCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.notificationTitle}>Push notifications</Text>
+              <Text style={styles.notificationBody}>
+                {Platform.OS === 'web'
+                  ? "Not available on web — use the mobile app to enable push notifications."
+                  : notif.permissionDenied
+                    ? 'Blocked in your device settings.'
+                    : 'Get notified about chores, calendar events, and pantry alerts.'}
+              </Text>
+            </View>
+            {Platform.OS === 'web' ? null : notif.isLoading ? (
+              <ActivityIndicator />
+            ) : notif.permissionDenied ? (
+              <Pressable
+                style={({ pressed }) => [styles.notifSettingsButton, pressed && { opacity: 0.75 }]}
+                onPress={notif.openOSSettings}
+              >
+                <Text style={styles.notifSettingsButtonText}>Open Settings</Text>
+              </Pressable>
+            ) : (
+              <Switch
+                value={notif.notificationsEnabled}
+                onValueChange={(value) => (value ? notif.enable() : notif.disable())}
+                disabled={notif.isBusy}
+                trackColor={{ false: '#DDD4C8', true: '#4D797E' }}
+                thumbColor="#FFFFFF"
+              />
+            )}
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.profileSectionLabel}>Household</Text>
@@ -387,6 +425,43 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: '800', color: S.textStrong },
   cardBody: { color: S.textSoft, marginTop: 6, lineHeight: 18 },
   houseLoading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  notificationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  notificationTitle: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 14,
+    color: '#2E0800',
+    marginBottom: 4,
+  },
+  notificationBody: {
+    fontFamily: 'AlbertSans_400Regular',
+    fontSize: 12,
+    color: '#7A6652',
+    lineHeight: 16,
+  },
+  notifSettingsButton: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#4D797E',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  notifSettingsButtonText: {
+    fontFamily: 'AlbertSans_600SemiBold',
+    fontSize: 12,
+    color: '#4D797E',
+  },
 
   // ── Household redesign ────────────────────────────────────────────────────────
   householdCard: {

@@ -8,29 +8,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AddButtonIcon } from '@/src/components/AddButtonIcon';
 import { GridBackground } from '@/src/components/GridBackground';
 import { HeaderImage } from '@/src/components/HeaderImage';
-import { NoticeForm, type NewNoticeInput } from '@/src/components/noticeboard/NoticeForm';
+import { NoticeForm } from '@/src/components/noticeboard/NoticeForm';
 import { NoticeCard } from '@/src/components/noticeboard/NoticeCard';
+import { useNotices } from '@/src/hooks/useNotices';
 
 const FILTERS = ['All', 'House', 'Chore', 'Shopping', 'Event'] as const;
 type Filter = typeof FILTERS[number];
 
-interface Notice extends NewNoticeInput {
-  id: string;
-  createdAt: Date;
-}
-
 export default function NoticeBoardScreen() {
   const router = useRouter();
   const formRef = useRef<BottomSheetModal>(null);
-  const [notices, setNotices] = useState<Notice[]>([]);
+  const { notices, addNotice } = useNotices();
   const [activeFilter, setActiveFilter] = useState<Filter>('All');
-
-  const handleSubmit = async (input: NewNoticeInput) => {
-    setNotices((prev) => [
-      { ...input, id: Date.now().toString(), createdAt: new Date() },
-      ...prev,
-    ]);
-  };
 
   const filtered = activeFilter === 'All'
     ? notices
@@ -88,7 +77,9 @@ export default function NoticeBoardScreen() {
                     title={n.title}
                     notes={n.notes}
                     tag={n.tag}
-                    createdAt={n.createdAt}
+                    createdAt={n.createdAt.toDate()}
+                    status={n.status}
+                    scheduledAt={n.scheduledAt?.toDate() ?? null}
                   />
                 ))}
               </ScrollView>
@@ -105,7 +96,7 @@ export default function NoticeBoardScreen() {
           </SafeAreaView>
         </View>
 
-        <NoticeForm ref={formRef} onSubmit={handleSubmit} />
+        <NoticeForm ref={formRef} onSubmit={addNotice} />
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
